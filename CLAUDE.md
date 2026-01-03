@@ -10,27 +10,33 @@ CallMeLater is a developer-first SaaS for scheduling durable, long-term actions.
 
 ## Tech Stack
 
-- **Backend**: Laravel (PHP), MySQL, Redis
-- **Frontend**: Vue.js, Bootstrap
+- **Backend**: Laravel 12, MySQL, Redis
+- **Frontend**: Vue 3, Vue Router, Bootstrap 5
+- **Auth**: Laravel Fortify (web), Laravel Sanctum (API tokens)
 - **Notifications**: Email (SES/Mailgun/Postmark), SMS (Twilio for paid tiers)
 
-## Expected Commands
+## Commands
 
 ```bash
-# Backend
-composer install
-php artisan migrate
-php artisan serve
-php artisan test
-./vendor/bin/phpstan analyze
-./vendor/bin/php-cs-fixer fix
+# Quick start
+make install          # Install composer + npm dependencies
+make dev              # Start Laravel + Vite dev servers
 
-# Frontend
-npm install
-npm run dev
-npm run build
-npm run test
-npm run lint
+# Individual commands
+make serve            # Laravel server only
+make test             # Run PHPUnit tests
+make lint             # Run PHPStan + Pint checks
+make fix              # Fix code style with Pint
+make migrate          # Run migrations
+make fresh            # Fresh migrate with seeders
+make queue            # Start queue worker
+make schedule         # Run scheduler
+
+# Or directly
+php artisan test --filter=TestName   # Single test
+./vendor/bin/phpstan analyse         # Static analysis
+./vendor/bin/pint                    # Code style fixer
+npm run build                        # Production build
 ```
 
 ## Architecture
