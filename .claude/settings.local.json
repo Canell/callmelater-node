@@ -6,7 +6,10 @@
       "Bash(source ~/.nvm/nvm.sh)",
       "Bash(nvm use:*)",
       "Bash(node --version:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(/Users/flavienb/Library/Application\\\\ Support/Herd/bin/php:*)",
+      "Bash(php:*)",
+      "Bash(php artisan:*)"
     ]
   }
 }
