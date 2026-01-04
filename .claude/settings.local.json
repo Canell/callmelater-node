@@ -9,7 +9,13 @@
       "Bash(npm run build:*)",
       "Bash(/Users/flavienb/Library/Application\\\\ Support/Herd/bin/php:*)",
       "Bash(php:*)",
-      "Bash(php artisan:*)"
+      "Bash(php artisan:*)",
+      "Bash(/Users/flavienb/Library/Application Support/Herd/bin/php artisan migrate --force)",
+      "Bash(/Users/flavienb/Library/Application Support/Herd/bin/php artisan route:list:*)",
+      "Bash(/Users/flavienb/Library/Application Support/Herd/bin/php:*)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/composer\" require symfony/postmark-mailer twilio/sdk --no-interaction)",
+      "Bash(./vendor/bin/phpstan:*)",
+      "Bash(chmod:*)"
     ]
   }
 }

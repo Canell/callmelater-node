@@ -34,6 +34,8 @@
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
     name: 'App',
     computed: {
@@ -42,7 +44,12 @@ export default {
         }
     },
     methods: {
-        logout() {
+        async logout() {
+            try {
+                await axios.post('/logout');
+            } catch (err) {
+                // Ignore logout errors
+            }
             localStorage.removeItem('token');
             this.$router.push({ name: 'login' });
         }

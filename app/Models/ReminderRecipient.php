@@ -2,10 +2,21 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $id
+ * @property string $action_id
+ * @property string $email
+ * @property string $status
+ * @property string|null $response_token
+ * @property Carbon|null $responded_at
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ */
 class ReminderRecipient extends Model
 {
     use HasUuids;

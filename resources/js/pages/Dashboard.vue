@@ -1,38 +1,226 @@
 <template>
     <div class="container py-4">
-        <h2 class="mb-4">My Projects</h2>
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="mb-0">Actions</h2>
+            <router-link to="/actions/create" class="btn btn-cml-primary">
+                Add Action
+            </router-link>
+        </div>
 
-        <div class="row">
-            <!-- Project cards will go here -->
-            <div class="col-md-4 mb-3">
-                <div class="card card-cml p-3">
-                    <div class="d-flex align-items-start">
-                        <span class="status-indicator ok me-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
-                            </svg>
-                        </span>
-                        <div>
-                            <h5 class="mb-1">Demo Project</h5>
-                            <small class="text-muted">0 actions, 0 integrations</small><br>
-                            <small class="text-muted">demo@example.com</small>
-                        </div>
-                    </div>
-                </div>
+        <!-- Filters -->
+        <div class="card card-cml mb-4">
+            <div class="card-body d-flex gap-3">
+                <input
+                    type="text"
+                    class="form-control"
+                    placeholder="Search actions..."
+                    v-model="searchQuery"
+                    style="max-width: 300px;"
+                >
+                <select class="form-select" v-model="statusFilter" style="max-width: 200px;">
+                    <option value="">All statuses</option>
+                    <option value="pending_resolution">Pending</option>
+                    <option value="resolved">Scheduled</option>
+                    <option value="awaiting_response">Awaiting Response</option>
+                    <option value="executed">Executed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <select class="form-select" v-model="typeFilter" style="max-width: 150px;">
+                    <option value="">All types</option>
+                    <option value="http">HTTP</option>
+                    <option value="reminder">Reminder</option>
+                </select>
             </div>
+        </div>
 
-            <!-- New Project card -->
-            <div class="col-md-4 mb-3">
-                <div class="card card-new-project p-3 h-100 d-flex align-items-center justify-content-center" role="button">
-                    <span class="text-muted">New Project...</span>
-                </div>
+        <!-- Loading state -->
+        <div v-if="loading" class="text-center py-5">
+            <div class="spinner-border text-muted" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="actions.length === 0" class="text-center py-5">
+            <p class="text-muted mb-3">No actions found</p>
+            <router-link to="/actions/create" class="btn btn-cml-primary">
+                Create your first action
+            </router-link>
+        </div>
+
+        <!-- Actions table -->
+        <div v-else class="card card-cml">
+            <div class="table-responsive">
+                <table class="table table-cml mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Scheduled For</th>
+                            <th>Created</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="action in filteredActions" :key="action.id">
+                            <td>
+                                <router-link :to="`/actions/${action.id}`" class="text-decoration-none">
+                                    {{ action.name }}
+                                </router-link>
+                            </td>
+                            <td>
+                                <span :class="['badge', action.type === 'http' ? 'bg-primary' : 'bg-info']">
+                                    {{ action.type.toUpperCase() }}
+                                </span>
+                            </td>
+                            <td>
+                                <span :class="['badge', statusBadgeClass(action.status)]">
+                                    {{ formatStatus(action.status) }}
+                                </span>
+                            </td>
+                            <td>{{ formatDate(action.execute_at) }}</td>
+                            <td>{{ formatDate(action.created_at) }}</td>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
+                                        &#8943;
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <router-link :to="`/actions/${action.id}`" class="dropdown-item">
+                                                View Details
+                                            </router-link>
+                                        </li>
+                                        <li v-if="canCancel(action.status)">
+                                            <button class="dropdown-item text-danger" @click="cancelAction(action)">
+                                                Cancel
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="meta.last_page > 1" class="d-flex justify-content-center mt-4">
+            <nav>
+                <ul class="pagination">
+                    <li class="page-item" :class="{ disabled: meta.current_page === 1 }">
+                        <button class="page-link" @click="loadActions(meta.current_page - 1)">Previous</button>
+                    </li>
+                    <li class="page-item" :class="{ disabled: meta.current_page === meta.last_page }">
+                        <button class="page-link" @click="loadActions(meta.current_page + 1)">Next</button>
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
 </template>
 
 <script>
+import axios from 'axios';
+
 export default {
     name: 'Dashboard',
+    data() {
+        return {
+            actions: [],
+            meta: {},
+            loading: true,
+            searchQuery: '',
+            statusFilter: '',
+            typeFilter: '',
+        };
+    },
+    computed: {
+        filteredActions() {
+            let filtered = this.actions;
+
+            if (this.searchQuery) {
+                const query = this.searchQuery.toLowerCase();
+                filtered = filtered.filter(a => a.name.toLowerCase().includes(query));
+            }
+
+            return filtered;
+        }
+    },
+    mounted() {
+        this.loadActions();
+    },
+    watch: {
+        statusFilter() {
+            this.loadActions();
+        },
+        typeFilter() {
+            this.loadActions();
+        }
+    },
+    methods: {
+        async loadActions(page = 1) {
+            this.loading = true;
+            try {
+                const params = { page };
+                if (this.statusFilter) params.status = this.statusFilter;
+                if (this.typeFilter) params.type = this.typeFilter;
+
+                const response = await axios.get('/api/v1/actions', { params });
+                this.actions = response.data.data;
+                this.meta = response.data.meta;
+            } catch (err) {
+                console.error('Failed to load actions:', err);
+            } finally {
+                this.loading = false;
+            }
+        },
+        formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        },
+        formatStatus(status) {
+            const labels = {
+                pending_resolution: 'Pending',
+                resolved: 'Scheduled',
+                awaiting_response: 'Awaiting',
+                executed: 'Executed',
+                failed: 'Failed',
+                cancelled: 'Cancelled',
+                expired: 'Expired',
+            };
+            return labels[status] || status;
+        },
+        statusBadgeClass(status) {
+            const classes = {
+                pending_resolution: 'bg-secondary',
+                resolved: 'bg-primary',
+                awaiting_response: 'bg-warning text-dark',
+                executed: 'bg-success',
+                failed: 'bg-danger',
+                cancelled: 'bg-secondary',
+                expired: 'bg-secondary',
+            };
+            return classes[status] || 'bg-secondary';
+        },
+        canCancel(status) {
+            return ['pending_resolution', 'resolved', 'awaiting_response'].includes(status);
+        },
+        async cancelAction(action) {
+            if (!confirm(`Cancel action "${action.name}"?`)) return;
+
+            try {
+                await axios.delete(`/api/v1/actions/${action.id}`);
+                this.loadActions();
+            } catch (err) {
+                alert(err.response?.data?.message || 'Failed to cancel action');
+            }
+        }
+    }
 };
 </script>

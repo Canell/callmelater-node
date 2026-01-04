@@ -9,12 +9,16 @@ import App from './App.vue';
 import Dashboard from './pages/Dashboard.vue';
 import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
+import CreateAction from './pages/CreateAction.vue';
+import ActionDetail from './pages/ActionDetail.vue';
 
 // Define routes
 const routes = [
     { path: '/', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },
     { path: '/register', name: 'register', component: Register, meta: { guest: true } },
+    { path: '/actions/create', name: 'create-action', component: CreateAction, meta: { requiresAuth: true } },
+    { path: '/actions/:id', name: 'action-detail', component: ActionDetail, meta: { requiresAuth: true } },
 ];
 
 // Create router

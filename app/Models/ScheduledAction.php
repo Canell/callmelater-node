@@ -2,11 +2,43 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string $id
+ * @property int|null $owner_user_id
+ * @property string|null $owner_team_id
+ * @property string $name
+ * @property string|null $description
+ * @property string $type
+ * @property string $intent_type
+ * @property array<string, mixed>|null $intent_payload
+ * @property string|null $timezone
+ * @property string $resolution_status
+ * @property Carbon|null $execute_at_utc
+ * @property Carbon|null $executed_at_utc
+ * @property string|null $failure_reason
+ * @property array<string, mixed>|null $http_request
+ * @property string|null $idempotency_key
+ * @property int $attempt_count
+ * @property int $max_attempts
+ * @property Carbon|null $last_attempt_at
+ * @property Carbon|null $next_retry_at
+ * @property string|null $retry_strategy
+ * @property string|null $message
+ * @property string|null $confirmation_mode
+ * @property array<string, mixed>|null $escalation_rules
+ * @property int $snooze_count
+ * @property int $max_snoozes
+ * @property Carbon|null $token_expires_at
+ * @property string|null $webhook_secret
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ */
 class ScheduledAction extends Model
 {
     use HasUuids;

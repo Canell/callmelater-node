@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Current Progress
+
+- **Phase 1-2**: Complete - Laravel 12 project setup, Vue 3 + Bootstrap 5 frontend, database schema
+- **Phase 3**: Complete - Fortify auth (login/register/password reset), Sanctum API tokens (`sk_live_` prefix)
+- **Phase 4**: Complete - Core engine (ActionService, IntentResolver, ResolveIntentJob, DispatcherJob)
+- **Phase 5**: Complete - HTTP Call Execution (DeliverHttpAction with retry logic, webhook signing)
+- **Phase 6**: Complete - Postmark email, Twilio SMS, response handling
+- **Phase 7**: Complete - Public API (ActionController, ResponseController, Form Requests, Resources)
+- **Phase 8**: Complete (Basic) - Dashboard, CreateAction, ActionDetail pages
+- **Phase 9-10**: Next - Security hardening, production deployment
+
 ## Project Overview
 
 CallMeLater is a developer-first SaaS for scheduling durable, long-term actions. It combines two primitives:
