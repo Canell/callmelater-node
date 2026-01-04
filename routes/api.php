@@ -28,6 +28,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/actions', [ActionController::class, 'store'])
             ->middleware('throttle:create-action');
         Route::get('/actions/{id}', [ActionController::class, 'show']);
+        // Cancel by idempotency key (must be before /{id} route)
+        Route::delete('/actions', [ActionController::class, 'destroyByIdempotencyKey']);
         Route::delete('/actions/{id}', [ActionController::class, 'destroy']);
     });
 });

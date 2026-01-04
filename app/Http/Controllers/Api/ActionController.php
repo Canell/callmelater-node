@@ -79,4 +79,56 @@ class ActionController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
     }
+
+    /**
+     * Cancel an action by idempotency key.
+     *
+     * DELETE /v1/actions
+     * { "idempotency_key": "rotate-keys-2025-03" }
+     *
+     * 200 → cancelled (or already cancelled)
+     * 404 → not found
+     * 409 → already executed
+     */
+    public function destroyByIdempotencyKey(Request $request): JsonResponse
+    {
+        $request->validate([
+            'idempotency_key' => 'required|string|max:255',
+        ]);
+
+        $action = ScheduledAction::query()
+            ->forUser($request->user()->id)
+            ->where('idempotency_key', $request->input('idempotency_key'))
+            ->first();
+
+        if (! $action) {
+            return response()->json(['message' => 'Action not found'], 404);
+        }
+
+        // Already cancelled - return success (idempotent)
+        if ($action->resolution_status === ScheduledAction::STATUS_CANCELLED) {
+            return response()->json([
+                'message' => 'Action already cancelled',
+                'id' => $action->id,
+            ]);
+        }
+
+        // Already executed - return conflict
+        if ($action->resolution_status === ScheduledAction::STATUS_EXECUTED) {
+            return response()->json([
+                'message' => 'Action already executed',
+                'id' => $action->id,
+            ], 409);
+        }
+
+        try {
+            $this->actionService->cancel($action);
+            return response()->json([
+                'message' => 'Action cancelled',
+                'id' => $action->id,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        }
+    }
 }
