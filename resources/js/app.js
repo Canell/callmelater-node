@@ -13,6 +13,7 @@ import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
 import CreateAction from './pages/CreateAction.vue';
 import ActionDetail from './pages/ActionDetail.vue';
+import Admin from './pages/Admin.vue';
 
 // Define routes
 const routes = [
@@ -28,6 +29,9 @@ const routes = [
     { path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/actions/create', name: 'create-action', component: CreateAction, meta: { requiresAuth: true } },
     { path: '/actions/:id', name: 'action-detail', component: ActionDetail, meta: { requiresAuth: true } },
+
+    // Admin pages (requires admin role - API enforces)
+    { path: '/admin', name: 'admin', component: Admin, meta: { requiresAuth: true } },
 ];
 
 // Create router

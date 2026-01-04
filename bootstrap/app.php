@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Add API request logging
         $middleware->appendToGroup('api', \App\Http\Middleware\LogApiRequests::class);
+
+        // Register middleware aliases
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\ActionController;
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TokenController;
@@ -41,5 +42,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/portal', [SubscriptionController::class, 'portal']);
         Route::post('/cancel', [SubscriptionController::class, 'cancel']);
         Route::post('/resume', [SubscriptionController::class, 'resume']);
+    });
+
+    // Admin Dashboard (requires admin role)
+    Route::prefix('admin')->middleware('admin')->group(function () {
+        Route::get('/stats/overview', [AdminController::class, 'overview']);
+        Route::get('/stats/trends', [AdminController::class, 'trends']);
+        Route::get('/health', [AdminController::class, 'health']);
+        Route::get('/queue', [AdminController::class, 'queue']);
     });
 });
