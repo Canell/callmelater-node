@@ -213,6 +213,12 @@
                                 </span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>Stuck (executing)</span>
+                                <span :class="health.metrics.stuck_executing > 0 ? 'text-danger fw-bold' : ''">
+                                    {{ health.metrics.stuck_executing }}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span>Stuck (awaiting)</span>
                                 <span :class="health.metrics.stuck_awaiting > 0 ? 'text-warning fw-bold' : ''">
                                     {{ health.metrics.stuck_awaiting }}

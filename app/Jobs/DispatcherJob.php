@@ -48,7 +48,7 @@ class DispatcherJob implements ShouldQueue
     }
 
     /**
-     * Fetch due actions with row-level locking.
+     * Fetch due actions, lock them, and transition to EXECUTING atomically.
      *
      * @return \Illuminate\Support\Collection<int, ScheduledAction>
      */
@@ -57,7 +57,7 @@ class DispatcherJob implements ShouldQueue
         return DB::transaction(function () {
             // Use FOR UPDATE SKIP LOCKED for concurrent dispatcher safety
             // This allows multiple workers to process different actions
-            return ScheduledAction::query()
+            $actions = ScheduledAction::query()
                 ->where('resolution_status', ScheduledAction::STATUS_RESOLVED)
                 ->where(function ($query) {
                     $query->where('execute_at_utc', '<=', now())
@@ -70,6 +70,22 @@ class DispatcherJob implements ShouldQueue
                 ->limit(self::BATCH_SIZE)
                 ->lock('FOR UPDATE SKIP LOCKED')
                 ->get();
+
+            // Transition to EXECUTING inside the same transaction
+            // This is the critical fix: actions become non-selectable immediately
+            foreach ($actions as $action) {
+                // Double-check after lock (cancellation race protection)
+                if (!$action->canBeExecuted()) {
+                    continue;
+                }
+
+                // Clear retry flag before transitioning (markAsExecuting saves)
+                $action->next_retry_at = null;
+                $action->markAsExecuting();
+            }
+
+            // Return only actions that were successfully transitioned
+            return $actions->filter(fn ($a) => $a->isExecuting());
         });
     }
 
@@ -82,17 +98,15 @@ class DispatcherJob implements ShouldQueue
                 DeliverReminder::dispatch($action);
             }
 
-            // Clear next_retry_at since we're dispatching
-            if ($action->next_retry_at !== null) {
-                $action->next_retry_at = null;
-                $action->save();
-            }
-
             Log::debug("Action dispatched", [
                 'action_id' => $action->id,
                 'type' => $action->type,
             ]);
         } catch (\Throwable $e) {
+            // If dispatch fails, revert to RESOLVED so it can be retried
+            $action->resolution_status = ScheduledAction::STATUS_RESOLVED;
+            $action->save();
+
             Log::error("Failed to dispatch action", [
                 'action_id' => $action->id,
                 'error' => $e->getMessage(),

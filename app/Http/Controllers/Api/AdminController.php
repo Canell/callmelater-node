@@ -152,26 +152,39 @@ class AdminController extends Controller
         $errors = [];
 
         // Actions stuck in resolved state (past due by 5+ minutes)
-        $stuckResolved = ScheduledAction::where('resolution_status', 'resolved')
+        $stuckResolved = ScheduledAction::where('resolution_status', ScheduledAction::STATUS_RESOLVED)
             ->where('execute_at_utc', '<', $now->copy()->subMinutes(5))
             ->count();
 
         if ($stuckResolved > 10) {
             $errors[] = [
-                'type' => 'stuck_actions',
+                'type' => 'stuck_resolved',
                 'message' => "{$stuckResolved} actions are stuck in resolved state (past due > 5 min)",
                 'count' => $stuckResolved,
             ];
         } elseif ($stuckResolved > 0) {
             $warnings[] = [
-                'type' => 'stuck_actions',
+                'type' => 'stuck_resolved',
                 'message' => "{$stuckResolved} actions are stuck in resolved state",
                 'count' => $stuckResolved,
             ];
         }
 
+        // Actions stuck in EXECUTING state (> 10 minutes indicates worker crash)
+        $stuckExecuting = ScheduledAction::where('resolution_status', ScheduledAction::STATUS_EXECUTING)
+            ->where('updated_at', '<', $now->copy()->subMinutes(10))
+            ->count();
+
+        if ($stuckExecuting > 0) {
+            $errors[] = [
+                'type' => 'stuck_executing',
+                'message' => "{$stuckExecuting} actions stuck in executing state (possible worker crash)",
+                'count' => $stuckExecuting,
+            ];
+        }
+
         // Actions stuck in awaiting_response for too long (> 24 hours)
-        $stuckAwaiting = ScheduledAction::where('resolution_status', 'awaiting_response')
+        $stuckAwaiting = ScheduledAction::where('resolution_status', ScheduledAction::STATUS_AWAITING_RESPONSE)
             ->where('updated_at', '<', $now->copy()->subHours(24))
             ->count();
 
@@ -184,7 +197,7 @@ class AdminController extends Controller
         }
 
         // High retry count actions (> 3 attempts, still not resolved)
-        $highRetry = ScheduledAction::where('resolution_status', 'resolved')
+        $highRetry = ScheduledAction::where('resolution_status', ScheduledAction::STATUS_RESOLVED)
             ->where('attempt_count', '>', 3)
             ->count();
 
@@ -237,6 +250,7 @@ class AdminController extends Controller
             'warnings' => $warnings,
             'metrics' => [
                 'stuck_resolved' => $stuckResolved,
+                'stuck_executing' => $stuckExecuting,
                 'stuck_awaiting' => $stuckAwaiting,
                 'high_retry_count' => $highRetry,
                 'last_hour_failure_rate' => $lastHourFailureRate,

@@ -66,16 +66,7 @@ class ActionService
      */
     public function cancel(ScheduledAction $action): void
     {
-        if (in_array($action->resolution_status, [
-            ScheduledAction::STATUS_EXECUTED,
-            ScheduledAction::STATUS_CANCELLED,
-            ScheduledAction::STATUS_EXPIRED,
-        ])) {
-            throw new \InvalidArgumentException('Cannot cancel an action that is already executed, cancelled, or expired.');
-        }
-
-        $action->resolution_status = ScheduledAction::STATUS_CANCELLED;
-        $action->save();
+        $action->cancel();
     }
 
     /**
@@ -124,63 +115,37 @@ class ActionService
 
     /**
      * Mark an action as executed.
+     * @deprecated Use $action->markAsExecuted() directly
      */
     public function markExecuted(ScheduledAction $action): void
     {
-        $action->resolution_status = ScheduledAction::STATUS_EXECUTED;
-        $action->executed_at_utc = now();
-        $action->save();
+        $action->markAsExecuted();
     }
 
     /**
      * Mark an action as failed.
+     * @deprecated Use $action->markAsFailed() directly
      */
     public function markFailed(ScheduledAction $action, string $reason): void
     {
-        $action->resolution_status = ScheduledAction::STATUS_FAILED;
-        $action->failure_reason = $reason;
-        $action->save();
+        $action->markAsFailed($reason);
     }
 
     /**
      * Mark an action as awaiting response (for reminders).
+     * @deprecated Use $action->markAsAwaitingResponse() directly
      */
     public function markAwaitingResponse(ScheduledAction $action, int $tokenExpiryDays = 7): void
     {
-        $action->resolution_status = ScheduledAction::STATUS_AWAITING_RESPONSE;
-        $action->token_expires_at = now()->addDays($tokenExpiryDays);
-        $action->save();
+        $action->markAsAwaitingResponse($tokenExpiryDays);
     }
 
     /**
      * Schedule next retry for a failed HTTP delivery.
+     * @deprecated Use $action->scheduleNextRetry() directly
      */
     public function scheduleRetry(ScheduledAction $action): void
     {
-        if (! $action->canRetry()) {
-            $this->markFailed($action, 'Max retry attempts reached');
-            return;
-        }
-
-        $delay = $this->calculateRetryDelay($action->attempt_count, $action->retry_strategy);
-        $action->next_retry_at = now()->addSeconds($delay);
-        $action->save();
-    }
-
-    /**
-     * Calculate retry delay based on strategy and attempt count.
-     */
-    private function calculateRetryDelay(int $attemptCount, ?string $strategy): int
-    {
-        // Default exponential backoff: 1min, 5min, 15min, 1hr, 4hr
-        $delays = [60, 300, 900, 3600, 14400];
-
-        if ($strategy === 'linear') {
-            return 300 * $attemptCount; // 5 min increments
-        }
-
-        // Exponential (default)
-        $index = min($attemptCount, count($delays) - 1);
-        return $delays[$index];
+        $action->scheduleNextRetry();
     }
 }

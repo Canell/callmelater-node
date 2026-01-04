@@ -4,11 +4,11 @@ namespace App\Jobs;
 
 use App\Models\DeliveryAttempt;
 use App\Models\ScheduledAction;
-use App\Services\ActionService;
 use App\Services\UrlValidator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
@@ -22,18 +22,34 @@ class DeliverHttpAction implements ShouldQueue
 
     public int $timeout = 30;
 
+    // Failure types for structured logging and retry decisions
+    private const FAILURE_DOMAIN_CLIENT = 'domain_client';    // 4xx - client error, don't retry
+    private const FAILURE_DOMAIN_SERVER = 'domain_server';    // 5xx - server error, retry
+    private const FAILURE_SYSTEM = 'system';                   // Network/timeout, always retry
+
     public function __construct(
         public ScheduledAction $action
     ) {}
 
-    public function handle(ActionService $actionService, UrlValidator $urlValidator): void
+    public function handle(UrlValidator $urlValidator): void
     {
+        // CRITICAL: Verify action is still in EXECUTING state
+        // This guards against cancellation race conditions
+        $this->action->refresh();
+        if (!$this->action->isExecuting()) {
+            $this->log('info', 'action_skipped', [
+                'reason' => 'no_longer_executing',
+                'current_status' => $this->action->resolution_status,
+            ]);
+            return;
+        }
+
         /** @var array<string, mixed>|null $httpRequest */
         $httpRequest = $this->action->http_request;
 
         if (! is_array($httpRequest) || ! isset($httpRequest['url'])) {
-            Log::error("Invalid HTTP request configuration", ['action_id' => $this->action->id]);
-            $actionService->markFailed($this->action, 'Invalid HTTP request configuration');
+            $this->log('error', 'validation_failed', ['reason' => 'invalid_config']);
+            $this->action->markAsFailed('Invalid HTTP request configuration');
             return;
         }
 
@@ -41,12 +57,11 @@ class DeliverHttpAction implements ShouldQueue
         try {
             $urlValidator->validate($httpRequest['url']);
         } catch (\InvalidArgumentException $e) {
-            Log::warning("HTTP action blocked for security", [
-                'action_id' => $this->action->id,
-                'url' => $httpRequest['url'],
-                'reason' => $e->getMessage(),
+            $this->log('warning', 'validation_failed', [
+                'reason' => 'security_block',
+                'detail' => $e->getMessage(),
             ]);
-            $actionService->markFailed($this->action, "Security: {$e->getMessage()}");
+            $this->action->markAsFailed("Security: {$e->getMessage()}");
             return;
         }
 
@@ -56,15 +71,23 @@ class DeliverHttpAction implements ShouldQueue
             $bodySize = strlen(json_encode($body) ?: '');
             $maxSize = config('callmelater.http.max_body_size', 1048576);
             if ($bodySize > $maxSize) {
-                $actionService->markFailed($this->action, "Request body exceeds maximum size ({$maxSize} bytes)");
+                $this->log('warning', 'validation_failed', [
+                    'reason' => 'payload_too_large',
+                    'size' => $bodySize,
+                    'max_size' => $maxSize,
+                ]);
+                $this->action->markAsFailed("Request body exceeds maximum size ({$maxSize} bytes)");
                 return;
             }
         }
 
+        // Record that we're starting an attempt
+        $this->action->recordAttempt();
+
         $startTime = microtime(true);
         $attempt = new DeliveryAttempt([
             'action_id' => $this->action->id,
-            'attempt_number' => $this->action->attempt_count + 1,
+            'attempt_number' => $this->action->attempt_count,
         ]);
 
         try {
@@ -73,37 +96,38 @@ class DeliverHttpAction implements ShouldQueue
 
             $attempt->status = DeliveryAttempt::STATUS_SUCCESS;
             $attempt->response_code = $response->status();
-            $attempt->response_body = substr($response->body(), 0, 10000); // Truncate large responses
+            $attempt->response_body = substr($response->body(), 0, 10000);
             $attempt->duration_ms = $durationMs;
             $attempt->save();
 
-            $this->action->attempt_count++;
-            $this->action->last_attempt_at = now();
-            $this->action->save();
-
-            // Check if response indicates success (2xx status)
             if ($response->successful()) {
-                $actionService->markExecuted($this->action);
-                Log::info("HTTP action executed successfully", [
-                    'action_id' => $this->action->id,
-                    'status_code' => $response->status(),
-                ]);
+                // 2xx - Success
+                $this->handleSuccess($attempt, $response->status(), $durationMs);
+            } elseif ($response->clientError()) {
+                // 4xx - Client error (domain failure, don't retry)
+                $this->handleDomainFailure($attempt, $response->status(), $durationMs, isClientError: true);
             } else {
-                $this->handleFailure($actionService, $attempt, "HTTP {$response->status()}");
+                // 5xx - Server error (domain failure, retry)
+                $this->handleDomainFailure($attempt, $response->status(), $durationMs, isClientError: false);
             }
-        } catch (\Throwable $e) {
+        } catch (ConnectionException $e) {
+            // Network/connection failure - always retry
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
-
             $attempt->status = DeliveryAttempt::STATUS_FAILED;
             $attempt->error_message = $e->getMessage();
             $attempt->duration_ms = $durationMs;
             $attempt->save();
 
-            $this->action->attempt_count++;
-            $this->action->last_attempt_at = now();
-            $this->action->save();
+            $this->handleSystemFailure($attempt, $e->getMessage(), $durationMs);
+        } catch (\Throwable $e) {
+            // Other exceptions - treat as system failure, retry
+            $durationMs = (int) ((microtime(true) - $startTime) * 1000);
+            $attempt->status = DeliveryAttempt::STATUS_FAILED;
+            $attempt->error_message = $e->getMessage();
+            $attempt->duration_ms = $durationMs;
+            $attempt->save();
 
-            $this->handleFailure($actionService, $attempt, $e->getMessage());
+            $this->handleSystemFailure($attempt, $e->getMessage(), $durationMs);
         }
     }
 
@@ -157,18 +181,113 @@ class DeliverHttpAction implements ShouldQueue
         return 'sha256=' . hash_hmac('sha256', $payload, $this->action->webhook_secret);
     }
 
-    private function handleFailure(ActionService $actionService, DeliveryAttempt $attempt, string $reason): void
+    /**
+     * Handle successful HTTP response (2xx).
+     */
+    private function handleSuccess(DeliveryAttempt $attempt, int $statusCode, int $durationMs): void
     {
-        Log::warning("HTTP action delivery failed", [
-            'action_id' => $this->action->id,
-            'attempt' => $attempt->attempt_number,
-            'reason' => $reason,
-        ]);
+        $this->action->markAsExecuted();
 
-        if ($this->action->canRetry()) {
-            $actionService->scheduleRetry($this->action);
+        $this->log('info', 'delivery_success', [
+            'status_code' => $statusCode,
+            'duration_ms' => $durationMs,
+            'attempt' => $attempt->attempt_number,
+        ]);
+    }
+
+    /**
+     * Handle domain failure (HTTP 4xx/5xx).
+     * - 4xx (client error): Terminal failure, don't retry
+     * - 5xx (server error): Retry if attempts remain
+     */
+    private function handleDomainFailure(DeliveryAttempt $attempt, int $statusCode, int $durationMs, bool $isClientError): void
+    {
+        $failureType = $isClientError ? self::FAILURE_DOMAIN_CLIENT : self::FAILURE_DOMAIN_SERVER;
+
+        if ($isClientError) {
+            // 4xx - Client errors are terminal (bad request, not found, unauthorized, etc.)
+            $this->action->markAsFailed("HTTP {$statusCode}: Client error (not retryable)");
+
+            $this->log('warning', 'delivery_failed', [
+                'failure_type' => $failureType,
+                'status_code' => $statusCode,
+                'duration_ms' => $durationMs,
+                'attempt' => $attempt->attempt_number,
+                'retry_scheduled' => false,
+                'reason' => 'client_error_not_retryable',
+            ]);
         } else {
-            $actionService->markFailed($this->action, "Failed after {$this->action->attempt_count} attempts: {$reason}");
+            // 5xx - Server errors are retryable
+            if ($this->action->shouldRetry()) {
+                $this->action->scheduleNextRetry();
+
+                $this->log('warning', 'delivery_failed', [
+                    'failure_type' => $failureType,
+                    'status_code' => $statusCode,
+                    'duration_ms' => $durationMs,
+                    'attempt' => $attempt->attempt_number,
+                    'retry_scheduled' => true,
+                    'attempts_remaining' => $this->action->max_attempts - $this->action->attempt_count,
+                ]);
+            } else {
+                $this->action->markAsFailed("HTTP {$statusCode}: Failed after {$this->action->attempt_count} attempts");
+
+                $this->log('error', 'delivery_failed', [
+                    'failure_type' => $failureType,
+                    'status_code' => $statusCode,
+                    'duration_ms' => $durationMs,
+                    'attempt' => $attempt->attempt_number,
+                    'retry_scheduled' => false,
+                    'reason' => 'max_attempts_reached',
+                ]);
+            }
         }
+    }
+
+    /**
+     * Handle system failure (network error, timeout, exception).
+     * Always retry if attempts remain.
+     */
+    private function handleSystemFailure(DeliveryAttempt $attempt, string $errorMessage, int $durationMs): void
+    {
+        if ($this->action->shouldRetry()) {
+            $this->action->scheduleNextRetry();
+
+            $this->log('warning', 'delivery_failed', [
+                'failure_type' => self::FAILURE_SYSTEM,
+                'error' => $errorMessage,
+                'duration_ms' => $durationMs,
+                'attempt' => $attempt->attempt_number,
+                'retry_scheduled' => true,
+                'attempts_remaining' => $this->action->max_attempts - $this->action->attempt_count,
+            ]);
+        } else {
+            $this->action->markAsFailed("System error: {$errorMessage} (after {$this->action->attempt_count} attempts)");
+
+            $this->log('error', 'delivery_failed', [
+                'failure_type' => self::FAILURE_SYSTEM,
+                'error' => $errorMessage,
+                'duration_ms' => $durationMs,
+                'attempt' => $attempt->attempt_number,
+                'retry_scheduled' => false,
+                'reason' => 'max_attempts_reached',
+            ]);
+        }
+    }
+
+    /**
+     * Structured logging with consistent context.
+     *
+     * @param array<string, mixed> $extra
+     */
+    private function log(string $level, string $event, array $extra = []): void
+    {
+        $context = array_merge([
+            'event' => "http_executor.{$event}",
+            'action_id' => $this->action->id,
+            'action_name' => $this->action->name,
+        ], $extra);
+
+        Log::{$level}("HTTP Executor: {$event}", $context);
     }
 }

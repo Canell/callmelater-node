@@ -23,8 +23,7 @@ class CheckExpiredReminders extends Command
 
         $count = 0;
         foreach ($expired as $action) {
-            $action->resolution_status = ScheduledAction::STATUS_EXPIRED;
-            $action->save();
+            $action->markAsExpired();
 
             ReminderEvent::create([
                 'reminder_id' => $action->id,

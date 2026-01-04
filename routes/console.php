@@ -14,3 +14,6 @@ Schedule::job(new DispatcherJob())->everyMinute()->withoutOverlapping();
 
 // Check for expired reminders every 5 minutes
 Schedule::command('app:check-expired-reminders')->everyFiveMinutes();
+
+// Recover stuck EXECUTING actions every 5 minutes (worker crash recovery)
+Schedule::command('app:recover-stuck-executing-actions')->everyFiveMinutes();

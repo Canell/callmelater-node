@@ -6,7 +6,6 @@ use App\Mail\ReminderMail;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
-use App\Services\ActionService;
 use App\Services\TwilioService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,8 +28,19 @@ class DeliverReminder implements ShouldQueue
         public ScheduledAction $action
     ) {}
 
-    public function handle(ActionService $actionService, TwilioService $twilioService): void
+    public function handle(TwilioService $twilioService): void
     {
+        // CRITICAL: Verify action is still in EXECUTING state
+        // This guards against cancellation race conditions
+        $this->action->refresh();
+        if (!$this->action->isExecuting()) {
+            Log::info("Reminder skipped - no longer in executing state", [
+                'action_id' => $this->action->id,
+                'status' => $this->action->resolution_status,
+            ]);
+            return;
+        }
+
         /** @var array<string, mixed>|null $escalationRules */
         $escalationRules = $this->action->escalation_rules;
         if (! is_array($escalationRules)) {
@@ -42,7 +52,7 @@ class DeliverReminder implements ShouldQueue
 
         if (count($recipients) === 0) {
             Log::error("No recipients configured for reminder", ['action_id' => $this->action->id]);
-            $actionService->markFailed($this->action, 'No recipients configured');
+            $this->action->markAsFailed('No recipients configured');
             return;
         }
 
@@ -87,8 +97,8 @@ class DeliverReminder implements ShouldQueue
             'notes' => "Sent to {$sentCount} recipient(s) via " . implode(', ', $channels),
         ]);
 
-        // Mark as awaiting response
-        $actionService->markAwaitingResponse($this->action, $tokenExpiryDays);
+        // Mark as awaiting response (uses model's state machine)
+        $this->action->markAsAwaitingResponse($tokenExpiryDays);
 
         Log::info("Reminder delivered", [
             'action_id' => $this->action->id,
