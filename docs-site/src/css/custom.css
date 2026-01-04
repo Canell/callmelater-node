@@ -1,0 +1,103 @@
+/**
+ * CallMeLater Docusaurus Theme
+ */
+
+:root {
+  --ifm-color-primary: #2563eb;
+  --ifm-color-primary-dark: #1d4ed8;
+  --ifm-color-primary-darker: #1e40af;
+  --ifm-color-primary-darkest: #1e3a8a;
+  --ifm-color-primary-light: #3b82f6;
+  --ifm-color-primary-lighter: #60a5fa;
+  --ifm-color-primary-lightest: #93c5fd;
+  --ifm-code-font-size: 95%;
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  --ifm-heading-font-family: var(--ifm-font-family-base);
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #60a5fa;
+  --ifm-color-primary-dark: #3b82f6;
+  --ifm-color-primary-darker: #2563eb;
+  --ifm-color-primary-darkest: #1d4ed8;
+  --ifm-color-primary-light: #93c5fd;
+  --ifm-color-primary-lighter: #bfdbfe;
+  --ifm-color-primary-lightest: #dbeafe;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Better code blocks */
+.prism-code {
+  font-size: 14px;
+}
+
+/* API endpoint styling */
+code {
+  border-radius: 4px;
+}
+
+/* Table styling */
+table {
+  display: table;
+  width: 100%;
+}
+
+th {
+  background-color: var(--ifm-color-emphasis-100);
+}
+
+/* Navbar */
+.navbar {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.navbar__title {
+  font-weight: 700;
+}
+
+/* Footer */
+.footer {
+  background-color: #1e293b;
+}
+
+.footer--dark {
+  --ifm-footer-background-color: #0f172a;
+}
+
+/* Sidebar */
+.menu__link--active {
+  font-weight: 600;
+}
+
+/* Docs page */
+.markdown h1:first-child {
+  font-size: 2.5rem;
+}
+
+.markdown h2 {
+  margin-top: 2rem;
+}
+
+/* Better admonitions */
+.admonition {
+  border-radius: 8px;
+}
+
+/* HTTP method badges */
+.badge--get {
+  background-color: #22c55e;
+}
+
+.badge--post {
+  background-color: #3b82f6;
+}
+
+.badge--delete {
+  background-color: #ef4444;
+}
+
+.badge--put,
+.badge--patch {
+  background-color: #f59e0b;
+}

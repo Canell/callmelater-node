@@ -1,59 +1,280 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# CallMeLater
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A SaaS platform for scheduling durable HTTP calls and interactive human reminders.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Scheduled HTTP Calls** - Fire webhooks at a specific time with retry logic
+- **Interactive Reminders** - Send email/SMS reminders with confirm/decline/snooze actions
+- **Flexible Scheduling** - Use presets (`tomorrow`, `next_monday`), delays (`2h`, `3d`), or exact times
+- **Idempotency** - Prevent duplicate actions with idempotency keys
+- **Webhook Signing** - HMAC-SHA256 signatures for secure webhook delivery
+- **SSRF Protection** - Blocks requests to private IPs and internal networks
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.3+
+- PostgreSQL 14+
+- Redis 6+
+- Node.js 20+
 
-## Learning Laravel
+## Installation
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```bash
+# Clone the repository
+git clone <repository-url>
+cd callmelater
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# Install dependencies
+composer install
+npm install
 
-## Laravel Sponsors
+# Configure environment
+cp .env.example .env
+php artisan key:generate
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Run migrations
+php artisan migrate
 
-### Premium Partners
+# Build frontend
+npm run build
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## Local Development
 
-## Contributing
+```bash
+# Terminal 1: Laravel server
+php artisan serve
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# Terminal 2: Vite dev server
+npm run dev
 
-## Code of Conduct
+# Terminal 3: Queue worker
+php artisan queue:work
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Terminal 4: Scheduler
+php artisan schedule:work
+```
 
-## Security Vulnerabilities
+Or use synchronous queue processing:
+```env
+QUEUE_CONNECTION=sync
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## API Reference
+
+All API endpoints require authentication via Bearer token or session cookie.
+
+### Authentication
+
+```bash
+# Get an API token from the dashboard, then:
+curl -H "Authorization: Bearer sk_live_..." https://your-domain.com/api/v1/actions
+```
+
+### Actions
+
+#### Create Action
+
+```http
+POST /api/v1/actions
+Content-Type: application/json
+```
+
+**HTTP Call Example:**
+```json
+{
+  "type": "http",
+  "idempotency_key": "deploy-notification-2025-01",
+  "intent": {
+    "preset": "tomorrow"
+  },
+  "http_request": {
+    "method": "POST",
+    "url": "https://api.example.com/webhook",
+    "headers": {
+      "X-Custom-Header": "value"
+    },
+    "body": {
+      "event": "deployment_complete"
+    }
+  },
+  "max_attempts": 5,
+  "retry_strategy": "exponential"
+}
+```
+
+**Reminder Example:**
+```json
+{
+  "type": "reminder",
+  "idempotency_key": "standup-reminder-2025-01-04",
+  "intent": {
+    "delay": "2h"
+  },
+  "reminder_message": "Did you complete the standup?",
+  "recipients": [
+    "user@example.com",
+    "+1234567890"
+  ],
+  "confirmation_mode": "any",
+  "max_snoozes": 3
+}
+```
+
+**Intent Options:**
+| Field | Description | Example |
+|-------|-------------|---------|
+| `preset` | Named time | `tomorrow`, `next_monday`, `1h`, `3d` |
+| `delay` | Relative delay | `30m`, `2h`, `1d` |
+| `execute_at` | Exact UTC time | `2025-01-15T14:30:00Z` |
+| `timezone` | For presets/delays | `America/New_York` |
+
+**Response:** `201 Created`
+```json
+{
+  "data": {
+    "id": "uuid",
+    "type": "http",
+    "resolution_status": "resolved",
+    "execute_at_utc": "2025-01-05T09:00:00Z",
+    "created_at": "2025-01-04T10:00:00Z"
+  }
+}
+```
+
+#### List Actions
+
+```http
+GET /api/v1/actions?status=resolved&type=http&per_page=25
+```
+
+**Query Parameters:**
+| Param | Description |
+|-------|-------------|
+| `status` | Filter by status: `pending_resolution`, `resolved`, `executed`, `failed`, `cancelled` |
+| `type` | Filter by type: `http`, `reminder` |
+| `per_page` | Results per page (default: 25) |
+
+#### Get Action
+
+```http
+GET /api/v1/actions/{id}
+```
+
+Returns action details with delivery attempts and reminder events.
+
+#### Cancel Action by ID
+
+```http
+DELETE /api/v1/actions/{id}
+```
+
+**Response:** `200 OK` or `422` if already executed.
+
+#### Cancel Action by Idempotency Key
+
+```http
+DELETE /api/v1/actions
+Content-Type: application/json
+
+{
+  "idempotency_key": "deploy-notification-2025-01"
+}
+```
+
+**Response Codes:**
+| Status | Meaning |
+|--------|---------|
+| `200` | Cancelled (or already cancelled) |
+| `404` | Not found |
+| `409` | Already executed |
+
+### Reminder Responses
+
+Public endpoint for reminder recipients to respond (no auth required):
+
+```http
+POST /api/v1/respond
+Content-Type: application/json
+
+{
+  "token": "response-token-from-email",
+  "response": "confirm"
+}
+```
+
+**Response Options:** `confirm`, `decline`, `snooze`
+
+### API Tokens
+
+```http
+GET    /api/tokens          # List tokens
+POST   /api/tokens          # Create token
+DELETE /api/tokens/{id}     # Revoke token
+```
+
+## Webhook Signatures
+
+When `webhook_secret` is set on an action, outgoing requests include:
+
+```http
+X-CallMeLater-Signature: sha256=<hmac>
+X-CallMeLater-Action-Id: <uuid>
+X-CallMeLater-Timestamp: <unix-timestamp>
+```
+
+**Verification (PHP example):**
+```php
+$payload = file_get_contents('php://input');
+$expected = 'sha256=' . hash_hmac('sha256', $payload, $webhookSecret);
+$valid = hash_equals($expected, $_SERVER['HTTP_X_CALLMELATER_SIGNATURE']);
+```
+
+## Configuration
+
+Key environment variables:
+
+```env
+# Database
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_DATABASE=callmelater
+
+# Queue & Cache
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
+
+# Email (Postmark)
+MAIL_MAILER=postmark
+POSTMARK_TOKEN=your-token
+
+# SMS (Twilio)
+TWILIO_SID=your-sid
+TWILIO_TOKEN=your-token
+TWILIO_FROM=+1234567890
+
+# Security
+CML_BLOCK_PRIVATE_IPS=true
+CML_RATE_LIMIT_API=100
+CML_RATE_LIMIT_CREATE=100
+```
+
+See `config/callmelater.php` for all options.
+
+## Rate Limits
+
+| Endpoint | Limit |
+|----------|-------|
+| API (authenticated) | 100 req/min |
+| API (unauthenticated) | 20 req/min |
+| Create actions | 100/hour per user |
+| Reminder responses | 10 req/min per token |
+
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment instructions.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Proprietary - All rights reserved.

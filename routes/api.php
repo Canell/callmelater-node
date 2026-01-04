@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\ResponseController;
+use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TokenController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -31,5 +32,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Cancel by idempotency key (must be before /{id} route)
         Route::delete('/actions', [ActionController::class, 'destroyByIdempotencyKey']);
         Route::delete('/actions/{id}', [ActionController::class, 'destroy']);
+    });
+
+    // Subscription Management
+    Route::prefix('subscription')->group(function () {
+        Route::get('/status', [SubscriptionController::class, 'status']);
+        Route::post('/checkout', [SubscriptionController::class, 'checkout']);
+        Route::post('/portal', [SubscriptionController::class, 'portal']);
+        Route::post('/cancel', [SubscriptionController::class, 'cancel']);
+        Route::post('/resume', [SubscriptionController::class, 'resume']);
     });
 });

@@ -6,6 +6,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 
 // Import pages
+import Home from './pages/Home.vue';
+import Pricing from './pages/Pricing.vue';
 import Dashboard from './pages/Dashboard.vue';
 import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
@@ -14,9 +16,16 @@ import ActionDetail from './pages/ActionDetail.vue';
 
 // Define routes
 const routes = [
-    { path: '/', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
+    // Public marketing pages
+    { path: '/', name: 'home', component: Home },
+    { path: '/pricing', name: 'pricing', component: Pricing },
+
+    // Auth pages
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },
     { path: '/register', name: 'register', component: Register, meta: { guest: true } },
+
+    // App pages (authenticated)
+    { path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/actions/create', name: 'create-action', component: CreateAction, meta: { requiresAuth: true } },
     { path: '/actions/:id', name: 'action-detail', component: ActionDetail, meta: { requiresAuth: true } },
 ];
@@ -39,6 +48,9 @@ router.beforeEach((to, from, next) => {
         next();
     }
 });
+
+// Expose router for use in components
+export { router };
 
 // Create and mount app
 const app = createApp(App);

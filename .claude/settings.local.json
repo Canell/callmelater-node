@@ -15,7 +15,8 @@
       "Bash(/Users/flavienb/Library/Application Support/Herd/bin/php:*)",
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/composer\" require symfony/postmark-mailer twilio/sdk --no-interaction)",
       "Bash(./vendor/bin/phpstan:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/composer\" require laravel/cashier --no-interaction)"
     ]
   }
 }
