@@ -26,26 +26,9 @@
             </p>
           </div>
           <div class="col-lg-6">
-            <div class="code-block">
-              <div class="code-header">
-                <span class="code-dot red"></span>
-                <span class="code-dot yellow"></span>
-                <span class="code-dot green"></span>
-                <span class="code-title">Create a scheduled action</span>
-              </div>
-              <pre><code>curl -X POST https://api.callmelater.io/v1/actions \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Trial expiration webhook",
-    "type": "http",
-    "intent": { "delay": "14d" },
-    "http_request": {
-      "url": "https://your-app.com/webhook",
-      "method": "POST",
-      "body": { "event": "trial_expired", "user_id": 42 }
-    }
-  }'</code></pre>
+            <div class="hero-code-wrapper">
+              <div class="code-label">Create a scheduled action</div>
+              <CodeTabs :examples="createHttpAction" default-tab="curl" />
             </div>
           </div>
         </div>
@@ -258,7 +241,8 @@
 </template>
 
 <script setup>
-// Marketing homepage - no logic needed
+import CodeTabs from '../components/CodeTabs.vue';
+import { createHttpAction, createReminderAction, httpActionJson, reminderActionJson } from '../data/codeExamples';
 </script>
 
 <style scoped>
@@ -296,36 +280,26 @@
   color: #9ca3af;
 }
 
-/* Code Block */
+/* Hero Code */
+.hero-code-wrapper {
+  margin-top: 1rem;
+}
+
+.code-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+/* Code Block (for JSON examples) */
 .code-block {
   background: #1f2937;
   border-radius: 0.5rem;
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-.code-header {
-  background: #374151;
-  padding: 0.75rem 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.code-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.code-dot.red { background: #ef4444; }
-.code-dot.yellow { background: #f59e0b; }
-.code-dot.green { background: #22c55e; }
-
-.code-title {
-  color: #9ca3af;
-  font-size: 0.75rem;
-  margin-left: 0.5rem;
 }
 
 .code-block pre {
