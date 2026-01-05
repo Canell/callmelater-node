@@ -24,6 +24,9 @@
                     <!-- Left side links -->
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
+                            <router-link class="nav-link" to="/use-cases">Use Cases</router-link>
+                        </li>
+                        <li class="nav-item">
                             <router-link class="nav-link" to="/pricing">Pricing</router-link>
                         </li>
                         <li class="nav-item">
@@ -89,6 +92,7 @@
                     <div class="col-6 col-md-2">
                         <h6 class="footer-heading">Product</h6>
                         <ul class="list-unstyled footer-links">
+                            <li><router-link to="/use-cases">Use Cases</router-link></li>
                             <li><router-link to="/pricing">Pricing</router-link></li>
                             <li><a href="https://docs.callmelater.io">Docs</a></li>
                             <li><a href="https://docs.callmelater.io/api">API</a></li>
@@ -149,8 +153,8 @@ export default {
             return this.user?.is_admin === true;
         },
         showFooter() {
-            // Show footer on public pages (home, pricing, login, register)
-            const publicRoutes = ['home', 'pricing', 'login', 'register'];
+            // Show footer on public pages (home, use-cases, pricing, login, register)
+            const publicRoutes = ['home', 'use-cases', 'pricing', 'login', 'register'];
             return publicRoutes.includes(this.$route.name);
         },
         currentYear() {

@@ -14,12 +14,14 @@ import Register from './pages/Register.vue';
 import CreateAction from './pages/CreateAction.vue';
 import ActionDetail from './pages/ActionDetail.vue';
 import Admin from './pages/Admin.vue';
+import UseCases from './pages/UseCases.vue';
 
 // Define routes
 const routes = [
     // Public marketing pages
     { path: '/', name: 'home', component: Home },
     { path: '/pricing', name: 'pricing', component: Pricing },
+    { path: '/use-cases', name: 'use-cases', component: UseCases },
 
     // Auth pages
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },
