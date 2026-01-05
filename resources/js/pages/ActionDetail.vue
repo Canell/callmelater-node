@@ -184,6 +184,13 @@
                                     <div v-if="event.notes || event.error_message" class="mt-2 small text-muted">
                                         {{ event.notes || event.error_message }}
                                     </div>
+                                    <!-- Connection error hint -->
+                                    <div v-if="isConnectionError(event)" class="mt-2 small">
+                                        <div class="alert alert-warning py-2 px-3 mb-0">
+                                            <strong>Possible causes:</strong> This failure may be caused by firewall rules, network restrictions, or the endpoint being unreachable.
+                                            <a href="/docs/webhook-security" class="alert-link">Check IP allowlisting</a>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -291,6 +298,15 @@ export default {
         },
         canCancel(status) {
             return ['pending_resolution', 'resolved', 'awaiting_response'].includes(status);
+        },
+        isConnectionError(event) {
+            if (event._type !== 'attempt' || event.status !== 'failed') return false;
+            // No response code means connection failed before getting a response
+            if (!event.response_code || event.response_code === 0) return true;
+            // Check error message for connection-related keywords
+            const errorMsg = (event.error_message || '').toLowerCase();
+            const connectionKeywords = ['connection', 'timeout', 'refused', 'unreachable', 'network', 'dns', 'resolve'];
+            return connectionKeywords.some(keyword => errorMsg.includes(keyword));
         },
         async cancelAction() {
             if (!confirm('Are you sure you want to cancel this action?')) return;

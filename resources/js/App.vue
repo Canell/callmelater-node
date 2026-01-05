@@ -65,6 +65,19 @@
             </div>
         </nav>
 
+        <!-- Email Verification Banner -->
+        <div v-if="showVerificationBanner" class="verification-banner">
+            <div class="container d-flex align-items-center justify-content-between py-2">
+                <span>
+                    <strong>Please verify your email address.</strong>
+                    Check your inbox for a verification link.
+                </span>
+                <button class="btn btn-sm btn-outline-light" @click="resendVerification" :disabled="resending">
+                    {{ resending ? 'Sending...' : 'Resend Email' }}
+                </button>
+            </div>
+        </div>
+
         <!-- Main content -->
         <main>
             <router-view />
@@ -143,6 +156,7 @@ export default {
     data() {
         return {
             user: null,
+            resending: false,
         };
     },
     computed: {
@@ -162,6 +176,12 @@ export default {
         },
         currentYear() {
             return new Date().getFullYear();
+        },
+        emailVerified() {
+            return this.user?.email_verified_at != null;
+        },
+        showVerificationBanner() {
+            return this.isAuthenticated && this.user && !this.emailVerified && !this.hideNavFooter;
         }
     },
     async mounted() {
@@ -188,6 +208,17 @@ export default {
             localStorage.removeItem('token');
             this.user = null;
             this.$router.push({ name: 'home' });
+        },
+        async resendVerification() {
+            this.resending = true;
+            try {
+                await axios.post('/email/verification-notification');
+                alert('Verification email sent! Please check your inbox.');
+            } catch (err) {
+                alert('Failed to send verification email. Please try again.');
+            } finally {
+                this.resending = false;
+            }
         }
     },
     watch: {
@@ -272,5 +303,22 @@ export default {
 
 main {
     flex: 1;
+}
+
+/* Verification Banner */
+.verification-banner {
+    background-color: #f59e0b;
+    color: white;
+    font-size: 0.875rem;
+}
+
+.verification-banner .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: white;
+}
+
+.verification-banner .btn-outline-light:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: white;
 }
 </style>

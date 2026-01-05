@@ -16,6 +16,19 @@ use Illuminate\Support\Facades\Route;
 Route::get('/public/status', [PublicStatusController::class, 'index'])
     ->middleware('throttle:status');
 
+// Public server info (for webhook documentation)
+Route::get('/public/server-info', function () {
+    return response()->json([
+        'outbound_ip' => config('services.callmelater.outbound_ip'),
+        'webhook_headers' => [
+            'X-CallMeLater-Signature',
+            'X-CallMeLater-Action-Id',
+            'X-CallMeLater-Timestamp',
+        ],
+        'user_agent' => 'CallMeLater/1.0',
+    ])->header('Cache-Control', 'public, max-age=3600');
+})->middleware('throttle:status');
+
 // Public endpoint for reminder responses (token-based auth, rate limited)
 Route::post('/v1/respond', [ResponseController::class, 'respond'])
     ->middleware('throttle:reminder-response');

@@ -122,6 +122,29 @@
                         </div>
                     </div>
 
+                    <!-- Firewall Hint (for HTTP actions) -->
+                    <div v-if="form.type === 'http' && showFirewallHint && outboundIp" class="alert alert-light border mb-4 d-flex align-items-start">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-muted me-3 flex-shrink-0 mt-1">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        <div class="flex-grow-1">
+                            <strong>Firewall configuration</strong>
+                            <p class="mb-2 small text-muted">
+                                If your endpoint is protected by a firewall, you may need to allow incoming requests from CallMeLater's outbound IP address.
+                            </p>
+                            <div class="d-flex align-items-center gap-2">
+                                <code class="bg-white px-2 py-1 border rounded small">{{ outboundIp }}</code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="copyIp">
+                                    {{ ipCopied ? 'Copied!' : 'Copy' }}
+                                </button>
+                                <a href="/docs/webhook-security" class="btn btn-sm btn-link">Learn more</a>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close ms-2" @click="dismissFirewallHint" aria-label="Dismiss"></button>
+                    </div>
+
                     <!-- HTTP Config -->
                     <div v-if="form.type === 'http'" class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
@@ -267,9 +290,33 @@ export default {
             submitting: false,
             error: null,
             errors: [],
+            // Firewall hint
+            showFirewallHint: !localStorage.getItem('dismissedFirewallHint'),
+            outboundIp: null,
+            ipCopied: false,
         };
     },
+    mounted() {
+        this.loadServerInfo();
+    },
     methods: {
+        async loadServerInfo() {
+            try {
+                const response = await axios.get('/api/public/server-info');
+                this.outboundIp = response.data.outbound_ip;
+            } catch (err) {
+                console.error('Failed to load server info:', err);
+            }
+        },
+        copyIp() {
+            navigator.clipboard.writeText(this.outboundIp);
+            this.ipCopied = true;
+            setTimeout(() => { this.ipCopied = false; }, 2000);
+        },
+        dismissFirewallHint() {
+            this.showFirewallHint = false;
+            localStorage.setItem('dismissedFirewallHint', 'true');
+        },
         async submit() {
             this.submitting = true;
             this.error = null;
