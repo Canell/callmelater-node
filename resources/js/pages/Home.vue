@@ -1,30 +1,49 @@
 <template>
-  <div class="marketing-page">
+  <div class="home-page">
     <!-- Hero Section -->
-    <section class="hero bg-primary text-white py-5">
+    <section class="hero-section">
       <div class="container">
         <div class="row align-items-center">
           <div class="col-lg-6">
-            <h1 class="display-4 fw-bold mb-3">Make things happen later — without surprises</h1>
-            <p class="lead mb-4">
-              Schedule future actions and confirmations you can actually rely on.
-              No cron jobs. No infrastructure to manage.
+            <h1 class="hero-title">
+              Schedule future actions<br>
+              <span class="text-green">you can actually rely on</span>
+            </h1>
+            <p class="hero-subtitle">
+              Trigger HTTP webhooks or send human confirmations at any time in the future.
+              Durable, retryable, and transparent. No cron jobs. No infrastructure.
             </p>
-            <div class="d-flex gap-3">
-              <router-link to="/register" class="btn btn-light btn-lg">Get Started Free</router-link>
-              <a href="https://docs.callmelater.io" class="btn btn-outline-light btn-lg">Documentation</a>
+            <div class="hero-cta">
+              <router-link to="/register" class="btn btn-cml-primary btn-lg me-3">
+                Start Free
+              </router-link>
+              <a href="https://docs.callmelater.io" class="btn btn-outline-secondary btn-lg">
+                Read the Docs
+              </a>
             </div>
+            <p class="hero-note">
+              Free tier includes 100 actions/month. No credit card required.
+            </p>
           </div>
           <div class="col-lg-6">
-            <div class="code-preview bg-dark rounded p-4 mt-4 mt-lg-0">
-              <pre class="text-light mb-0"><code>curl https://api.callmelater.io/v1/actions \
+            <div class="code-block">
+              <div class="code-header">
+                <span class="code-dot red"></span>
+                <span class="code-dot yellow"></span>
+                <span class="code-dot green"></span>
+                <span class="code-title">Create a scheduled action</span>
+              </div>
+              <pre><code>curl -X POST https://api.callmelater.io/v1/actions \
   -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
   -d '{
+    "name": "Trial expiration webhook",
     "type": "http",
-    "intent": { "preset": "tomorrow" },
+    "intent": { "delay": "14d" },
     "http_request": {
       "url": "https://your-app.com/webhook",
-      "body": { "event": "trial_expired" }
+      "method": "POST",
+      "body": { "event": "trial_expired", "user_id": 42 }
     }
   }'</code></pre>
             </div>
@@ -33,15 +52,15 @@
       </div>
     </section>
 
-    <!-- Problem Section -->
-    <section class="py-5">
+    <!-- Problem Statement -->
+    <section class="section-light">
       <div class="container">
-        <div class="row">
-          <div class="col-lg-6 mx-auto text-center">
-            <h2 class="h3 mb-4">"Do this later" is where things usually break</h2>
-            <p class="text-secondary">
-              You plan to call an API in three days, clean up data after a trial ends,
-              or remind someone to confirm an action. And then: the server restarts,
+        <div class="row justify-content-center">
+          <div class="col-lg-8 text-center">
+            <h2 class="section-title">"Do this later" is where things break</h2>
+            <p class="section-subtitle">
+              You need to call an API in three days, clean up data after a trial ends,
+              or remind someone to approve a deployment. And then: the server restarts,
               a job fails silently, the reminder is ignored. No one knows what happened.
             </p>
           </div>
@@ -49,98 +68,88 @@
       </div>
     </section>
 
-    <!-- Solution Section -->
-    <section class="py-5 bg-light">
+    <!-- Features Grid -->
+    <section class="section-white">
       <div class="container">
-        <h2 class="text-center mb-5">CallMeLater makes time-based work dependable</h2>
+        <h2 class="section-title text-center mb-5">Built for reliability</h2>
         <div class="row g-4">
           <div class="col-md-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-              <div class="card-body text-center">
-                <div class="feature-icon bg-primary bg-opacity-10 text-primary rounded-circle mb-3 mx-auto" style="width: 60px; height: 60px; line-height: 60px;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
-                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
-                  </svg>
-                </div>
-                <h5>Keeps Trying</h5>
-                <p class="text-secondary small">Automatic retries with exponential backoff when things fail</p>
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
               </div>
+              <h5>Automatic Retries</h5>
+              <p>Exponential backoff when things fail. Configure attempts and timing to match your needs.</p>
             </div>
           </div>
           <div class="col-md-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-              <div class="card-body text-center">
-                <div class="feature-icon bg-primary bg-opacity-10 text-primary rounded-circle mb-3 mx-auto" style="width: 60px; height: 60px; line-height: 60px;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-                  </svg>
-                </div>
-                <h5>Durable</h5>
-                <p class="text-secondary small">Remembers even if your systems restart</p>
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                </svg>
               </div>
+              <h5>Durable Storage</h5>
+              <p>Actions survive restarts and crashes. Your scheduled work is never lost.</p>
             </div>
           </div>
           <div class="col-md-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-              <div class="card-body text-center">
-                <div class="feature-icon bg-primary bg-opacity-10 text-primary rounded-circle mb-3 mx-auto" style="width: 60px; height: 60px; line-height: 60px;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                    <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
-                  </svg>
-                </div>
-                <h5>Transparent</h5>
-                <p class="text-secondary small">See exactly what happened — every attempt, every response</p>
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
               </div>
+              <h5>Full Audit Trail</h5>
+              <p>See every attempt, response code, and timing. Debug with confidence.</p>
             </div>
           </div>
           <div class="col-md-6 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm">
-              <div class="card-body text-center">
-                <div class="feature-icon bg-primary bg-opacity-10 text-primary rounded-circle mb-3 mx-auto" style="width: 60px; height: 60px; line-height: 60px;">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.777.416L8 13.101l-5.223 2.815A.5.5 0 0 1 2 15.5V2zm2-1a1 1 0 0 0-1 1v12.566l4.723-2.482a.5.5 0 0 1 .554 0L13 14.566V2a1 1 0 0 0-1-1H4z"/>
-                  </svg>
-                </div>
-                <h5>Never Silent</h5>
-                <p class="text-secondary small">Never disappears — you always know the state</p>
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
               </div>
+              <h5>Secure by Default</h5>
+              <p>HMAC signatures, SSRF protection, and encrypted storage. Ship with confidence.</p>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Features Section -->
-    <section class="py-5">
+    <!-- Two Action Types -->
+    <section class="section-light">
       <div class="container">
-        <div class="row align-items-center mb-5">
-          <div class="col-lg-6">
-            <h2 class="mb-3">Automated HTTP Calls</h2>
-            <p class="text-secondary">
-              Trigger an API call minutes, days, or months from now.
-              Send your own data, get clear success or failure signals, see every attempt.
+        <div class="row align-items-center mb-5 pb-4">
+          <div class="col-lg-5">
+            <span class="feature-label">HTTP Webhooks</span>
+            <h3 class="feature-title">Trigger any API at the right time</h3>
+            <p class="feature-description">
+              Schedule a POST, GET, or any HTTP method to fire at a specific time.
+              Perfect for trial expirations, follow-ups, cleanup jobs, or any delayed workflow.
             </p>
-            <ul class="list-unstyled">
-              <li class="mb-2">✓ Trial expirations</li>
-              <li class="mb-2">✓ Follow-up workflows</li>
-              <li class="mb-2">✓ Delayed notifications</li>
-              <li class="mb-2">✓ Clean-up jobs</li>
+            <ul class="feature-list">
+              <li>Configurable retry strategy</li>
+              <li>Custom headers and body</li>
+              <li>Webhook signature verification</li>
+              <li>Idempotency key support</li>
             </ul>
           </div>
-          <div class="col-lg-6">
-            <div class="bg-light rounded p-4">
-              <pre class="mb-0"><code>{
+          <div class="col-lg-7">
+            <div class="code-block">
+              <pre><code>{
   "type": "http",
+  "name": "Expire trial subscription",
   "intent": { "delay": "14d" },
   "http_request": {
     "method": "POST",
-    "url": "https://api.example.com/webhook",
-    "body": {
-      "event": "trial_expired",
-      "user_id": 42
-    }
+    "url": "https://api.example.com/subscriptions/expire",
+    "headers": { "X-API-Key": "..." },
+    "body": { "user_id": 12345 }
   },
   "max_attempts": 5,
   "retry_strategy": "exponential"
@@ -150,30 +159,32 @@
         </div>
 
         <div class="row align-items-center flex-lg-row-reverse">
-          <div class="col-lg-6">
-            <h2 class="mb-3">Human Confirmations</h2>
-            <p class="text-secondary">
-              Sometimes a person needs to decide first. Send a reminder with clear options:
-              Yes, No, or Snooze. Recipients respond with one click — no account needed.
+          <div class="col-lg-5">
+            <span class="feature-label">Human Reminders</span>
+            <h3 class="feature-title">Get confirmation before acting</h3>
+            <p class="feature-description">
+              Sometimes a human needs to approve first. Send reminders via email or SMS
+              with one-click Yes/No/Snooze buttons. No account needed to respond.
             </p>
-            <ul class="list-unstyled">
-              <li class="mb-2">✓ Email and SMS delivery</li>
-              <li class="mb-2">✓ One-click responses</li>
-              <li class="mb-2">✓ Automatic escalation</li>
-              <li class="mb-2">✓ Snooze support</li>
+            <ul class="feature-list">
+              <li>Email and SMS delivery</li>
+              <li>One-click response buttons</li>
+              <li>Configurable snooze limits</li>
+              <li>Automatic escalation</li>
             </ul>
           </div>
-          <div class="col-lg-6">
-            <div class="bg-light rounded p-4">
-              <pre class="mb-0"><code>{
+          <div class="col-lg-7">
+            <div class="code-block">
+              <pre><code>{
   "type": "reminder",
-  "intent": { "preset": "tomorrow" },
-  "reminder_message": "Approve the deployment?",
-  "recipients": [
-    "ops@example.com",
-    "+1234567890"
-  ],
-  "confirmation_mode": "any",
+  "name": "Approve production deploy",
+  "intent": { "preset": "in_1_hour" },
+  "message": "Ready to deploy v2.1 to production?",
+  "escalation_rules": {
+    "recipients": ["ops@example.com", "+1234567890"],
+    "channels": ["email", "sms"]
+  },
+  "confirmation_mode": "first_response",
   "max_snoozes": 3
 }</code></pre>
             </div>
@@ -182,73 +193,67 @@
       </div>
     </section>
 
-    <!-- Security Section -->
-    <section class="py-5 bg-light">
+    <!-- Integrations / Use Cases -->
+    <section class="section-white">
       <div class="container">
-        <h2 class="text-center mb-5">Built for Reliability</h2>
+        <h2 class="section-title text-center mb-2">Common use cases</h2>
+        <p class="section-subtitle text-center mb-5">Replace fragile cron jobs and manual reminders</p>
         <div class="row g-4">
           <div class="col-md-4">
-            <h5>Webhook Signatures</h5>
-            <p class="text-secondary small">
-              Every request is signed with HMAC-SHA256. Verify authenticity on your end.
-            </p>
+            <div class="use-case-card">
+              <h5>Trial Expirations</h5>
+              <p>Automatically trigger downgrade logic when free trials end.</p>
+            </div>
           </div>
           <div class="col-md-4">
-            <h5>Idempotency Built-in</h5>
-            <p class="text-secondary small">
-              Use idempotency keys to prevent duplicate actions. Cancel by key anytime.
-            </p>
+            <div class="use-case-card">
+              <h5>Follow-up Sequences</h5>
+              <p>Send onboarding emails or check-ins at the right intervals.</p>
+            </div>
           </div>
           <div class="col-md-4">
-            <h5>SSRF Protection</h5>
-            <p class="text-secondary small">
-              Requests to private IPs and internal networks are blocked automatically.
-            </p>
+            <div class="use-case-card">
+              <h5>Deployment Approvals</h5>
+              <p>Get human sign-off before releases go live.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="use-case-card">
+              <h5>Data Cleanup</h5>
+              <p>Schedule deletion of temporary data after retention periods.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="use-case-card">
+              <h5>Invoice Reminders</h5>
+              <p>Ping customers about upcoming or overdue payments.</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="use-case-card">
+              <h5>Maintenance Windows</h5>
+              <p>Trigger system maintenance at off-peak hours.</p>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
     <!-- CTA Section -->
-    <section class="py-5 bg-primary text-white">
+    <section class="cta-section">
       <div class="container text-center">
-        <h2 class="mb-3">Get started in under a minute</h2>
-        <p class="lead mb-4">Send your first delayed webhook in 60 seconds.</p>
-        <div class="d-flex justify-content-center gap-3">
-          <router-link to="/register" class="btn btn-light btn-lg">Start Free</router-link>
-          <router-link to="/pricing" class="btn btn-outline-light btn-lg">View Pricing</router-link>
+        <h2 class="cta-title">Ready to make "later" reliable?</h2>
+        <p class="cta-subtitle">Start scheduling actions in under a minute. Free tier included.</p>
+        <div class="cta-buttons">
+          <router-link to="/register" class="btn btn-light btn-lg me-3">
+            Get Started Free
+          </router-link>
+          <router-link to="/pricing" class="btn btn-outline-light btn-lg">
+            View Pricing
+          </router-link>
         </div>
       </div>
     </section>
-
-    <!-- Footer -->
-    <footer class="py-4 bg-dark text-white-50">
-      <div class="container">
-        <div class="row">
-          <div class="col-md-4">
-            <h5 class="text-white">CallMeLater</h5>
-            <p class="small">Reliable scheduled actions for developers.</p>
-          </div>
-          <div class="col-md-4">
-            <h6 class="text-white">Product</h6>
-            <ul class="list-unstyled small">
-              <li><router-link to="/pricing" class="text-white-50">Pricing</router-link></li>
-              <li><a href="https://docs.callmelater.io" class="text-white-50">Documentation</a></li>
-              <li><a href="https://status.callmelater.io" class="text-white-50">Status</a></li>
-            </ul>
-          </div>
-          <div class="col-md-4">
-            <h6 class="text-white">Legal</h6>
-            <ul class="list-unstyled small">
-              <li><a href="/privacy" class="text-white-50">Privacy Policy</a></li>
-              <li><a href="/terms" class="text-white-50">Terms of Service</a></li>
-            </ul>
-          </div>
-        </div>
-        <hr class="my-4 border-secondary">
-        <p class="small mb-0 text-center">&copy; {{ new Date().getFullYear() }} CallMeLater. All rights reserved.</p>
-      </div>
-    </footer>
   </div>
 </template>
 
@@ -257,41 +262,264 @@
 </script>
 
 <style scoped>
-.marketing-page {
-  margin-top: -1rem;
+/* Hero Section */
+.hero-section {
+  padding: 4rem 0 5rem;
+  background: linear-gradient(180deg, #f9fafb 0%, #fff 100%);
 }
 
-.hero {
-  padding-top: 4rem;
-  padding-bottom: 4rem;
+.hero-title {
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #111827;
+  margin-bottom: 1.5rem;
 }
 
-.code-preview {
-  font-size: 0.85rem;
+.text-green {
+  color: #22C55E;
+}
+
+.hero-subtitle {
+  font-size: 1.125rem;
+  color: #6b7280;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+
+.hero-cta {
+  margin-bottom: 1rem;
+}
+
+.hero-note {
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
+/* Code Block */
+.code-block {
+  background: #1f2937;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.code-header {
+  background: #374151;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.code-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.code-dot.red { background: #ef4444; }
+.code-dot.yellow { background: #f59e0b; }
+.code-dot.green { background: #22c55e; }
+
+.code-title {
+  color: #9ca3af;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+.code-block pre {
+  margin: 0;
+  padding: 1.25rem;
   overflow-x: auto;
 }
 
-.code-preview pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
+.code-block code {
+  color: #e5e7eb;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+/* Sections */
+.section-light {
+  padding: 5rem 0;
+  background: #f9fafb;
+}
+
+.section-white {
+  padding: 5rem 0;
+  background: #fff;
+}
+
+.section-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.section-subtitle {
+  font-size: 1.125rem;
+  color: #6b7280;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Feature Cards */
+.feature-card {
+  padding: 1.5rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  height: 100%;
+  transition: box-shadow 0.2s;
+}
+
+.feature-card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .feature-icon {
+  width: 48px;
+  height: 48px;
+  background: #ecfdf5;
+  color: #22c55e;
+  border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 1rem;
 }
 
-pre {
-  background: #f8f9fa;
-  padding: 1rem;
+.feature-card h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.feature-card p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 0;
+  line-height: 1.6;
+}
+
+/* Feature Sections */
+.feature-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #22c55e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+.feature-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 1rem;
+}
+
+.feature-description {
+  font-size: 1rem;
+  color: #6b7280;
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feature-list li {
+  position: relative;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+  color: #374151;
+}
+
+.feature-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #22c55e;
+  font-weight: 600;
+}
+
+/* Use Case Cards */
+.use-case-card {
+  padding: 1.25rem;
+  background: #f9fafb;
   border-radius: 0.5rem;
-  overflow-x: auto;
-  font-size: 0.85rem;
+  height: 100%;
 }
 
-code {
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+.use-case-card h5 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 0.5rem;
+}
+
+.use-case-card p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 0;
+}
+
+/* CTA Section */
+.cta-section {
+  padding: 5rem 0;
+  background: #22c55e;
+}
+
+.cta-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.cta-subtitle {
+  font-size: 1.125rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 2rem;
+}
+
+.cta-buttons .btn-light {
+  background: #fff;
+  color: #22c55e;
+  border: none;
+}
+
+.cta-buttons .btn-light:hover {
+  background: #f9fafb;
+}
+
+.cta-buttons .btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.cta-buttons .btn-outline-light:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #fff;
+}
+
+/* Responsive */
+@media (max-width: 991px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .code-block {
+    margin-top: 2rem;
+  }
 }
 </style>
