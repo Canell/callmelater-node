@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\StatusController;
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ConsentController;
@@ -7,8 +8,13 @@ use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TokenController;
+use App\Http\Controllers\PublicStatusController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Public status endpoint (heavily cached, no auth required)
+Route::get('/public/status', [PublicStatusController::class, 'index'])
+    ->middleware('throttle:status');
 
 // Public endpoint for reminder responses (token-based auth, rate limited)
 Route::post('/v1/respond', [ResponseController::class, 'respond'])
@@ -65,5 +71,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/stats/trends', [AdminController::class, 'trends']);
         Route::get('/health', [AdminController::class, 'health']);
         Route::get('/queue', [AdminController::class, 'queue']);
+
+        // Status Page Management
+        Route::get('/status/components', [StatusController::class, 'components']);
+        Route::patch('/status/components/{component}', [StatusController::class, 'updateComponent']);
+        Route::get('/status/components/{component}/history', [StatusController::class, 'componentHistory']);
+        Route::get('/status/incidents', [StatusController::class, 'incidents']);
+        Route::post('/status/incidents', [StatusController::class, 'createIncident']);
+        Route::patch('/status/incidents/{incident}', [StatusController::class, 'updateIncident']);
     });
 });

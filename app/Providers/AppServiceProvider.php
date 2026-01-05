@@ -55,5 +55,15 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perMinute($limit)->by($token);
         });
+
+        // Consent endpoint rate limit
+        RateLimiter::for('consent', function (Request $request) {
+            return Limit::perMinute(20)->by($request->ip());
+        });
+
+        // Public status page rate limit (generous, cached anyway)
+        RateLimiter::for('status', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
     }
 }

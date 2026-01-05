@@ -3,10 +3,15 @@
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">Admin Dashboard</h2>
-            <button class="btn btn-outline-secondary" @click="refreshAll" :disabled="loading">
-                <span v-if="loading" class="spinner-border spinner-border-sm me-1"></span>
-                Refresh
-            </button>
+            <div class="d-flex gap-2">
+                <router-link to="/admin/status" class="btn btn-outline-primary">
+                    Status Page
+                </router-link>
+                <button class="btn btn-outline-secondary" @click="refreshAll" :disabled="loading">
+                    <span v-if="loading" class="spinner-border spinner-border-sm me-1"></span>
+                    Refresh
+                </button>
+            </div>
         </div>
 
         <!-- Health Status Banner -->

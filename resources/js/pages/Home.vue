@@ -35,6 +35,13 @@
       </div>
     </section>
 
+    <!-- How It Works Animation -->
+    <section class="animation-section">
+      <div class="container">
+        <HeroAnimation />
+      </div>
+    </section>
+
     <!-- Problem Statement -->
     <section class="section-light">
       <div class="container">
@@ -242,10 +249,18 @@
 
 <script setup>
 import CodeTabs from '../components/CodeTabs.vue';
+import HeroAnimation from '../components/HeroAnimation.vue';
 import { createHttpAction, createReminderAction, httpActionJson, reminderActionJson } from '../data/codeExamples';
 </script>
 
 <style scoped>
+/* Animation Section */
+.animation-section {
+  padding: 2rem 0 3rem;
+  background: #fff;
+  border-bottom: 1px solid #f3f4f6;
+}
+
 /* Hero Section */
 .hero-section {
   padding: 4rem 0 5rem;

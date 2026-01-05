@@ -14,7 +14,9 @@ import Register from './pages/Register.vue';
 import CreateAction from './pages/CreateAction.vue';
 import ActionDetail from './pages/ActionDetail.vue';
 import Admin from './pages/Admin.vue';
+import AdminStatus from './pages/AdminStatus.vue';
 import UseCases from './pages/UseCases.vue';
+import Status from './pages/Status.vue';
 
 // Define routes
 const routes = [
@@ -22,6 +24,7 @@ const routes = [
     { path: '/', name: 'home', component: Home },
     { path: '/pricing', name: 'pricing', component: Pricing },
     { path: '/use-cases', name: 'use-cases', component: UseCases },
+    { path: '/status', name: 'status', component: Status, meta: { hideNavFooter: true } },
 
     // Auth pages
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },
@@ -34,6 +37,7 @@ const routes = [
 
     // Admin pages (requires admin role - API enforces)
     { path: '/admin', name: 'admin', component: Admin, meta: { requiresAuth: true } },
+    { path: '/admin/status', name: 'admin-status', component: AdminStatus, meta: { requiresAuth: true } },
 ];
 
 // Create router

@@ -16,7 +16,11 @@
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/composer\" require symfony/postmark-mailer twilio/sdk --no-interaction)",
       "Bash(./vendor/bin/phpstan:*)",
       "Bash(chmod:*)",
-      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/composer\" require laravel/cashier --no-interaction)"
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/composer\" require laravel/cashier --no-interaction)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan migrate --force)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"App\\\\Services\\\\StatusService::class\")",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"\\(new App\\\\Services\\\\StatusService\\)->seedDefaultComponents\\(\\)\")",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"echo App\\\\Models\\\\SystemComponent::count\\(\\) . '' components created''\")"
     ]
   }
 }

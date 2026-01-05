@@ -1,7 +1,7 @@
 <template>
     <div id="app">
         <!-- Top Navigation -->
-        <nav class="navbar navbar-expand-lg navbar-cml">
+        <nav v-if="!hideNavFooter" class="navbar navbar-expand-lg navbar-cml">
             <div class="container">
                 <!-- Logo -->
                 <router-link class="navbar-brand d-flex align-items-center" to="/">
@@ -71,7 +71,7 @@
         </main>
 
         <!-- Footer (only on public pages) -->
-        <footer class="footer-cml" v-if="showFooter">
+        <footer class="footer-cml" v-if="showFooter && !hideNavFooter">
             <div class="container">
                 <div class="row">
                     <div class="col-12 col-md-4 mb-4 mb-md-0">
@@ -156,6 +156,9 @@ export default {
             // Show footer on public pages (home, use-cases, pricing, login, register)
             const publicRoutes = ['home', 'use-cases', 'pricing', 'login', 'register'];
             return publicRoutes.includes(this.$route.name);
+        },
+        hideNavFooter() {
+            return this.$route.meta?.hideNavFooter === true;
         },
         currentYear() {
             return new Date().getFullYear();
