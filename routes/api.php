@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\ConsentController;
+use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TokenController;
@@ -11,6 +13,13 @@ use Illuminate\Support\Facades\Route;
 // Public endpoint for reminder responses (token-based auth, rate limited)
 Route::post('/v1/respond', [ResponseController::class, 'respond'])
     ->middleware('throttle:reminder-response');
+
+// Public consent endpoints (token-based, no login required)
+Route::prefix('v1/consent')->middleware('throttle:consent')->group(function () {
+    Route::get('/accept/{token}', [ConsentController::class, 'accept']);
+    Route::get('/decline/{token}', [ConsentController::class, 'decline']);
+    Route::get('/unsubscribe/{token}', [ConsentController::class, 'unsubscribe']);
+});
 
 // Authenticated endpoints (Bearer token or SPA cookie)
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
@@ -33,6 +42,12 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Cancel by idempotency key (must be before /{id} route)
         Route::delete('/actions', [ActionController::class, 'destroyByIdempotencyKey']);
         Route::delete('/actions/{id}', [ActionController::class, 'destroy']);
+
+        // Domain Verification
+        Route::get('/domains', [DomainController::class, 'index']);
+        Route::get('/domains/{domain}', [DomainController::class, 'show']);
+        Route::post('/domains/{domain}/verify', [DomainController::class, 'verify']);
+        Route::delete('/domains/{domain}', [DomainController::class, 'destroy']);
     });
 
     // Subscription Management

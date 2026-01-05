@@ -2,10 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Mail\OptInRequestMail;
 use App\Mail\ReminderMail;
+use App\Models\NotificationConsent;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
+use App\Services\ConsentService;
 use App\Services\TwilioService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,7 +31,7 @@ class DeliverReminder implements ShouldQueue
         public ScheduledAction $action
     ) {}
 
-    public function handle(TwilioService $twilioService): void
+    public function handle(TwilioService $twilioService, ConsentService $consentService): void
     {
         // CRITICAL: Verify action is still in EXECUTING state
         // This guards against cancellation race conditions
@@ -63,6 +66,11 @@ class DeliverReminder implements ShouldQueue
         $channels = $escalationRules['channels'] ?? ['email'];
 
         $sentCount = 0;
+        $awaitingConsentCount = 0;
+        $suppressedCount = 0;
+
+        // Get the action owner for sender limits
+        $owner = $this->action->owner;
 
         // Create recipient records with response tokens
         foreach ($recipients as $recipient) {
@@ -77,16 +85,38 @@ class DeliverReminder implements ShouldQueue
                 'response_token' => Str::random(64),
             ]);
 
-            // Send via appropriate channel
+            // For email recipients, check consent status
             if ($isEmail && in_array('email', $channels)) {
-                $this->sendEmail($recipientRecord);
-                $sentCount++;
+                $consentStatus = $this->handleEmailConsent($recipient, $consentService, $owner);
+
+                if ($consentStatus === 'opted_in') {
+                    $this->sendEmail($recipientRecord);
+                    $sentCount++;
+                } elseif ($consentStatus === 'pending') {
+                    $recipientRecord->update(['status' => ReminderRecipient::STATUS_AWAITING_CONSENT]);
+                    $awaitingConsentCount++;
+                } else {
+                    // Suppressed or opted-out
+                    $recipientRecord->update(['status' => ReminderRecipient::STATUS_SUPPRESSED]);
+                    $suppressedCount++;
+                }
             }
 
+            // For SMS recipients (phone numbers)
             if ($isPhone && in_array('sms', $channels)) {
+                // SMS consent is typically stricter - for now, send if allowed
                 $this->sendSms($recipientRecord, $twilioService);
                 $sentCount++;
             }
+        }
+
+        // Build notes for the event
+        $notes = "Sent to {$sentCount} recipient(s) via " . implode(', ', $channels);
+        if ($awaitingConsentCount > 0) {
+            $notes .= ", {$awaitingConsentCount} awaiting consent";
+        }
+        if ($suppressedCount > 0) {
+            $notes .= ", {$suppressedCount} suppressed";
         }
 
         // Record the sent event
@@ -94,7 +124,7 @@ class DeliverReminder implements ShouldQueue
             'reminder_id' => $this->action->id,
             'event_type' => ReminderEvent::TYPE_SENT,
             'captured_timezone' => $this->action->timezone,
-            'notes' => "Sent to {$sentCount} recipient(s) via " . implode(', ', $channels),
+            'notes' => $notes,
         ]);
 
         // Mark as awaiting response (uses model's state machine)
@@ -104,8 +134,86 @@ class DeliverReminder implements ShouldQueue
             'action_id' => $this->action->id,
             'recipients' => count($recipients),
             'sent' => $sentCount,
+            'awaiting_consent' => $awaitingConsentCount,
+            'suppressed' => $suppressedCount,
             'channels' => $channels,
         ]);
+    }
+
+    /**
+     * Handle email consent checking and opt-in request sending.
+     *
+     * @return string 'opted_in' | 'pending' | 'suppressed'
+     */
+    private function handleEmailConsent(string $email, ConsentService $consentService, $owner): string
+    {
+        // Check if already opted in
+        $consent = NotificationConsent::where('email', NotificationConsent::normalizeEmail($email))->first();
+
+        if ($consent) {
+            if ($consent->canReceiveReminders()) {
+                return 'opted_in';
+            }
+
+            if ($consent->suppressed || $consent->status === NotificationConsent::STATUS_OPTED_OUT) {
+                return 'suppressed';
+            }
+
+            // Pending - check if we can send an opt-in request
+            if ($consent->status === NotificationConsent::STATUS_PENDING) {
+                $this->trySendOptinRequest($email, $consent, $consentService, $owner);
+                return 'pending';
+            }
+        }
+
+        // No consent record - create one and send opt-in request
+        $check = $consentService->canSendOptinEmail($owner, $email);
+
+        if ($check['can_send']) {
+            $this->sendOptinRequest($check['consent'], $owner);
+            $consentService->recordOptinSent($check['consent'], $owner);
+        } else {
+            Log::info("Opt-in email suppressed", [
+                'email' => $email,
+                'reason' => $check['reason'],
+            ]);
+        }
+
+        return 'pending';
+    }
+
+    /**
+     * Try to send an opt-in request if rate limits allow.
+     */
+    private function trySendOptinRequest(string $email, NotificationConsent $consent, ConsentService $consentService, $owner): void
+    {
+        $check = $consentService->canSendOptinEmail($owner, $email);
+
+        if ($check['can_send']) {
+            $this->sendOptinRequest($consent, $owner);
+            $consentService->recordOptinSent($consent, $owner);
+        }
+    }
+
+    /**
+     * Send the opt-in request email.
+     */
+    private function sendOptinRequest(NotificationConsent $consent, $owner): void
+    {
+        try {
+            Mail::to($consent->email)->send(new OptInRequestMail($consent, $owner, $this->action));
+
+            Log::info("Opt-in request sent", [
+                'action_id' => $this->action->id,
+                'recipient' => $consent->email,
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Failed to send opt-in request", [
+                'action_id' => $this->action->id,
+                'recipient' => $consent->email,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function sendEmail(ReminderRecipient $recipient): void

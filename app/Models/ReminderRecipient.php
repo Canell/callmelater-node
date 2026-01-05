@@ -22,6 +22,8 @@ class ReminderRecipient extends Model
     use HasUuids;
 
     public const STATUS_PENDING = 'pending';
+    public const STATUS_AWAITING_CONSENT = 'awaiting_consent';
+    public const STATUS_SUPPRESSED = 'suppressed';
     public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_DECLINED = 'declined';
     public const STATUS_SNOOZED = 'snoozed';

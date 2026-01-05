@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\DomainVerificationRequiredException;
 use App\Jobs\ResolveIntentJob;
 use App\Models\ScheduledAction;
 use App\Models\User;
@@ -9,14 +10,22 @@ use Illuminate\Support\Str;
 
 class ActionService
 {
+    public function __construct(
+        private DomainVerificationService $domainVerificationService
+    ) {}
 
     /**
      * Create a new scheduled action.
      *
      * @param array<string, mixed> $data
+     * @throws DomainVerificationRequiredException
      */
     public function create(User $user, array $data): ScheduledAction
     {
+        // Check domain verification for HTTP actions
+        if (($data['type'] ?? '') === ScheduledAction::TYPE_HTTP) {
+            $this->checkDomainVerification($user, $data);
+        }
         $action = new ScheduledAction();
         $action->owner_user_id = $user->id;
         $action->owner_team_id = $data['team_id'] ?? null;
@@ -147,5 +156,31 @@ class ActionService
     public function scheduleRetry(ScheduledAction $action): void
     {
         $action->scheduleNextRetry();
+    }
+
+    /**
+     * Check domain verification for HTTP actions.
+     *
+     * @param array<string, mixed> $data
+     * @throws DomainVerificationRequiredException
+     */
+    private function checkDomainVerification(User $user, array $data): void
+    {
+        $httpRequest = $data['http_request'] ?? [];
+        $url = $httpRequest['url'] ?? null;
+
+        if (!$url) {
+            return;
+        }
+
+        $check = $this->domainVerificationService->checkVerificationRequired($user, $url);
+
+        if ($check['required']) {
+            throw new DomainVerificationRequiredException(
+                $check['domain'],
+                $check['token'],
+                $check['reason']
+            );
+        }
     }
 }
