@@ -195,8 +195,12 @@ export default {
                 const response = await axios.get('/api/user');
                 this.user = response.data;
             } catch (err) {
-                // Token might be invalid
-                localStorage.removeItem('token');
+                // Only logout on 401 Unauthorized (session expired)
+                // 419 CSRF errors are handled by axios interceptor
+                if (err.response?.status === 401) {
+                    localStorage.removeItem('token');
+                    this.user = null;
+                }
             }
         },
         async logout() {

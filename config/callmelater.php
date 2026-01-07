@@ -13,9 +13,13 @@ return [
 
     'http' => [
         // Block requests to private/internal IP ranges
+        // IMPORTANT: When enabled, hostnames are resolved via DNS and ALL
+        // returned IPs are checked against blocked_ranges. This prevents
+        // SSRF attacks where evil.example.com resolves to 10.0.0.5
         'block_private_ips' => env('CML_BLOCK_PRIVATE_IPS', true),
 
         // Blocked IP ranges (CIDR notation)
+        // These are checked against resolved IPs, not just the hostname
         'blocked_ranges' => [
             '10.0.0.0/8',        // Private Class A
             '172.16.0.0/12',     // Private Class B
@@ -40,6 +44,7 @@ return [
         'blocked_hosts' => [
             'localhost',
             '*.local',
+            '*.onion',
             '*.internal',
             'metadata.google.internal',      // GCP metadata
             '169.254.169.254',               // AWS/Azure/GCP metadata
@@ -80,23 +85,45 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Validation Limits
+    | Plan-Based Limits
+    |--------------------------------------------------------------------------
+    |
+    | Limits are enforced per plan. Users on the free plan get restricted
+    | access, while paid plans unlock more capacity.
+    |
+    */
+
+    'plans' => [
+        'free' => [
+            'max_actions_per_month' => 100,
+            'max_pending_actions' => 10,
+            'max_schedule_days' => 30,
+            'max_recipients' => 3,
+            'max_retries' => 3,
+        ],
+        'pro' => [
+            'max_actions_per_month' => 5000,
+            'max_pending_actions' => 100,
+            'max_schedule_days' => 365,
+            'max_recipients' => 20,
+            'max_retries' => 5,
+        ],
+        'business' => [
+            'max_actions_per_month' => 50000,
+            'max_pending_actions' => 1000,
+            'max_schedule_days' => 730, // 2 years
+            'max_recipients' => 50,
+            'max_retries' => 10,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Global Limits (apply to all plans)
     |--------------------------------------------------------------------------
     */
 
     'limits' => [
-        // Maximum actions per user
-        'max_actions_per_user' => env('CML_MAX_ACTIONS_PER_USER', 1000),
-
-        // Maximum pending actions per user
-        'max_pending_actions' => env('CML_MAX_PENDING_ACTIONS', 100),
-
-        // Maximum recipients per reminder
-        'max_recipients' => env('CML_MAX_RECIPIENTS', 50),
-
-        // Maximum schedule time in the future (days)
-        'max_schedule_days' => env('CML_MAX_SCHEDULE_DAYS', 365),
-
         // Token expiry range (days)
         'min_token_expiry_days' => 1,
         'max_token_expiry_days' => 30,

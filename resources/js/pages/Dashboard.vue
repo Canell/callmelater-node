@@ -44,7 +44,8 @@
 
         <!-- Empty state -->
         <div v-else-if="actions.length === 0" class="text-center py-5">
-            <p class="text-muted mb-3">No actions found</p>
+            <h5 class="text-muted mb-2">No actions yet</h5>
+            <p class="text-muted mb-4">Actions are scheduled HTTP calls or reminders that run in the future.</p>
             <router-link to="/actions/create" class="btn btn-cml-primary">
                 Create your first action
             </router-link>

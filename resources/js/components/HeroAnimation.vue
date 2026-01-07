@@ -55,7 +55,7 @@
           <circle cx="0" cy="6" r="2" fill="currentColor" class="sand"/>
         </g>
         <text x="320" y="158" class="step-label">Wait</text>
-        <text x="320" y="174" class="step-sublabel">Durable storage</text>
+        <text x="320" y="174" class="step-sublabel">Safely stored</text>
       </g>
 
       <!-- Connector 2-3 -->
@@ -73,7 +73,7 @@
         </g>
         <!-- Label with better explanation -->
         <text x="480" y="22" class="branch-label">Optional</text>
-        <text x="480" y="82" class="branch-sublabel">Human approval</text>
+        <text x="480" y="78" class="branch-sublabel">Human approval</text>
       </g>
 
       <!-- Step 3: Trigger -->
@@ -86,7 +86,7 @@
                 fill="currentColor" stroke="currentColor" stroke-width="0.5"/>
         </g>
         <text x="480" y="158" class="step-label">Trigger</text>
-        <text x="480" y="174" class="step-sublabel">Time reached</text>
+        <text x="480" y="174" class="step-sublabel">Scheduled time reached</text>
       </g>
 
       <!-- Connector 3-4 -->
@@ -96,7 +96,11 @@
       <g class="step step-4">
         <circle cx="640" cy="110" r="28" class="step-bg step-bg-final" />
         <circle cx="640" cy="110" r="22" class="step-circle step-circle-final" />
-        <!-- Checkmark icon -->
+        <!-- Arrow/send icon (before completion) -->
+        <g class="step-icon step-icon-initial" transform="translate(640, 110)">
+          <path d="M-6 0 L4 0 M0 -4 L4 0 L0 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+        <!-- Checkmark icon (after completion) -->
         <g class="step-icon step-icon-final" transform="translate(640, 110)">
           <path d="M-6 0 L-2 4 L6 -4" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
         </g>
@@ -169,8 +173,87 @@
   animation: step-appear 14s infinite;
 }
 
+.step-icon-initial {
+  color: #9ca3af;
+  animation: step-icon-initial 14s infinite;
+}
+
+@keyframes step-icon-initial {
+  0%, 2% { opacity: 0; }
+  5%, 66% { opacity: 1; }
+  72%, 100% { opacity: 0; }
+}
+
 .step-icon-final {
   color: #22C55E;
+  animation: step-appear-final 14s infinite;
+}
+
+@keyframes step-appear-final {
+  0%, 66% { opacity: 0; }
+  72%, 88% { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+
+/* Steps turn green when passed */
+.step-1 .step-circle {
+  animation: step-appear 14s infinite, step-passed-1 14s infinite;
+}
+
+.step-1 .step-icon {
+  animation: step-appear 14s infinite, step-icon-passed-1 14s infinite;
+}
+
+.step-2 .step-circle {
+  animation: step-appear 14s infinite, step-passed-2 14s infinite;
+}
+
+.step-2 .step-icon {
+  animation: step-appear 14s infinite, step-icon-passed-2 14s infinite;
+}
+
+.step-3 .step-circle {
+  animation: step-appear 14s infinite, step-passed-3 14s infinite;
+}
+
+.step-3 .step-icon {
+  animation: step-appear 14s infinite, step-icon-passed-3 14s infinite;
+}
+
+@keyframes step-passed-1 {
+  0%, 26% { stroke: #e5e7eb; }
+  30%, 88% { stroke: #22C55E; }
+  94%, 100% { stroke: #e5e7eb; }
+}
+
+@keyframes step-icon-passed-1 {
+  0%, 26% { color: #9ca3af; }
+  30%, 88% { color: #22C55E; }
+  94%, 100% { color: #9ca3af; }
+}
+
+@keyframes step-passed-2 {
+  0%, 46% { stroke: #e5e7eb; }
+  50%, 88% { stroke: #22C55E; }
+  94%, 100% { stroke: #e5e7eb; }
+}
+
+@keyframes step-icon-passed-2 {
+  0%, 46% { color: #9ca3af; }
+  50%, 88% { color: #22C55E; }
+  94%, 100% { color: #9ca3af; }
+}
+
+@keyframes step-passed-3 {
+  0%, 66% { stroke: #e5e7eb; }
+  70%, 88% { stroke: #22C55E; }
+  94%, 100% { stroke: #e5e7eb; }
+}
+
+@keyframes step-icon-passed-3 {
+  0%, 66% { color: #9ca3af; }
+  70%, 88% { color: #22C55E; }
+  94%, 100% { color: #9ca3af; }
 }
 
 .step-label {
@@ -298,14 +381,14 @@
 }
 
 @keyframes connector-fill-1 {
-  0%, 12% { stroke-dashoffset: 104; }
-  22%, 88% { stroke-dashoffset: 0; }
+  0%, 18% { stroke-dashoffset: 104; }
+  28%, 88% { stroke-dashoffset: 0; }
   94%, 100% { stroke-dashoffset: 104; }
 }
 
 @keyframes connector-fill-2 {
-  0%, 32% { stroke-dashoffset: 104; }
-  42%, 88% { stroke-dashoffset: 0; }
+  0%, 38% { stroke-dashoffset: 104; }
+  48%, 88% { stroke-dashoffset: 0; }
   94%, 100% { stroke-dashoffset: 104; }
 }
 

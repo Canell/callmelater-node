@@ -1,5 +1,22 @@
 <template>
   <div class="home-page">
+    <!-- Email Verified Success Modal -->
+    <div v-if="showVerifiedModal" class="verified-overlay" @click.self="closeVerifiedModal">
+      <div class="verified-modal">
+        <div class="verified-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <h3>Email Verified!</h3>
+        <p class="text-muted">Your email has been verified successfully. You can now log in to your account.</p>
+        <router-link to="/login" class="btn btn-cml-primary btn-lg w-100" @click="closeVerifiedModal">
+          Log In to Your Account
+        </router-link>
+      </div>
+    </div>
+
     <!-- Hero Section -->
     <section class="hero-section">
       <div class="container">
@@ -248,12 +265,70 @@
 </template>
 
 <script setup>
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import CodeTabs from '../components/CodeTabs.vue';
 import HeroAnimation from '../components/HeroAnimation.vue';
 import { createHttpAction, createReminderAction, httpActionJson, reminderActionJson } from '../data/codeExamples';
+
+const route = useRoute();
+const router = useRouter();
+const showVerifiedModal = ref(false);
+
+onMounted(() => {
+  // Check for verified=1 query param
+  if (route.query.verified === '1') {
+    showVerifiedModal.value = true;
+    // Clean up the URL
+    router.replace({ path: '/', query: {} });
+  }
+});
+
+function closeVerifiedModal() {
+  showVerifiedModal.value = false;
+}
 </script>
 
 <style scoped>
+/* Verified Modal */
+.verified-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+}
+
+.verified-modal {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 2.5rem;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.verified-icon {
+  margin-bottom: 1.5rem;
+}
+
+.verified-modal h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.75rem;
+}
+
+.verified-modal p {
+  margin-bottom: 1.5rem;
+}
+
 /* Animation Section */
 .animation-section {
   padding: 2rem 0 3rem;

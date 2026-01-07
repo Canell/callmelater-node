@@ -3,7 +3,7 @@
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <div class="d-flex align-items-center mb-4">
-                    <router-link to="/" class="text-decoration-none me-3">&larr; Back</router-link>
+                    <router-link to="/dashboard" class="text-decoration-none me-3">&larr; Back</router-link>
                     <h2 class="mb-0">Create Action</h2>
                 </div>
 
@@ -53,7 +53,7 @@
                         <div class="card-body">
                             <div class="mb-3">
                                 <label class="form-label">Name *</label>
-                                <input type="text" class="form-control" v-model="form.name" required>
+                                <input type="text" class="form-control" v-model="form.name" required :placeholder="form.type === 'http' ? 'e.g. Delete trial account' : 'e.g. Remind me to review contract'">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Description</label>
@@ -233,7 +233,7 @@
 
                     <!-- Submit -->
                     <div class="d-flex justify-content-end gap-2">
-                        <router-link to="/" class="btn btn-outline-secondary">Cancel</router-link>
+                        <router-link to="/dashboard" class="btn btn-outline-secondary">Cancel</router-link>
                         <button type="submit" class="btn btn-cml-primary" :disabled="submitting">
                             {{ submitting ? 'Creating...' : 'Create Action' }}
                         </button>
@@ -364,7 +364,7 @@ export default {
                 }
 
                 await axios.post('/api/v1/actions', payload);
-                this.$router.push('/');
+                this.$router.push('/dashboard');
             } catch (err) {
                 if (err.response?.status === 422) {
                     const data = err.response.data;

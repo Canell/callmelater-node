@@ -10,14 +10,14 @@
         <!-- Not found -->
         <div v-else-if="!action" class="text-center py-5">
             <h4>Action not found</h4>
-            <router-link to="/" class="btn btn-cml-primary mt-3">Back to Dashboard</router-link>
+            <router-link to="/dashboard" class="btn btn-cml-primary mt-3">Back to Dashboard</router-link>
         </div>
 
         <!-- Action detail -->
         <div v-else>
             <!-- Header -->
             <div class="d-flex align-items-center mb-4">
-                <router-link to="/" class="text-decoration-none me-3">&larr; Back</router-link>
+                <router-link to="/dashboard" class="text-decoration-none me-3">&larr; Back</router-link>
                 <div class="flex-grow-1">
                     <h2 class="mb-0">{{ action.name }}</h2>
                     <small class="text-muted">{{ action.description }}</small>

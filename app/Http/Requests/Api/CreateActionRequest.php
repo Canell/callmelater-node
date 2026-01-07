@@ -78,6 +78,9 @@ class CreateActionRequest extends FormRequest
     public function withValidator(\Illuminate\Validation\Validator $validator): void
     {
         $validator->after(function ($validator) {
+            /** @var \App\Models\User $user */
+            $user = $this->user();
+
             // Ensure either execute_at or intent is provided
             if (! $this->filled('execute_at') && ! $this->filled('intent')) {
                 $validator->errors()->add('execute_at', 'Either execute_at or intent must be provided.');
@@ -94,7 +97,7 @@ class CreateActionRequest extends FormRequest
             // Check idempotency key uniqueness for user
             if ($this->filled('idempotency_key')) {
                 $exists = ScheduledAction::query()
-                    ->forUser($this->user()->id)
+                    ->forUser($user->id)
                     ->where('idempotency_key', $this->input('idempotency_key'))
                     ->exists();
 
@@ -102,6 +105,61 @@ class CreateActionRequest extends FormRequest
                     $validator->errors()->add('idempotency_key', 'This idempotency key has already been used.');
                 }
             }
+
+            // Plan-based limits
+            $this->validatePlanLimits($validator, $user);
         });
+    }
+
+    /**
+     * Validate plan-based limits.
+     */
+    private function validatePlanLimits(\Illuminate\Validation\Validator $validator, \App\Models\User $user): void
+    {
+        // Check pending actions limit
+        $maxPending = $user->getPlanLimit('max_pending_actions');
+        $currentPending = ScheduledAction::query()
+            ->forUser($user->id)
+            ->whereIn('resolution_status', [
+                ScheduledAction::STATUS_PENDING_RESOLUTION,
+                ScheduledAction::STATUS_RESOLVED,
+                ScheduledAction::STATUS_AWAITING_RESPONSE,
+            ])
+            ->count();
+
+        if ($currentPending >= $maxPending) {
+            $validator->errors()->add('limit', "You have reached the maximum of {$maxPending} pending actions for your plan.");
+        }
+
+        // Check schedule date limit
+        if ($this->filled('execute_at')) {
+            $maxDays = $user->getPlanLimit('max_schedule_days');
+            $executeAt = new \DateTime($this->input('execute_at'));
+            $maxDate = new \DateTime("+{$maxDays} days");
+
+            if ($executeAt > $maxDate) {
+                $validator->errors()->add('execute_at', "Your plan allows scheduling up to {$maxDays} days in advance.");
+            }
+        }
+
+        // Check recipients limit for reminders
+        if ($this->input('type') === ScheduledAction::TYPE_REMINDER) {
+            $recipients = $this->input('escalation_rules.recipients', []);
+            $maxRecipients = $user->getPlanLimit('max_recipients');
+
+            if (count($recipients) > $maxRecipients) {
+                $validator->errors()->add('escalation_rules.recipients', "Your plan allows up to {$maxRecipients} recipients per reminder.");
+            }
+        }
+
+        // Check max retries limit for HTTP actions
+        if ($this->input('type') === ScheduledAction::TYPE_HTTP && $this->filled('max_attempts')) {
+            $maxRetries = $user->getPlanLimit('max_retries');
+            $requestedAttempts = (int) $this->input('max_attempts');
+
+            if ($requestedAttempts > $maxRetries) {
+                $validator->errors()->add('max_attempts', "Your plan allows up to {$maxRetries} retry attempts.");
+            }
+        }
     }
 }

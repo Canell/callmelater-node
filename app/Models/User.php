@@ -58,4 +58,45 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(ScheduledAction::class, 'owner_user_id');
     }
+
+    /**
+     * Get the user's current plan name.
+     */
+    public function getPlan(): string
+    {
+        if (! $this->subscribed('default')) {
+            return 'free';
+        }
+
+        $subscription = $this->subscription('default');
+        $priceId = $subscription?->stripe_price;
+
+        return match ($priceId) {
+            config('services.stripe.prices.pro') => 'pro',
+            config('services.stripe.prices.business') => 'business',
+            default => 'free',
+        };
+    }
+
+    /**
+     * Get all limits for the user's current plan.
+     *
+     * @return array<string, int>
+     */
+    public function getPlanLimits(): array
+    {
+        $plan = $this->getPlan();
+
+        return config("callmelater.plans.{$plan}", config('callmelater.plans.free'));
+    }
+
+    /**
+     * Get a specific limit for the user's current plan.
+     */
+    public function getPlanLimit(string $key, int $default = 0): int
+    {
+        $limits = $this->getPlanLimits();
+
+        return $limits[$key] ?? $default;
+    }
 }

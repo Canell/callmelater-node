@@ -41,9 +41,9 @@ class LogApiRequests
             $context['user_id'] = $request->user()->id;
         }
 
-        // Add token ID if using API token
+        // Add token ID if using API token (not session-based auth)
         $token = $request->user()?->currentAccessToken();
-        if ($token) {
+        if ($token && property_exists($token, 'id')) {
             $context['token_id'] = $token->id;
         }
 
