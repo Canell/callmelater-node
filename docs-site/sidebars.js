@@ -46,6 +46,7 @@ const sidebars = {
       collapsed: true,
       items: [
         'reference/rate-limits',
+        'reference/retry-behavior',
         'reference/security',
         'reference/changelog',
       ],

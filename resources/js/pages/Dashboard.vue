@@ -127,6 +127,10 @@
 
 <script>
 import axios from 'axios';
+import { useActionStatus } from '../composables/useActionStatus';
+import { formatDate } from '../utils/dateFormatting';
+
+const { formatStatus, statusBadgeClass, canCancel } = useActionStatus();
 
 export default {
     name: 'Dashboard',
@@ -164,6 +168,10 @@ export default {
         }
     },
     methods: {
+        formatDate,
+        formatStatus,
+        statusBadgeClass,
+        canCancel,
         async loadActions(page = 1) {
             this.loading = true;
             try {
@@ -179,38 +187,6 @@ export default {
             } finally {
                 this.loading = false;
             }
-        },
-        formatDate(dateStr) {
-            if (!dateStr) return '-';
-            const date = new Date(dateStr);
-            return date.toLocaleString();
-        },
-        formatStatus(status) {
-            const labels = {
-                pending_resolution: 'Pending',
-                resolved: 'Scheduled',
-                awaiting_response: 'Awaiting',
-                executed: 'Executed',
-                failed: 'Failed',
-                cancelled: 'Cancelled',
-                expired: 'Expired',
-            };
-            return labels[status] || status;
-        },
-        statusBadgeClass(status) {
-            const classes = {
-                pending_resolution: 'bg-secondary',
-                resolved: 'bg-primary',
-                awaiting_response: 'bg-warning text-dark',
-                executed: 'bg-success',
-                failed: 'bg-danger',
-                cancelled: 'bg-secondary',
-                expired: 'bg-secondary',
-            };
-            return classes[status] || 'bg-secondary';
-        },
-        canCancel(status) {
-            return ['pending_resolution', 'resolved', 'awaiting_response'].includes(status);
         },
         async cancelAction(action) {
             if (!confirm(`Cancel action "${action.name}"?`)) return;

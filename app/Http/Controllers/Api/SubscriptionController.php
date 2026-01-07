@@ -17,7 +17,7 @@ class SubscriptionController extends Controller
 
         return response()->json([
             'subscribed' => $user->subscribed('default'),
-            'plan' => $this->getCurrentPlan($user),
+            'plan' => $user->getPlan(),
             'on_trial' => $user->onTrial('default'),
             'canceled' => $user->subscription('default')?->canceled() ?? false,
             'ends_at' => $user->subscription('default')?->ends_at,
@@ -117,25 +117,6 @@ class SubscriptionController extends Controller
             'pro' => config('services.stripe.prices.pro'),
             'business' => config('services.stripe.prices.business'),
             default => null,
-        };
-    }
-
-    /**
-     * Determine the current plan name.
-     */
-    private function getCurrentPlan(mixed $user): string
-    {
-        if (! $user->subscribed('default')) {
-            return 'free';
-        }
-
-        $subscription = $user->subscription('default');
-        $priceId = $subscription->stripe_price;
-
-        return match ($priceId) {
-            config('services.stripe.prices.pro') => 'pro',
-            config('services.stripe.prices.business') => 'business',
-            default => 'unknown',
         };
     }
 }

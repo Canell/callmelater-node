@@ -324,6 +324,7 @@
 
 <script>
 import axios from 'axios';
+import { formatRelativeTime } from '../utils/dateFormatting';
 
 export default {
     name: 'AdminStatus',
@@ -475,25 +476,7 @@ export default {
             };
             return labels[status] || status;
         },
-        formatTime(dateStr) {
-            if (!dateStr) return '-';
-            const date = new Date(dateStr);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-
-            if (diffMins < 1) return 'just now';
-            if (diffMins < 60) return `${diffMins}m ago`;
-            if (diffHours < 24) return `${diffHours}h ago`;
-
-            return date.toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-            });
-        },
+        formatTime: formatRelativeTime,
     },
 };
 </script>

@@ -23,8 +23,8 @@
                                         role="button"
                                     >
                                         <div class="card-body text-center py-4">
-                                            <h5>HTTP Call</h5>
-                                            <p class="text-muted mb-0 small">Schedule an HTTP request to a webhook or API endpoint</p>
+                                            <h5>Webhook</h5>
+                                            <p class="text-muted mb-0 small">Schedule a webhook to any URL at a specific time</p>
                                         </div>
                                     </div>
                                 </div>
@@ -145,10 +145,10 @@
                         <button type="button" class="btn-close ms-2" @click="dismissFirewallHint" aria-label="Dismiss"></button>
                     </div>
 
-                    <!-- HTTP Config -->
+                    <!-- Webhook Config -->
                     <div v-if="form.type === 'http'" class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
-                            <h5 class="mb-0">HTTP Request</h5>
+                            <h5 class="mb-0">Webhook Details</h5>
                         </div>
                         <div class="card-body">
                             <div class="row mb-3">
@@ -164,7 +164,21 @@
                                 </div>
                                 <div class="col-md-9">
                                     <label class="form-label">URL *</label>
-                                    <input type="url" class="form-control" v-model="httpRequest.url" required placeholder="https://api.example.com/webhook">
+                                    <div class="position-relative">
+                                        <input
+                                            type="url"
+                                            class="form-control"
+                                            :class="{ 'is-invalid': urlError }"
+                                            v-model="httpRequest.url"
+                                            required
+                                            placeholder="https://api.example.com/webhook"
+                                            @blur="validateUrl"
+                                        >
+                                        <div v-if="urlValidating" class="position-absolute top-50 end-0 translate-middle-y pe-3">
+                                            <span class="spinner-border spinner-border-sm text-muted"></span>
+                                        </div>
+                                    </div>
+                                    <div v-if="urlError" class="invalid-feedback d-block">{{ urlError }}</div>
                                 </div>
                             </div>
                             <div class="mb-3">
@@ -195,27 +209,47 @@
                                     <input type="number" class="form-control" v-model="form.max_attempts" min="1" max="10">
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Retry Strategy</label>
+                                    <label class="form-label">
+                                        Retry Strategy
+                                        <span
+                                            class="text-muted ms-1"
+                                            role="button"
+                                            data-bs-toggle="tooltip"
+                                            data-bs-placement="top"
+                                            data-bs-html="true"
+                                            :title="retryTooltip"
+                                            @mouseenter="initTooltip"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                            </svg>
+                                        </span>
+                                    </label>
                                     <select class="form-select" v-model="form.retry_strategy">
                                         <option value="exponential">Exponential Backoff</option>
                                         <option value="linear">Linear</option>
                                     </select>
                                 </div>
                             </div>
-                            <small class="text-muted">Retries occur on server errors (5xx) and timeouts. Client errors (4xx) are not retried.</small>
+                            <div class="mt-2">
+                                <small class="text-muted">Retries only occur when the request fails or times out.</small>
+                                <a href="https://docs.callmelater.io/reference/retry-behavior" target="_blank" class="small ms-2">Learn more</a>
+                            </div>
 
-                            <!-- Test Request -->
+                            <!-- Test Webhook -->
                             <div class="mt-4 pt-3 border-top">
                                 <div class="d-flex align-items-center justify-content-between">
                                     <div>
-                                        <strong>Test your endpoint</strong>
+                                        <strong>Test your webhook</strong>
                                         <div class="text-muted small">Send a test request to verify your configuration</div>
                                     </div>
                                     <button
                                         type="button"
                                         class="btn btn-outline-secondary"
                                         @click="testRequest"
-                                        :disabled="testing || !httpRequest.url || hasJsonErrors"
+                                        :disabled="testing || !httpRequest.url || hasValidationErrors"
                                     >
                                         <span v-if="testing">
                                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -298,7 +332,7 @@
                     <!-- Submit -->
                     <div class="d-flex justify-content-end gap-2">
                         <router-link to="/dashboard" class="btn btn-outline-secondary">Cancel</router-link>
-                        <button type="submit" class="btn btn-cml-primary" :disabled="submitting">
+                        <button type="submit" class="btn btn-cml-primary" :disabled="submitting || (form.type === 'http' && (hasValidationErrors || !httpRequest.url))">
                             {{ submitting ? 'Creating...' : 'Create Action' }}
                         </button>
                     </div>
@@ -361,6 +395,11 @@ export default {
             // Test request
             testing: false,
             testResult: null,
+            // URL validation
+            urlError: null,
+            urlValidating: false,
+            // Tooltip content
+            retryTooltip: `<strong>Exponential backoff</strong><br>After a failure, retries are delayed with increasing intervals (e.g. 1min, 5min, 15min, 1hr).<br><br><strong>Linear</strong><br>Retries use fixed intervals.<br><br><em>Client errors (4xx) are not retried.</em>`,
         };
     },
     computed: {
@@ -372,6 +411,18 @@ export default {
         },
         hasJsonErrors() {
             return !!(this.headersJsonError || this.bodyJsonError);
+        },
+        hasValidationErrors() {
+            return this.hasJsonErrors || !!this.urlError || this.urlValidating;
+        },
+        isUrlValid() {
+            if (!this.httpRequest.url) return false;
+            try {
+                const url = new URL(this.httpRequest.url);
+                return url.protocol === 'http:' || url.protocol === 'https:';
+            } catch {
+                return false;
+            }
         }
     },
     mounted() {
@@ -394,6 +445,14 @@ export default {
         dismissFirewallHint() {
             this.showFirewallHint = false;
             localStorage.setItem('dismissedFirewallHint', 'true');
+        },
+        initTooltip(event) {
+            // Initialize Bootstrap tooltip on first hover
+            const el = event.target.closest('[data-bs-toggle="tooltip"]');
+            if (el && !el._tooltip) {
+                el._tooltip = new bootstrap.Tooltip(el);
+                el._tooltip.show();
+            }
         },
         async testRequest() {
             this.testing = true;
@@ -455,14 +514,52 @@ export default {
                 return `Invalid JSON — ${message.toLowerCase()}`;
             }
         },
+        async validateUrl() {
+            const url = this.httpRequest.url?.trim();
+            this.urlError = null;
+
+            // Skip if empty - will be caught by required validation on submit
+            if (!url) {
+                return;
+            }
+
+            // Basic format validation first
+            if (!this.isUrlValid) {
+                this.urlError = 'Please enter a valid URL starting with http:// or https://';
+                return;
+            }
+
+            // Validate against backend for SSRF checks
+            this.urlValidating = true;
+            try {
+                const response = await axios.post('/api/v1/actions/test', {
+                    url: url,
+                    method: 'GET',
+                });
+
+                // Check if the URL was blocked by SSRF protection
+                if (!response.data.success && response.data.error) {
+                    const error = response.data.error.toLowerCase();
+                    if (error.includes('private ip') || error.includes('not allowed') || error.includes('blocked')) {
+                        this.urlError = 'This URL resolves to a private IP address and cannot be called for security reasons.';
+                    }
+                    // Don't show error for other failures (like 404) - those are fine, the URL is reachable
+                }
+            } catch (err) {
+                // API error - might not be authenticated yet, skip validation
+                console.warn('URL validation failed:', err);
+            } finally {
+                this.urlValidating = false;
+            }
+        },
         async submit() {
             this.submitting = true;
             this.error = null;
             this.errors = [];
 
-            // Check for JSON errors first
-            if (this.form.type === 'http' && this.hasJsonErrors) {
-                this.error = 'Please fix the JSON errors before submitting.';
+            // Check for validation errors first
+            if (this.form.type === 'http' && this.hasValidationErrors) {
+                this.error = 'Please fix the validation errors before submitting.';
                 this.submitting = false;
                 return;
             }

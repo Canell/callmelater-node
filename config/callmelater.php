@@ -100,6 +100,8 @@ return [
             'max_schedule_days' => 30,
             'max_recipients' => 3,
             'max_retries' => 3,
+            'new_recipients_per_day' => 5,
+            'optin_emails_per_day' => 10,
         ],
         'pro' => [
             'max_actions_per_month' => 5000,
@@ -107,6 +109,8 @@ return [
             'max_schedule_days' => 365,
             'max_recipients' => 20,
             'max_retries' => 5,
+            'new_recipients_per_day' => 50,
+            'optin_emails_per_day' => 100,
         ],
         'business' => [
             'max_actions_per_month' => 50000,
@@ -114,6 +118,8 @@ return [
             'max_schedule_days' => 730, // 2 years
             'max_recipients' => 50,
             'max_retries' => 10,
+            'new_recipients_per_day' => 200,
+            'optin_emails_per_day' => 500,
         ],
     ],
 

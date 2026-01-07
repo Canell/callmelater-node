@@ -203,6 +203,10 @@
 
 <script>
 import axios from 'axios';
+import { useActionStatus } from '../composables/useActionStatus';
+import { formatDate } from '../utils/dateFormatting';
+
+const { formatStatus, statusBadgeClass, recipientBadgeClass, canCancel } = useActionStatus();
 
 export default {
     name: 'ActionDetail',
@@ -233,6 +237,11 @@ export default {
         this.loadAction();
     },
     methods: {
+        formatDate,
+        formatStatus,
+        statusBadgeClass,
+        recipientBadgeClass,
+        canCancel,
         async loadAction() {
             this.loading = true;
             try {
@@ -244,43 +253,6 @@ export default {
             } finally {
                 this.loading = false;
             }
-        },
-        formatDate(dateStr) {
-            if (!dateStr) return '-';
-            return new Date(dateStr).toLocaleString();
-        },
-        formatStatus(status) {
-            const labels = {
-                pending_resolution: 'Pending',
-                resolved: 'Scheduled',
-                awaiting_response: 'Awaiting Response',
-                executed: 'Executed',
-                failed: 'Failed',
-                cancelled: 'Cancelled',
-                expired: 'Expired',
-            };
-            return labels[status] || status;
-        },
-        statusBadgeClass(status) {
-            const classes = {
-                pending_resolution: 'bg-secondary',
-                resolved: 'bg-primary',
-                awaiting_response: 'bg-warning text-dark',
-                executed: 'bg-success',
-                failed: 'bg-danger',
-                cancelled: 'bg-secondary',
-                expired: 'bg-secondary',
-            };
-            return classes[status] || 'bg-secondary';
-        },
-        recipientBadgeClass(status) {
-            const classes = {
-                pending: 'bg-secondary',
-                confirmed: 'bg-success',
-                declined: 'bg-danger',
-                snoozed: 'bg-warning text-dark',
-            };
-            return classes[status] || 'bg-secondary';
         },
         eventBadgeClass(event) {
             if (event._type === 'attempt') {
@@ -295,9 +267,6 @@ export default {
                 expired: 'bg-secondary',
             };
             return classes[event.event_type] || 'bg-secondary';
-        },
-        canCancel(status) {
-            return ['pending_resolution', 'resolved', 'awaiting_response'].includes(status);
         },
         isConnectionError(event) {
             if (event._type !== 'attempt' || event.status !== 'failed') return false;

@@ -21,7 +21,8 @@
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"App\\\\Services\\\\StatusService::class\")",
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"\\(new App\\\\Services\\\\StatusService\\)->seedDefaultComponents\\(\\)\")",
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"echo App\\\\Models\\\\SystemComponent::count\\(\\) . '' components created''\")",
-      "Bash(composer require:*)"
+      "Bash(composer require:*)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan test)"
     ]
   }
 }

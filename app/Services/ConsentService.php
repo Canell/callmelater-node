@@ -9,12 +9,6 @@ use Illuminate\Support\Facades\Log;
 
 class ConsentService
 {
-    // Global sender limits by plan
-    public const SENDER_LIMITS = [
-        'free' => ['new_recipients_per_day' => 5, 'optin_emails_per_day' => 10],
-        'pro' => ['new_recipients_per_day' => 50, 'optin_emails_per_day' => 100],
-        'business' => ['new_recipients_per_day' => 200, 'optin_emails_per_day' => 500],
-    ];
 
     /**
      * Check if an opt-in email can be sent to a recipient.
@@ -58,12 +52,12 @@ class ConsentService
      */
     public function checkSenderLimits(User $sender): array
     {
-        $plan = $this->getUserPlan($sender);
-        $limits = self::SENDER_LIMITS[$plan] ?? self::SENDER_LIMITS['free'];
+        $limits = $sender->getPlanLimits();
 
         // Count new recipients today
         $newRecipientsToday = $this->countNewRecipientsToday($sender);
-        if ($newRecipientsToday >= $limits['new_recipients_per_day']) {
+        $maxNewRecipients = $limits['new_recipients_per_day'] ?? 5;
+        if ($newRecipientsToday >= $maxNewRecipients) {
             return [
                 'allowed' => false,
                 'reason' => 'sender_limit_new_recipients',
@@ -72,7 +66,8 @@ class ConsentService
 
         // Count opt-in emails sent today
         $optinEmailsToday = $this->countOptinEmailsToday($sender);
-        if ($optinEmailsToday >= $limits['optin_emails_per_day']) {
+        $maxOptinEmails = $limits['optin_emails_per_day'] ?? 10;
+        if ($optinEmailsToday >= $maxOptinEmails) {
             return [
                 'allowed' => false,
                 'reason' => 'sender_limit_optin_emails',
@@ -80,29 +75,6 @@ class ConsentService
         }
 
         return ['allowed' => true, 'reason' => null];
-    }
-
-    /**
-     * Get user's plan name.
-     */
-    protected function getUserPlan(User $sender): string
-    {
-        // Check for active subscription using Cashier's Billable trait
-        if ($sender->subscribed()) {
-            $subscription = $sender->subscription();
-            if ($subscription) {
-                $planName = $subscription->name ?? 'free';
-                // Normalize plan name
-                if (str_contains(strtolower($planName), 'business')) {
-                    return 'business';
-                }
-                if (str_contains(strtolower($planName), 'pro')) {
-                    return 'pro';
-                }
-            }
-        }
-
-        return 'free';
     }
 
     /**

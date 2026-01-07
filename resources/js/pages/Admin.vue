@@ -290,6 +290,7 @@
 
 <script>
 import axios from 'axios';
+import { formatTime, formatShortDate } from '../utils/dateFormatting';
 
 export default {
     name: 'Admin',
@@ -383,15 +384,8 @@ export default {
                 console.error('Failed to load queue:', err);
             }
         },
-        formatTime(dateStr) {
-            if (!dateStr) return '-';
-            return new Date(dateStr).toLocaleTimeString();
-        },
-        formatShortDate(dateStr) {
-            if (!dateStr) return '-';
-            const date = new Date(dateStr);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }
+        formatTime,
+        formatShortDate,
     }
 };
 </script>
