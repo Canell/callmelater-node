@@ -57,6 +57,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/actions', [ActionController::class, 'index']);
         Route::post('/actions', [ActionController::class, 'store'])
             ->middleware('throttle:create-action');
+        Route::post('/actions/test', [ActionController::class, 'test']);
         Route::get('/actions/{id}', [ActionController::class, 'show']);
         // Cancel by idempotency key (must be before /{id} route)
         Route::delete('/actions', [ActionController::class, 'destroyByIdempotencyKey']);

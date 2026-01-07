@@ -73,6 +73,58 @@ Requests are blocked to:
 
 Hostnames are resolved before the request, and IPs are validated. This prevents DNS rebinding attacks where a hostname resolves to a private IP.
 
+## IP Allowlisting
+
+If your webhook endpoint is behind a firewall, you'll need to allow incoming requests from CallMeLater's outbound IP address.
+
+### Outbound IP Address
+
+All HTTP calls from CallMeLater originate from:
+
+```
+203.0.113.50
+```
+
+:::tip
+You can also fetch this programmatically from our API:
+```bash
+curl https://callmelater.io/api/public/server-info
+```
+:::
+
+### Identifying CallMeLater Requests
+
+In addition to IP allowlisting, you can identify requests from CallMeLater by these headers:
+
+| Header | Description |
+|--------|-------------|
+| `User-Agent` | `CallMeLater/1.0` |
+| `X-CallMeLater-Action-Id` | UUID of the action |
+| `X-CallMeLater-Timestamp` | Unix timestamp |
+| `X-CallMeLater-Signature` | HMAC signature (if secret configured) |
+
+### Firewall Configuration Examples
+
+**AWS Security Group:**
+```
+Type: Custom TCP
+Port: 443
+Source: 203.0.113.50/32
+Description: CallMeLater webhooks
+```
+
+**Cloudflare:**
+Add to your WAF allow rules or use IP Access Rules to allow `203.0.113.50`.
+
+**nginx:**
+```nginx
+location /webhook {
+    allow 203.0.113.50;
+    deny all;
+    # ... proxy settings
+}
+```
+
 ## Data Security
 
 ### Encryption at Rest

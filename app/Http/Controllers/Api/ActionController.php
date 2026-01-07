@@ -8,13 +8,15 @@ use App\Http\Resources\ActionCollection;
 use App\Http\Resources\ActionResource;
 use App\Models\ScheduledAction;
 use App\Services\ActionService;
+use App\Services\HttpRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ActionController extends Controller
 {
     public function __construct(
-        private ActionService $actionService
+        private ActionService $actionService,
+        private HttpRequestService $httpRequestService
     ) {}
 
     public function index(Request $request): ActionCollection
@@ -130,5 +132,32 @@ class ActionController extends Controller
         } catch (\InvalidArgumentException $e) {
             return response()->json(['message' => $e->getMessage()], 409);
         }
+    }
+
+    /**
+     * Test an HTTP request without creating an action.
+     *
+     * POST /v1/actions/test
+     */
+    public function test(Request $request): JsonResponse
+    {
+        $request->validate([
+            'url' => 'required|url:http,https',
+            'method' => 'nullable|string|in:GET,POST,PUT,PATCH,DELETE',
+            'headers' => 'nullable|array',
+            'body' => 'nullable|array',
+        ]);
+
+        $config = [
+            'url' => $request->input('url'),
+            'method' => $request->input('method', 'POST'),
+            'headers' => $request->input('headers', []),
+            'body' => $request->input('body'),
+            'timeout' => 10, // Shorter timeout for tests
+        ];
+
+        $result = $this->httpRequestService->execute($config);
+
+        return response()->json($result);
     }
 }

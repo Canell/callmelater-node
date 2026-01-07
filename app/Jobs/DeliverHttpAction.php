@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\DeliveryAttempt;
 use App\Models\ScheduledAction;
+use App\Services\HttpRequestService;
 use App\Services\UrlValidator;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -11,7 +12,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class DeliverHttpAction implements ShouldQueue
@@ -31,7 +31,7 @@ class DeliverHttpAction implements ShouldQueue
         public ScheduledAction $action
     ) {}
 
-    public function handle(UrlValidator $urlValidator): void
+    public function handle(UrlValidator $urlValidator, HttpRequestService $httpService): void
     {
         // CRITICAL: Verify action is still in EXECUTING state
         // This guards against cancellation race conditions
@@ -91,7 +91,11 @@ class DeliverHttpAction implements ShouldQueue
         ]);
 
         try {
-            $response = $this->makeRequest($httpRequest);
+            $response = $httpService->makeRequest(
+                $httpRequest,
+                $this->action->webhook_secret,
+                $this->action->id
+            );
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
 
             $attempt->status = DeliveryAttempt::STATUS_SUCCESS;
@@ -129,56 +133,6 @@ class DeliverHttpAction implements ShouldQueue
 
             $this->handleSystemFailure($attempt, $e->getMessage(), $durationMs);
         }
-    }
-
-    /**
-     * @param array<string, mixed> $httpRequest
-     */
-    private function makeRequest(array $httpRequest): \Illuminate\Http\Client\Response
-    {
-        $method = strtolower($httpRequest['method'] ?? 'POST');
-        $url = $httpRequest['url'];
-        $headers = $httpRequest['headers'] ?? [];
-        $body = $httpRequest['body'] ?? null;
-
-        // Use configured timeout with sensible limits
-        $configTimeout = config('callmelater.http.timeout', 30);
-        $timeout = min($httpRequest['timeout'] ?? $configTimeout, 120);
-
-        // Add webhook signature if secret is configured
-        if ($this->action->webhook_secret) {
-            $headers['X-CallMeLater-Signature'] = $this->generateSignature($body);
-            $headers['X-CallMeLater-Action-Id'] = $this->action->id;
-            $headers['X-CallMeLater-Timestamp'] = (string) time();
-        }
-
-        // Build request with security options
-        $request = Http::withHeaders($headers)
-            ->timeout($timeout)
-            ->connectTimeout(10);
-
-        // Handle redirects based on config
-        if (! config('callmelater.http.allow_redirects', false)) {
-            $request = $request->withOptions(['allow_redirects' => false]);
-        } else {
-            $maxRedirects = config('callmelater.http.max_redirects', 3);
-            $request = $request->withOptions(['allow_redirects' => ['max' => $maxRedirects]]);
-        }
-
-        return match ($method) {
-            'get' => $request->get($url),
-            'post' => $request->post($url, $body),
-            'put' => $request->put($url, $body),
-            'patch' => $request->patch($url, $body),
-            'delete' => $request->delete($url, $body),
-            default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}"),
-        };
-    }
-
-    private function generateSignature(?array $body): string
-    {
-        $payload = $body ? json_encode($body) : '';
-        return 'sha256=' . hash_hmac('sha256', $payload, $this->action->webhook_secret);
     }
 
     /**

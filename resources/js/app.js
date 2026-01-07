@@ -17,7 +17,6 @@ import Admin from './pages/Admin.vue';
 import AdminStatus from './pages/AdminStatus.vue';
 import UseCases from './pages/UseCases.vue';
 import Status from './pages/Status.vue';
-import DocsWebhookSecurity from './pages/DocsWebhookSecurity.vue';
 
 // Define routes
 const routes = [
@@ -26,9 +25,6 @@ const routes = [
     { path: '/pricing', name: 'pricing', component: Pricing },
     { path: '/use-cases', name: 'use-cases', component: UseCases },
     { path: '/status', name: 'status', component: Status, meta: { hideNavFooter: true } },
-
-    // Documentation
-    { path: '/docs/webhook-security', name: 'docs-webhook-security', component: DocsWebhookSecurity },
 
     // Auth pages
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },

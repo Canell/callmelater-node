@@ -139,7 +139,7 @@
                                 <button type="button" class="btn btn-sm btn-outline-secondary" @click="copyIp">
                                     {{ ipCopied ? 'Copied!' : 'Copy' }}
                                 </button>
-                                <a href="/docs/webhook-security" class="btn btn-sm btn-link">Learn more</a>
+                                <a href="https://docs.callmelater.io/reference/security#ip-allowlisting" target="_blank" class="btn btn-sm btn-link">Learn more</a>
                             </div>
                         </div>
                         <button type="button" class="btn-close ms-2" @click="dismissFirewallHint" aria-label="Dismiss"></button>
@@ -169,11 +169,25 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Headers (JSON)</label>
-                                <textarea class="form-control font-monospace" v-model="headersJson" rows="3" placeholder='{"Authorization": "Bearer token"}'></textarea>
+                                <textarea
+                                    class="form-control font-monospace"
+                                    :class="{ 'is-invalid': headersJsonError }"
+                                    v-model="headersJson"
+                                    rows="3"
+                                    placeholder='{"Authorization": "Bearer YOUR_API_TOKEN"}'
+                                ></textarea>
+                                <div v-if="headersJsonError" class="invalid-feedback">{{ headersJsonError }}</div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Body (JSON)</label>
-                                <textarea class="form-control font-monospace" v-model="bodyJson" rows="4" placeholder='{"key": "value"}'></textarea>
+                                <textarea
+                                    class="form-control font-monospace"
+                                    :class="{ 'is-invalid': bodyJsonError }"
+                                    v-model="bodyJson"
+                                    rows="4"
+                                    placeholder='{"event": "trial_expired", "user_id": 123}'
+                                ></textarea>
+                                <div v-if="bodyJsonError" class="invalid-feedback">{{ bodyJsonError }}</div>
                             </div>
                             <div class="row">
                                 <div class="col-md-4">
@@ -186,6 +200,56 @@
                                         <option value="exponential">Exponential Backoff</option>
                                         <option value="linear">Linear</option>
                                     </select>
+                                </div>
+                            </div>
+                            <small class="text-muted">Retries occur on server errors (5xx) and timeouts. Client errors (4xx) are not retried.</small>
+
+                            <!-- Test Request -->
+                            <div class="mt-4 pt-3 border-top">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <strong>Test your endpoint</strong>
+                                        <div class="text-muted small">Send a test request to verify your configuration</div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary"
+                                        @click="testRequest"
+                                        :disabled="testing || !httpRequest.url || hasJsonErrors"
+                                    >
+                                        <span v-if="testing">
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                            Testing...
+                                        </span>
+                                        <span v-else>Test Request</span>
+                                    </button>
+                                </div>
+
+                                <!-- Test Result -->
+                                <div v-if="testResult" class="mt-3">
+                                    <div
+                                        class="alert mb-0"
+                                        :class="testResult.success ? 'alert-success' : 'alert-danger'"
+                                    >
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong v-if="testResult.success">Success!</strong>
+                                                <strong v-else>Failed</strong>
+                                                <span v-if="testResult.status_code" class="ms-2">
+                                                    HTTP {{ testResult.status_code }}
+                                                </span>
+                                                <span class="text-muted ms-2">({{ testResult.duration_ms }}ms)</span>
+                                            </div>
+                                            <button type="button" class="btn-close" @click="testResult = null"></button>
+                                        </div>
+                                        <div v-if="testResult.error" class="mt-2 small">
+                                            {{ testResult.error }}
+                                        </div>
+                                        <div v-if="testResult.body" class="mt-2">
+                                            <small class="text-muted">Response preview:</small>
+                                            <pre class="mb-0 mt-1 p-2 bg-white rounded small" style="max-height: 100px; overflow: auto;">{{ testResult.body }}</pre>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -294,7 +358,21 @@ export default {
             showFirewallHint: !localStorage.getItem('dismissedFirewallHint'),
             outboundIp: null,
             ipCopied: false,
+            // Test request
+            testing: false,
+            testResult: null,
         };
+    },
+    computed: {
+        headersJsonError() {
+            return this.validateJson(this.headersJson, 'headers');
+        },
+        bodyJsonError() {
+            return this.validateJson(this.bodyJson, 'body');
+        },
+        hasJsonErrors() {
+            return !!(this.headersJsonError || this.bodyJsonError);
+        }
     },
     mounted() {
         this.loadServerInfo();
@@ -317,10 +395,77 @@ export default {
             this.showFirewallHint = false;
             localStorage.setItem('dismissedFirewallHint', 'true');
         },
+        async testRequest() {
+            this.testing = true;
+            this.testResult = null;
+
+            try {
+                const payload = {
+                    url: this.httpRequest.url,
+                    method: this.httpRequest.method,
+                };
+
+                // Parse headers if provided
+                if (this.headersJson.trim()) {
+                    payload.headers = JSON.parse(this.headersJson);
+                }
+
+                // Parse body if provided
+                if (this.bodyJson.trim()) {
+                    payload.body = JSON.parse(this.bodyJson);
+                }
+
+                const response = await axios.post('/api/v1/actions/test', payload);
+                this.testResult = response.data;
+            } catch (err) {
+                this.testResult = {
+                    success: false,
+                    error: err.response?.data?.message || err.message || 'Test failed',
+                    duration_ms: 0,
+                };
+            } finally {
+                this.testing = false;
+            }
+        },
+        validateJson(jsonString, fieldName) {
+            if (!jsonString || !jsonString.trim()) {
+                return null; // Empty is valid (optional field)
+            }
+            try {
+                const parsed = JSON.parse(jsonString);
+                // Ensure it's an object, not an array or primitive
+                if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    return `${fieldName === 'headers' ? 'Headers' : 'Body'} must be a JSON object`;
+                }
+                return null;
+            } catch (e) {
+                // Try to give a helpful error message
+                const message = e.message || 'Invalid JSON';
+                // Clean up common JSON parse error messages
+                if (message.includes('Unexpected token')) {
+                    const match = message.match(/position (\d+)/);
+                    if (match) {
+                        return `Invalid JSON — syntax error near position ${match[1]}`;
+                    }
+                    return 'Invalid JSON — unexpected token';
+                }
+                if (message.includes('Unexpected end')) {
+                    return 'Invalid JSON — incomplete or missing closing bracket';
+                }
+                return `Invalid JSON — ${message.toLowerCase()}`;
+            }
+        },
         async submit() {
             this.submitting = true;
             this.error = null;
             this.errors = [];
+
+            // Check for JSON errors first
+            if (this.form.type === 'http' && this.hasJsonErrors) {
+                this.error = 'Please fix the JSON errors before submitting.';
+                this.submitting = false;
+                return;
+            }
 
             try {
                 // Build payload
