@@ -201,3 +201,22 @@ export default {
     }
 };
 </script>
+
+<style scoped>
+/* Fix dropdown being clipped by table-responsive overflow */
+.table-responsive {
+    overflow: visible;
+}
+
+/* Re-enable horizontal scroll only when needed on small screens */
+@media (max-width: 768px) {
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    /* Use fixed positioning for dropdown on mobile */
+    .table-responsive .dropdown-menu {
+        position: fixed;
+    }
+}
+</style>
