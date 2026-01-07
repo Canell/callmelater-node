@@ -249,11 +249,14 @@
                                         type="button"
                                         class="btn btn-outline-secondary"
                                         @click="testRequest"
-                                        :disabled="testing || !httpRequest.url || hasValidationErrors"
+                                        :disabled="testButtonDisabled"
                                     >
                                         <span v-if="testing">
                                             <span class="spinner-border spinner-border-sm me-1"></span>
                                             Testing...
+                                        </span>
+                                        <span v-else-if="testCooldown > 0">
+                                            Wait {{ testCooldown }}s
                                         </span>
                                         <span v-else>Test Request</span>
                                     </button>
@@ -263,21 +266,25 @@
                                 <div v-if="testResult" class="mt-3">
                                     <div
                                         class="alert mb-0"
-                                        :class="testResult.success ? 'alert-success' : 'alert-danger'"
+                                        :class="testResult.success ? 'alert-success' : (testResult.rate_limited ? 'alert-warning' : 'alert-danger')"
                                     >
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div>
                                                 <strong v-if="testResult.success">Success!</strong>
+                                                <strong v-else-if="testResult.rate_limited">Test limit reached</strong>
                                                 <strong v-else>Failed</strong>
                                                 <span v-if="testResult.status_code" class="ms-2">
                                                     HTTP {{ testResult.status_code }}
                                                 </span>
-                                                <span class="text-muted ms-2">({{ testResult.duration_ms }}ms)</span>
+                                                <span v-if="testResult.duration_ms" class="text-muted ms-2">({{ testResult.duration_ms }}ms)</span>
                                             </div>
                                             <button type="button" class="btn-close" @click="testResult = null"></button>
                                         </div>
                                         <div v-if="testResult.error" class="mt-2 small">
                                             {{ testResult.error }}
+                                        </div>
+                                        <div v-if="testCooldown > 0" class="mt-2 small">
+                                            You can test again in <strong>{{ testCooldown }}</strong> seconds.
                                         </div>
                                         <div v-if="testResult.body" class="mt-2">
                                             <small class="text-muted">Response preview:</small>
@@ -332,7 +339,7 @@
                     <!-- Submit -->
                     <div class="d-flex justify-content-end gap-2">
                         <router-link to="/dashboard" class="btn btn-outline-secondary">Cancel</router-link>
-                        <button type="submit" class="btn btn-cml-primary" :disabled="submitting || (form.type === 'http' && (hasValidationErrors || !httpRequest.url))">
+                        <button type="submit" class="btn btn-cml-primary" :disabled="submitting || (form.type === 'http' && (hasValidationErrors || !isUrlValid))">
                             {{ submitting ? 'Creating...' : 'Create Action' }}
                         </button>
                     </div>
@@ -395,6 +402,8 @@ export default {
             // Test request
             testing: false,
             testResult: null,
+            testCooldown: 0,
+            testCooldownInterval: null,
             // URL validation
             urlError: null,
             urlValidating: false,
@@ -415,11 +424,17 @@ export default {
         hasValidationErrors() {
             return this.hasJsonErrors || !!this.urlError || this.urlValidating;
         },
+        testButtonDisabled() {
+            return this.testing || !this.isUrlValid || this.hasValidationErrors || this.testCooldown > 0;
+        },
         isUrlValid() {
             if (!this.httpRequest.url) return false;
             try {
                 const url = new URL(this.httpRequest.url);
-                return url.protocol === 'http:' || url.protocol === 'https:';
+                // Must have http/https protocol AND a valid hostname (not empty)
+                const validProtocol = url.protocol === 'http:' || url.protocol === 'https:';
+                const hasHost = url.hostname && url.hostname.length > 0 && url.hostname.includes('.');
+                return validProtocol && hasHost;
             } catch {
                 return false;
             }
@@ -427,6 +442,12 @@ export default {
     },
     mounted() {
         this.loadServerInfo();
+    },
+    beforeUnmount() {
+        // Clean up cooldown interval
+        if (this.testCooldownInterval) {
+            clearInterval(this.testCooldownInterval);
+        }
     },
     methods: {
         async loadServerInfo() {
@@ -477,14 +498,43 @@ export default {
                 const response = await axios.post('/api/v1/actions/test', payload);
                 this.testResult = response.data;
             } catch (err) {
-                this.testResult = {
-                    success: false,
-                    error: err.response?.data?.message || err.message || 'Test failed',
-                    duration_ms: 0,
-                };
+                // Handle rate limiting (429)
+                if (err.response?.status === 429) {
+                    const data = err.response.data;
+                    this.testResult = {
+                        success: false,
+                        error: data.message || 'Rate limit reached. Please wait before testing again.',
+                        duration_ms: 0,
+                        rate_limited: true,
+                    };
+                    // Start cooldown timer
+                    const retryAfter = data.retry_after || 60;
+                    this.startCooldown(retryAfter);
+                } else {
+                    this.testResult = {
+                        success: false,
+                        error: err.response?.data?.message || err.message || 'Test failed',
+                        duration_ms: 0,
+                    };
+                }
             } finally {
                 this.testing = false;
             }
+        },
+        startCooldown(seconds) {
+            this.testCooldown = seconds;
+            // Clear any existing interval
+            if (this.testCooldownInterval) {
+                clearInterval(this.testCooldownInterval);
+            }
+            // Start countdown
+            this.testCooldownInterval = setInterval(() => {
+                this.testCooldown--;
+                if (this.testCooldown <= 0) {
+                    clearInterval(this.testCooldownInterval);
+                    this.testCooldownInterval = null;
+                }
+            }, 1000);
         },
         validateJson(jsonString, fieldName) {
             if (!jsonString || !jsonString.trim()) {

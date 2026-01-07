@@ -65,5 +65,46 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('status', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());
         });
+
+        // Test webhook rate limit - per URL (3 per minute)
+        RateLimiter::for('test-action-url', function (Request $request) {
+            $url = $request->input('url', '');
+            $userId = $request->user()?->id ?? $request->ip();
+
+            return Limit::perMinute(3)
+                ->by($userId . '|' . md5($url))
+                ->response(function (Request $request, array $headers) {
+                    $retryAfter = $headers['Retry-After'] ?? 60;
+
+                    return response()->json([
+                        'success' => false,
+                        'status_code' => null,
+                        'duration_ms' => 0,
+                        'error' => 'rate_limit_url',
+                        'message' => "You've tested this URL too many times. Please wait before testing again.",
+                        'retry_after' => (int) $retryAfter,
+                    ], 429);
+                });
+        });
+
+        // Test webhook rate limit - per user (20 per hour)
+        RateLimiter::for('test-action-user', function (Request $request) {
+            $userId = $request->user()?->id ?? $request->ip();
+
+            return Limit::perHour(20)
+                ->by($userId)
+                ->response(function (Request $request, array $headers) {
+                    $retryAfter = $headers['Retry-After'] ?? 3600;
+
+                    return response()->json([
+                        'success' => false,
+                        'status_code' => null,
+                        'duration_ms' => 0,
+                        'error' => 'rate_limit_user',
+                        'message' => "You've reached your hourly test limit. Please wait before testing again.",
+                        'retry_after' => (int) $retryAfter,
+                    ], 429);
+                });
+        });
     }
 }
