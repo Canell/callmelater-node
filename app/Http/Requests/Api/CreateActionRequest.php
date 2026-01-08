@@ -60,6 +60,7 @@ class CreateActionRequest extends FormRequest
             'escalation_rules.escalation_contacts' => ['nullable', 'array'],
             'escalation_rules.escalation_contacts.*' => ['email'],
             'max_snoozes' => ['nullable', 'integer', 'min:0', 'max:10'],
+            'callback_url' => ['nullable', 'url:http,https'],
         ];
     }
 

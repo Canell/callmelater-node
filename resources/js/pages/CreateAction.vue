@@ -321,7 +321,7 @@
                                 <label class="form-label">Recipients * (one email per line)</label>
                                 <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="user@example.com"></textarea>
                             </div>
-                            <div class="row">
+                            <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label">Confirmation Mode</label>
                                     <select class="form-select" v-model="form.confirmation_mode">
@@ -332,6 +332,21 @@
                                 <div class="col-md-6">
                                     <label class="form-label">Max Snoozes</label>
                                     <input type="number" class="form-control" v-model="form.max_snoozes" min="0" max="10">
+                                </div>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label">
+                                    Callback URL
+                                    <span class="text-muted fw-normal">(optional)</span>
+                                </label>
+                                <input
+                                    type="url"
+                                    class="form-control"
+                                    v-model="form.callback_url"
+                                    placeholder="https://api.example.com/webhook/reminder-response"
+                                >
+                                <div class="form-text">
+                                    We'll POST to this URL when someone responds (confirm, decline, or snooze).
                                 </div>
                             </div>
                         </div>
@@ -378,6 +393,7 @@ export default {
                 message: '',
                 confirmation_mode: 'first_response',
                 max_snoozes: 5,
+                callback_url: '',
             },
             scheduleType: 'datetime',
             intentPreset: 'tomorrow',
@@ -511,6 +527,7 @@ export default {
                     this.form.message = action.message || '';
                     this.form.confirmation_mode = action.confirmation_mode || 'first_response';
                     this.form.max_snoozes = action.max_snoozes || 5;
+                    this.form.callback_url = action.callback_url || '';
 
                     // Extract recipients from escalation_rules
                     const rules = action.escalation_rules || {};
@@ -719,6 +736,9 @@ export default {
                     payload.escalation_rules = {
                         recipients: this.recipientsText.split('\n').map(e => e.trim()).filter(e => e),
                     };
+                    if (this.form.callback_url?.trim()) {
+                        payload.callback_url = this.form.callback_url.trim();
+                    }
                 }
 
                 await axios.post('/api/v1/actions', payload);

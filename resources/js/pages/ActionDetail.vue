@@ -106,6 +106,10 @@
                                     <strong>{{ action.snooze_count }} / {{ action.max_snoozes }}</strong>
                                 </div>
                             </div>
+                            <div v-if="action.callback_url" class="mt-3">
+                                <small class="text-muted d-block">Callback URL</small>
+                                <code class="small">{{ action.callback_url }}</code>
+                            </div>
                         </div>
                     </div>
 

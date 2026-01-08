@@ -75,7 +75,7 @@ class HttpRequestService
      *
      * @param array<string, mixed> $config
      */
-    public function makeRequest(array $config, ?string $webhookSecret = null, ?string $actionId = null): Response
+    public function makeRequest(array $config, ?string $webhookSecret = null, ?string $actionId = null, ?string $event = null): Response
     {
         $method = strtolower($config['method'] ?? 'POST');
         $url = $config['url'];
@@ -91,6 +91,9 @@ class HttpRequestService
             $headers['X-CallMeLater-Signature'] = $this->generateSignature($body, $webhookSecret);
             $headers['X-CallMeLater-Action-Id'] = $actionId ?? 'test';
             $headers['X-CallMeLater-Timestamp'] = (string) time();
+            if ($event) {
+                $headers['X-CallMeLater-Event'] = $event;
+            }
         }
 
         // Build request with security options

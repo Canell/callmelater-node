@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\DeliverReminderCallback;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
@@ -34,6 +35,9 @@ class ResponseProcessor
         } elseif ($action->confirmation_mode === ScheduledAction::CONFIRMATION_ALL_REQUIRED) {
             $this->checkAllConfirmed($action);
         }
+
+        // Dispatch callback webhook if configured (best-effort, non-blocking)
+        $this->dispatchCallback($action, 'confirm', $recipient->email);
     }
 
     /**
@@ -58,6 +62,9 @@ class ResponseProcessor
             $action->executed_at_utc = now();
             $action->save();
         }
+
+        // Dispatch callback webhook if configured (best-effort, non-blocking)
+        $this->dispatchCallback($action, 'decline', $recipient->email);
     }
 
     /**
@@ -90,6 +97,10 @@ class ResponseProcessor
 
         // Snooze the action (this will re-resolve the intent)
         $this->actionService->snooze($action, $preset);
+
+        // Dispatch callback webhook if configured (best-effort, non-blocking)
+        $action->refresh(); // Get updated execute_at_utc after snooze
+        $this->dispatchCallback($action, 'snooze', $recipient->email, $preset, $action->execute_at_utc?->toIso8601String());
     }
 
     /**
@@ -133,5 +144,32 @@ class ResponseProcessor
             'snooze' => 'Reminder snoozed. You will receive another reminder soon.',
             default => 'Your response has been recorded.',
         };
+    }
+
+    /**
+     * Dispatch callback webhook if configured.
+     *
+     * This is BEST-EFFORT delivery - the callback is dispatched asynchronously
+     * and never affects the reminder outcome.
+     */
+    private function dispatchCallback(
+        ScheduledAction $action,
+        string $response,
+        string $responderEmail,
+        ?string $snoozePreset = null,
+        ?string $nextReminderAt = null
+    ): void {
+        if (! $action->callback_url) {
+            return;
+        }
+
+        DeliverReminderCallback::dispatch(
+            $action,
+            $response,
+            $responderEmail,
+            1, // First attempt
+            $snoozePreset,
+            $nextReminderAt
+        );
     }
 }

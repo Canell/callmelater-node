@@ -41,6 +41,7 @@ class ActionResource extends JsonResource
             'snooze_count' => $this->when($this->type === 'reminder', $this->snooze_count),
             'max_snoozes' => $this->when($this->type === 'reminder', $this->max_snoozes),
             'escalation_rules' => $this->when($this->type === 'reminder', $this->escalation_rules),
+            'callback_url' => $this->when($this->type === 'reminder', $this->callback_url),
             'token_expires_at' => $this->when($this->token_expires_at !== null, fn () => $this->token_expires_at?->toIso8601String()),
 
             // Relationships (when loaded)

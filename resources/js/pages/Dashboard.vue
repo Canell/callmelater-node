@@ -3,24 +3,9 @@
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">Actions</h2>
-            <div class="d-flex align-items-center gap-3">
-                <!-- Auto-refresh indicator -->
-                <div class="auto-refresh-indicator d-flex align-items-center gap-2">
-                    <button
-                        class="btn btn-sm"
-                        :class="autoRefresh ? 'btn-outline-success' : 'btn-outline-secondary'"
-                        @click="toggleAutoRefresh"
-                        :title="autoRefresh ? 'Auto-refresh enabled (click to pause)' : 'Auto-refresh paused (click to resume)'"
-                    >
-                        <span v-if="autoRefresh" class="refresh-dot"></span>
-                        <span v-else>&#10074;&#10074;</span>
-                    </button>
-                    <small class="text-muted" v-if="lastRefresh">{{ formatLastRefresh() }}</small>
-                </div>
-                <router-link to="/actions/create" class="btn btn-cml-primary">
-                    Add Action
-                </router-link>
-            </div>
+            <router-link to="/actions/create" class="btn btn-cml-primary">
+                Add Action
+            </router-link>
         </div>
 
         <!-- Filters -->
@@ -164,11 +149,9 @@ export default {
             searchQuery: '',
             statusFilter: '',
             typeFilter: '',
-            // Auto-refresh
-            autoRefresh: true,
+            // Auto-refresh (runs silently in background)
             refreshInterval: null,
             refreshSeconds: 30,
-            lastRefresh: null,
         };
     },
     computed: {
@@ -213,7 +196,6 @@ export default {
                 const response = await axios.get('/api/v1/actions', { params });
                 this.actions = response.data.data;
                 this.meta = response.data.meta;
-                this.lastRefresh = new Date();
             } catch (err) {
                 console.error('Failed to load actions:', err);
             } finally {
@@ -223,7 +205,7 @@ export default {
         startAutoRefresh() {
             if (this.refreshInterval) return;
             this.refreshInterval = setInterval(() => {
-                if (this.autoRefresh && !document.hidden) {
+                if (!document.hidden) {
                     this.loadActions(this.meta.current_page || 1, true);
                 }
             }, this.refreshSeconds * 1000);
@@ -233,17 +215,6 @@ export default {
                 clearInterval(this.refreshInterval);
                 this.refreshInterval = null;
             }
-        },
-        toggleAutoRefresh() {
-            this.autoRefresh = !this.autoRefresh;
-        },
-        formatLastRefresh() {
-            if (!this.lastRefresh) return '';
-            const now = new Date();
-            const diff = Math.floor((now - this.lastRefresh) / 1000);
-            if (diff < 5) return 'just now';
-            if (diff < 60) return `${diff}s ago`;
-            return `${Math.floor(diff / 60)}m ago`;
         },
         async cancelAction(action) {
             if (!confirm(`Cancel action "${action.name}"?`)) return;
@@ -263,25 +234,6 @@ export default {
 /* Fix dropdown being clipped by table-responsive overflow */
 .table-responsive {
     overflow: visible;
-}
-
-/* Auto-refresh indicator */
-.refresh-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background-color: #22c55e;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.4;
-    }
 }
 
 /* Type label with icon */

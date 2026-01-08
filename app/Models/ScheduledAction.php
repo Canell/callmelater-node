@@ -36,6 +36,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $max_snoozes
  * @property Carbon|null $token_expires_at
  * @property string|null $webhook_secret
+ * @property string|null $callback_url
  * @property Carbon $created_at
  * @property Carbon $updated_at
  */
@@ -112,6 +113,7 @@ class ScheduledAction extends Model
         'max_snoozes',
         'token_expires_at',
         'webhook_secret',
+        'callback_url',
     ];
 
     protected function casts(): array
@@ -151,6 +153,11 @@ class ScheduledAction extends Model
     public function recipients(): HasMany
     {
         return $this->hasMany(ReminderRecipient::class, 'action_id');
+    }
+
+    public function callbackAttempts(): HasMany
+    {
+        return $this->hasMany(CallbackAttempt::class, 'action_id');
     }
 
     // Scopes

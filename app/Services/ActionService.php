@@ -60,6 +60,7 @@ class ActionService
             $action->confirmation_mode = $data['confirmation_mode'] ?? ScheduledAction::CONFIRMATION_FIRST_RESPONSE;
             $action->escalation_rules = $data['escalation_rules'] ?? null;
             $action->max_snoozes = $data['max_snoozes'] ?? 5;
+            $action->callback_url = $data['callback_url'] ?? null;
         }
 
         $action->save();
