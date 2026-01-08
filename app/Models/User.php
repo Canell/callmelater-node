@@ -76,11 +76,25 @@ class User extends Authenticatable implements MustVerifyEmail
         $subscription = $this->subscription('default');
         $priceId = $subscription?->stripe_price;
 
-        return match ($priceId) {
-            config('services.stripe.prices.pro') => 'pro',
-            config('services.stripe.prices.business') => 'business',
-            default => 'free',
-        };
+        // Check both monthly and annual price IDs for each plan
+        $proPrices = [
+            config('services.stripe.prices.pro_monthly'),
+            config('services.stripe.prices.pro_annual'),
+        ];
+        $businessPrices = [
+            config('services.stripe.prices.business_monthly'),
+            config('services.stripe.prices.business_annual'),
+        ];
+
+        if (in_array($priceId, $proPrices, true)) {
+            return 'pro';
+        }
+
+        if (in_array($priceId, $businessPrices, true)) {
+            return 'business';
+        }
+
+        return 'free';
     }
 
     /**

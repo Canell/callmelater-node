@@ -37,8 +37,10 @@ return [
 
     'stripe' => [
         'prices' => [
-            'pro' => env('STRIPE_PRICE_PRO_MONTHLY'),
-            'business' => env('STRIPE_PRICE_BUSINESS_MONTHLY'),
+            'pro_monthly' => env('STRIPE_PRICE_PRO_MONTHLY'),
+            'pro_annual' => env('STRIPE_PRICE_PRO_ANNUAL'),
+            'business_monthly' => env('STRIPE_PRICE_BUSINESS_MONTHLY'),
+            'business_annual' => env('STRIPE_PRICE_BUSINESS_ANNUAL'),
         ],
     ],
 

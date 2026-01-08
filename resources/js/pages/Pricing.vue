@@ -4,7 +4,26 @@
     <section class="pricing-hero">
       <div class="container text-center">
         <h1 class="display-5 fw-bold mb-3">Simple, transparent pricing</h1>
-        <p class="lead text-muted">Start free. Scale as you grow.</p>
+        <p class="lead text-muted mb-4">Start free. Scale as you grow.</p>
+
+        <!-- Billing Toggle -->
+        <div class="billing-toggle d-inline-flex align-items-center bg-white rounded-pill p-1 shadow-sm">
+          <button
+            class="toggle-btn"
+            :class="{ active: billingPeriod === 'monthly' }"
+            @click="billingPeriod = 'monthly'"
+          >
+            Monthly
+          </button>
+          <button
+            class="toggle-btn"
+            :class="{ active: billingPeriod === 'annual' }"
+            @click="billingPeriod = 'annual'"
+          >
+            Annual
+            <span class="save-badge">Save 17%</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -38,7 +57,17 @@
               <div class="card-badge">Most Popular</div>
               <div class="card-body">
                 <h5 class="card-title text-muted text-uppercase small fw-semibold">Pro</h5>
-                <div class="price-display mb-3">$29<span class="price-period">/month</span></div>
+                <div class="price-display mb-1">
+                  <span class="price-amount" :key="billingPeriod">
+                    ${{ billingPeriod === 'annual' ? '24' : '29' }}
+                  </span>
+                  <span class="price-period">/month</span>
+                </div>
+                <div v-if="billingPeriod === 'annual'" class="annual-note mb-3">
+                  <span class="text-success small fw-medium">$290/year</span>
+                  <span class="text-muted small"> (2 months free)</span>
+                </div>
+                <div v-else class="mb-3">&nbsp;</div>
                 <p class="text-muted small mb-4">For growing projects</p>
                 <ul class="feature-list mb-4">
                   <li class="included">5,000 actions/month</li>
@@ -60,7 +89,17 @@
             <div class="card pricing-card h-100">
               <div class="card-body">
                 <h5 class="card-title text-muted text-uppercase small fw-semibold">Business</h5>
-                <div class="price-display mb-3">$99<span class="price-period">/month</span></div>
+                <div class="price-display mb-1">
+                  <span class="price-amount" :key="billingPeriod">
+                    ${{ billingPeriod === 'annual' ? '82' : '99' }}
+                  </span>
+                  <span class="price-period">/month</span>
+                </div>
+                <div v-if="billingPeriod === 'annual'" class="annual-note mb-3">
+                  <span class="text-success small fw-medium">$990/year</span>
+                  <span class="text-muted small"> (2 months free)</span>
+                </div>
+                <div v-else class="mb-3">&nbsp;</div>
                 <p class="text-muted small mb-4">For teams and scale</p>
                 <ul class="feature-list mb-4">
                   <li class="included">25,000 actions/month</li>
@@ -160,8 +199,8 @@
                 </h3>
                 <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                   <div class="accordion-body text-muted">
-                    Yes! Annual billing gives you 2 months free (pay for 10, get 12).
-                    Contact us to switch to annual billing.
+                    Yes! Use the toggle above to switch to annual billing and get 2 months free
+                    (pay for 10 months, get 12). That's a 17% discount compared to monthly billing.
                   </div>
                 </div>
               </div>
@@ -203,13 +242,14 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const loading = ref(false);
+const billingPeriod = ref('monthly');
 
 async function subscribe(plan) {
   // Check if user is authenticated
   const token = localStorage.getItem('token');
   if (!token) {
     // Redirect to register with plan param
-    router.push({ name: 'register', query: { plan } });
+    router.push({ name: 'register', query: { plan, billing: billingPeriod.value } });
     return;
   }
 
@@ -217,7 +257,8 @@ async function subscribe(plan) {
 
   try {
     const response = await axios.post('/api/subscription/checkout', {
-      plan: plan
+      plan: plan,
+      billing: billingPeriod.value
     });
 
     // Redirect to Stripe Checkout
@@ -390,5 +431,59 @@ async function subscribe(plan) {
 .cta-section .btn-light:hover {
   background-color: #f0fdf4;
   color: #166534;
+}
+
+/* Billing Toggle */
+.billing-toggle {
+  border: 1px solid #e5e7eb;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #6b7280;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.toggle-btn:hover {
+  color: #374151;
+}
+
+.toggle-btn.active {
+  background-color: #111827;
+  color: white;
+}
+
+.save-badge {
+  display: inline-block;
+  background-color: #22C55E;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.toggle-btn.active .save-badge {
+  background-color: #16a34a;
+}
+
+/* Price animation */
+.price-amount {
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.annual-note {
+  min-height: 1.25rem;
 }
 </style>

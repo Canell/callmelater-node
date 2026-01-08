@@ -58,19 +58,21 @@ class SubscriptionController extends Controller
     {
         $request->validate([
             'plan' => 'required|in:pro,business',
+            'billing' => 'sometimes|in:monthly,annual',
         ]);
 
         $user = $request->user();
-        $priceId = $this->getPriceId($request->input('plan'));
+        $billing = $request->input('billing', 'monthly');
+        $priceId = $this->getPriceId($request->input('plan'), $billing);
 
         if (! $priceId) {
-            return response()->json(['error' => 'Invalid plan'], 400);
+            return response()->json(['error' => 'Invalid plan or billing period'], 400);
         }
 
         $checkout = $user->newSubscription('default', $priceId)
             ->checkout([
-                'success_url' => config('app.url') . '/dashboard?subscription=success',
-                'cancel_url' => config('app.url') . '/pricing?subscription=cancelled',
+                'success_url' => config('app.url').'/dashboard?subscription=success',
+                'cancel_url' => config('app.url').'/pricing?subscription=cancelled',
             ]);
 
         /** @var string $url */
@@ -136,14 +138,12 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Get the Stripe price ID for a plan.
+     * Get the Stripe price ID for a plan and billing period.
      */
-    private function getPriceId(string $plan): ?string
+    private function getPriceId(string $plan, string $billing = 'monthly'): ?string
     {
-        return match ($plan) {
-            'pro' => config('services.stripe.prices.pro'),
-            'business' => config('services.stripe.prices.business'),
-            default => null,
-        };
+        $key = "{$plan}_{$billing}";
+
+        return config("services.stripe.prices.{$key}");
     }
 }
