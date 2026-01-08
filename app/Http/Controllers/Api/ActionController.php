@@ -26,7 +26,7 @@ class ActionController extends Controller
         $cutoffDate = now()->subDays($historyDays);
 
         $query = ScheduledAction::query()
-            ->forUser($user->id)
+            ->where('account_id', $user->account_id)
             ->where(function ($q) use ($cutoffDate) {
                 // Show all non-terminal actions (pending, scheduled, awaiting response)
                 $q->whereNotIn('resolution_status', [
@@ -67,9 +67,9 @@ class ActionController extends Controller
 
     public function show(Request $request, string $id): ActionResource|JsonResponse
     {
-        $action = ScheduledAction::query()
-            ->forUser($request->user()->id)
-            ->with(['deliveryAttempts', 'reminderEvents', 'recipients'])
+        $user = $request->user();
+        $action = ScheduledAction::with(['deliveryAttempts', 'reminderEvents', 'recipients'])
+            ->where('account_id', $user->account_id)
             ->find($id);
 
         if (! $action) {
@@ -81,9 +81,8 @@ class ActionController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $action = ScheduledAction::query()
-            ->forUser($request->user()->id)
-            ->find($id);
+        $user = $request->user();
+        $action = ScheduledAction::where('account_id', $user->account_id)->find($id);
 
         if (! $action) {
             return response()->json(['message' => 'Action not found'], 404);
@@ -114,7 +113,7 @@ class ActionController extends Controller
         ]);
 
         $action = ScheduledAction::query()
-            ->forUser($request->user()->id)
+            ->forAccount($request->user()->account_id)
             ->where('idempotency_key', $request->input('idempotency_key'))
             ->first();
 

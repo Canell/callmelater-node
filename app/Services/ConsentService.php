@@ -86,10 +86,10 @@ class ConsentService
      */
     protected function countNewRecipientsToday(User $sender): int
     {
-        // Count unique recipient emails from reminder actions created today
+        // Count unique recipient emails from reminder actions created today (account-wide)
         // We need to extract emails from the JSON escalation_rules->recipients array
         $actions = DB::table('scheduled_actions')
-            ->where('owner_user_id', $sender->id)
+            ->where('account_id', $sender->account_id)
             ->where('type', 'reminder')
             ->where('created_at', '>=', now()->startOfDay())
             ->pluck('escalation_rules');
@@ -111,9 +111,9 @@ class ConsentService
      */
     protected function countOptinEmailsToday(User $sender): int
     {
-        // Track via scheduled_actions that are in awaiting_consent state
+        // Track via scheduled_actions that are in awaiting_consent state (account-wide)
         return DB::table('scheduled_actions')
-            ->where('owner_user_id', $sender->id)
+            ->where('account_id', $sender->account_id)
             ->where('type', 'reminder')
             ->where('created_at', '>=', now()->startOfDay())
             ->count();

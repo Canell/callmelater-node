@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
- * @property int|null $owner_user_id
- * @property string|null $owner_team_id
+ * @property string $account_id
+ * @property int|null $created_by_user_id
  * @property string $name
  * @property string|null $description
  * @property string $type
@@ -87,8 +87,8 @@ class ScheduledAction extends Model
     public const CONFIRMATION_ALL_REQUIRED = 'all_required';
 
     protected $fillable = [
-        'owner_user_id',
-        'owner_team_id',
+        'account_id',
+        'created_by_user_id',
         'name',
         'description',
         'type',
@@ -130,14 +130,20 @@ class ScheduledAction extends Model
         ];
     }
 
-    public function owner(): BelongsTo
+    /**
+     * The account that owns this action.
+     */
+    public function account(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'owner_user_id');
+        return $this->belongsTo(Account::class);
     }
 
-    public function team(): BelongsTo
+    /**
+     * The user who created this action (optional, for audit trail).
+     */
+    public function creator(): BelongsTo
     {
-        return $this->belongsTo(Team::class, 'owner_team_id');
+        return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
     public function deliveryAttempts(): HasMany
@@ -174,14 +180,9 @@ class ScheduledAction extends Model
         });
     }
 
-    public function scopeForUser($query, $userId)
+    public function scopeForAccount($query, $accountId)
     {
-        return $query->where('owner_user_id', $userId);
-    }
-
-    public function scopeForTeam($query, $teamId)
-    {
-        return $query->where('owner_team_id', $teamId);
+        return $query->where('account_id', $accountId);
     }
 
     // Helpers

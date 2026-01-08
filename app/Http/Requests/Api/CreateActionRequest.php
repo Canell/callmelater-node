@@ -24,7 +24,6 @@ class CreateActionRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:1000'],
             'type' => ['required', 'string', Rule::in([ScheduledAction::TYPE_HTTP, ScheduledAction::TYPE_REMINDER])],
             'timezone' => ['nullable', 'string', 'timezone:all'],
-            'team_id' => ['nullable', 'uuid', 'exists:teams,id'],
             'idempotency_key' => ['nullable', 'string', 'max:255'],
 
             // Scheduling - either execute_at or intent
@@ -95,10 +94,10 @@ class CreateActionRequest extends FormRequest
                 }
             }
 
-            // Check idempotency key uniqueness for user
+            // Check idempotency key uniqueness for account
             if ($this->filled('idempotency_key')) {
                 $exists = ScheduledAction::query()
-                    ->forUser($user->id)
+                    ->forAccount($user->account_id)
                     ->where('idempotency_key', $this->input('idempotency_key'))
                     ->exists();
 
@@ -117,10 +116,10 @@ class CreateActionRequest extends FormRequest
      */
     private function validatePlanLimits(\Illuminate\Validation\Validator $validator, \App\Models\User $user): void
     {
-        // Check pending actions limit
+        // Check pending actions limit (per account)
         $maxPending = $user->getPlanLimit('max_pending_actions');
         $currentPending = ScheduledAction::query()
-            ->forUser($user->id)
+            ->forAccount($user->account_id)
             ->whereIn('resolution_status', [
                 ScheduledAction::STATUS_PENDING_RESOLUTION,
                 ScheduledAction::STATUS_RESOLVED,

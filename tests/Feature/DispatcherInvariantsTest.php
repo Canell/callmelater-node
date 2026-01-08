@@ -104,7 +104,8 @@ class DispatcherInvariantsTest extends TestCase
     public function test_future_actions_are_not_dispatched(): void
     {
         $action = ScheduledAction::create([
-            'owner_user_id' => $this->user->id,
+            'account_id' => $this->user->account_id,
+            'created_by_user_id' => $this->user->id,
             'name' => 'Future Action',
             'type' => ScheduledAction::TYPE_HTTP,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
@@ -159,7 +160,8 @@ class DispatcherInvariantsTest extends TestCase
     public function test_retry_actions_are_dispatched(): void
     {
         $action = ScheduledAction::create([
-            'owner_user_id' => $this->user->id,
+            'account_id' => $this->user->account_id,
+            'created_by_user_id' => $this->user->id,
             'name' => 'Retry Action',
             'type' => ScheduledAction::TYPE_HTTP,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
@@ -185,7 +187,8 @@ class DispatcherInvariantsTest extends TestCase
     private function createHttpAction(string $status): ScheduledAction
     {
         return ScheduledAction::create([
-            'owner_user_id' => $this->user->id,
+            'account_id' => $this->user->account_id,
+            'created_by_user_id' => $this->user->id,
             'name' => 'Test HTTP Action',
             'type' => ScheduledAction::TYPE_HTTP,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
@@ -202,7 +205,8 @@ class DispatcherInvariantsTest extends TestCase
     private function createReminderAction(string $status): ScheduledAction
     {
         return ScheduledAction::create([
-            'owner_user_id' => $this->user->id,
+            'account_id' => $this->user->account_id,
+            'created_by_user_id' => $this->user->id,
             'name' => 'Test Reminder',
             'type' => ScheduledAction::TYPE_REMINDER,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,

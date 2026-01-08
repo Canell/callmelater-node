@@ -23,8 +23,8 @@ class DomainVerificationService
     {
         $domain = VerifiedDomain::normalizeDomain($url);
 
-        // Check if already verified
-        $verified = VerifiedDomain::where('user_id', $user->id)
+        // Check if already verified (per account)
+        $verified = VerifiedDomain::where('account_id', $user->account_id)
             ->where('domain', $domain)
             ->first();
 
@@ -73,13 +73,13 @@ class DomainVerificationService
     public function getDomainUsage(User $user, string $domain): array
     {
         $dailyCount = DB::table('scheduled_actions')
-            ->where('owner_user_id', $user->id)
+            ->where('account_id', $user->account_id)
             ->where('created_at', '>=', now()->subDay())
             ->whereRaw("http_request->>'url' LIKE ?", ["%{$domain}%"])
             ->count();
 
         $monthlyCount = DB::table('scheduled_actions')
-            ->where('owner_user_id', $user->id)
+            ->where('account_id', $user->account_id)
             ->where('created_at', '>=', now()->subMonth())
             ->whereRaw("http_request->>'url' LIKE ?", ["%{$domain}%"])
             ->count();
@@ -99,7 +99,7 @@ class DomainVerificationService
 
         return VerifiedDomain::firstOrCreate(
             [
-                'user_id' => $user->id,
+                'account_id' => $user->account_id,
                 'domain' => $domain,
             ],
             [
@@ -127,7 +127,7 @@ class DomainVerificationService
                     $verification->markAsVerified(VerifiedDomain::METHOD_DNS);
                     Log::info('Domain verified via DNS', [
                         'domain' => $verification->domain,
-                        'user_id' => $verification->user_id,
+                        'account_id' => $verification->account_id,
                     ]);
                     return true;
                 }
@@ -166,7 +166,7 @@ class DomainVerificationService
                 $verification->markAsVerified(VerifiedDomain::METHOD_FILE);
                 Log::info('Domain verified via file', [
                     'domain' => $verification->domain,
-                    'user_id' => $verification->user_id,
+                    'account_id' => $verification->account_id,
                 ]);
                 return true;
             }
@@ -196,13 +196,13 @@ class DomainVerificationService
     }
 
     /**
-     * Get all domains for a user.
+     * Get all domains for a user's account.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, VerifiedDomain>
      */
     public function getDomainsForUser(User $user)
     {
-        return VerifiedDomain::where('user_id', $user->id)
+        return VerifiedDomain::where('account_id', $user->account_id)
             ->orderBy('created_at', 'desc')
             ->get();
     }

@@ -18,7 +18,7 @@ class VerifiedDomain extends Model
     public const GRACE_PERIOD_DAYS = 30;
 
     protected $fillable = [
-        'user_id',
+        'account_id',
         'domain',
         'verification_token',
         'method',
@@ -56,9 +56,9 @@ class VerifiedDomain extends Model
         return strtolower(trim($domain));
     }
 
-    public function user(): BelongsTo
+    public function account(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(Account::class);
     }
 
     /**

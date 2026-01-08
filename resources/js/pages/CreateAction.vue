@@ -70,6 +70,16 @@
                                 <label class="form-label">Description</label>
                                 <textarea class="form-control" v-model="form.description" rows="2"></textarea>
                             </div>
+                            <div v-if="teams.length > 0" class="mb-0">
+                                <label class="form-label">Team <span class="text-muted fw-normal">(optional)</span></label>
+                                <select class="form-select" v-model="form.team_id" style="max-width: 300px;">
+                                    <option :value="null">Personal (only me)</option>
+                                    <option v-for="team in teams" :key="team.id" :value="team.id">
+                                        {{ team.name }}
+                                    </option>
+                                </select>
+                                <div class="form-text">Actions assigned to a team are visible to all team members.</div>
+                            </div>
                         </div>
                     </div>
 
@@ -394,7 +404,11 @@ export default {
                 confirmation_mode: 'first_response',
                 max_snoozes: 5,
                 callback_url: '',
+                team_id: null,
             },
+            // Teams (Business plan)
+            teams: [],
+            userPlan: 'free',
             scheduleType: 'datetime',
             intentPreset: 'tomorrow',
             delayAmount: 1,
@@ -472,6 +486,7 @@ export default {
     },
     mounted() {
         this.loadServerInfo();
+        this.loadUserPlanAndTeams();
 
         // Check if we're cloning an existing action
         const cloneId = this.$route.query.clone;
@@ -492,6 +507,21 @@ export default {
                 this.outboundIp = response.data.outbound_ip;
             } catch (err) {
                 console.error('Failed to load server info:', err);
+            }
+        },
+        async loadUserPlanAndTeams() {
+            try {
+                // Check user's plan
+                const subResponse = await axios.get('/api/subscription/status');
+                this.userPlan = subResponse.data.plan || 'free';
+
+                // Load teams for Business users
+                if (this.userPlan === 'business') {
+                    const teamsResponse = await axios.get('/api/teams');
+                    this.teams = teamsResponse.data.data || [];
+                }
+            } catch (err) {
+                console.error('Failed to load user plan/teams:', err);
             }
         },
         async loadClonedAction(actionId) {
@@ -704,6 +734,7 @@ export default {
                     name: this.form.name,
                     description: this.form.description || undefined,
                     timezone: this.form.timezone,
+                    team_id: this.form.team_id || undefined,
                 };
 
                 // Schedule

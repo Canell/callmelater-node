@@ -7,7 +7,7 @@
             <div class="col-md-3 mb-4">
                 <div class="list-group">
                     <button
-                        v-for="tab in tabs"
+                        v-for="tab in visibleTabs"
                         :key="tab.id"
                         class="list-group-item list-group-item-action"
                         :class="{ active: activeTab === tab.id }"
@@ -80,6 +80,114 @@
                                     </button>
                                     <span v-if="passwordChanged" class="text-success ms-2">Password updated!</span>
                                     <div v-if="passwordError" class="text-danger mt-2">{{ passwordError }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Teams -->
+                    <div v-show="activeTab === 'teams'" class="card card-cml">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">Team Workspaces</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Create team workspaces to share actions with colleagues. Team members can view and manage shared actions.
+                            </p>
+
+                            <!-- Create new team -->
+                            <div class="bg-light p-3 rounded mb-4">
+                                <h6 class="mb-3">Create New Team</h6>
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Team Name</label>
+                                        <input type="text" class="form-control" v-model="newTeamName" placeholder="e.g. Engineering, Ops Team">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-cml-primary" @click="createTeam" :disabled="!newTeamName || creatingTeam">
+                                            {{ creatingTeam ? 'Creating...' : 'Create Team' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Teams list -->
+                            <div v-if="loadingTeams" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
+                            </div>
+
+                            <div v-else-if="teams.length === 0" class="text-center py-4 text-muted">
+                                <p>No teams yet. Create your first team above.</p>
+                            </div>
+
+                            <div v-else>
+                                <div v-for="team in teams" :key="team.id" class="card mb-3">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>{{ team.name }}</strong>
+                                            <span v-if="team.owner.id === user?.id" class="badge bg-primary ms-2">Owner</span>
+                                        </div>
+                                        <div>
+                                            <button
+                                                v-if="team.owner.id === user?.id"
+                                                class="btn btn-sm btn-outline-danger"
+                                                @click="deleteTeam(team)"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Members -->
+                                        <h6 class="mb-2">Members ({{ team.member_count }})</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm mb-3">
+                                                <tbody>
+                                                    <tr v-for="member in team.members" :key="member.id">
+                                                        <td>
+                                                            {{ member.name }}
+                                                            <span class="text-muted">({{ member.email }})</span>
+                                                        </td>
+                                                        <td>
+                                                            <span class="badge" :class="member.role === 'owner' ? 'bg-primary' : 'bg-secondary'">
+                                                                {{ member.role }}
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <button
+                                                                v-if="member.role !== 'owner' && team.owner.id === user?.id"
+                                                                class="btn btn-sm btn-outline-secondary"
+                                                                @click="removeMember(team, member)"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <!-- Add member (only for owners) -->
+                                        <div v-if="team.owner.id === user?.id" class="row g-2 align-items-end">
+                                            <div class="col">
+                                                <input
+                                                    type="email"
+                                                    class="form-control form-control-sm"
+                                                    v-model="team._addEmail"
+                                                    placeholder="email@example.com"
+                                                >
+                                            </div>
+                                            <div class="col-auto">
+                                                <button
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    @click="addMember(team)"
+                                                    :disabled="!team._addEmail || addingMember"
+                                                >
+                                                    Add Member
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -373,6 +481,7 @@ export default {
             activeTab: 'profile',
             tabs: [
                 { id: 'profile', label: 'Profile' },
+                { id: 'teams', label: 'Teams', businessOnly: true },
                 { id: 'api', label: 'API & Security' },
                 { id: 'usage', label: 'Usage & Limits' },
                 { id: 'notifications', label: 'Notifications' },
@@ -435,10 +544,37 @@ export default {
             showDeleteConfirm: false,
             deleteConfirmEmail: '',
             deletingAccount: false,
+
+            // Teams
+            teams: [],
+            loadingTeams: false,
+            newTeamName: '',
+            creatingTeam: false,
+            editingTeam: null,
+            addMemberEmail: '',
+            addingMember: false,
         };
+    },
+    computed: {
+        visibleTabs() {
+            return this.tabs.filter(tab => {
+                if (tab.businessOnly) {
+                    return this.usage.plan === 'business';
+                }
+                return true;
+            });
+        },
     },
     mounted() {
         this.loadSettings();
+    },
+    watch: {
+        'usage.plan'(newPlan) {
+            // Load teams when user has Business plan
+            if (newPlan === 'business') {
+                this.loadTeams();
+            }
+        },
     },
     methods: {
         formatDate,
@@ -597,6 +733,73 @@ export default {
                 alert(err.response?.data?.message || 'Failed to delete account');
             } finally {
                 this.deletingAccount = false;
+            }
+        },
+
+        // Team methods
+        async loadTeams() {
+            this.loadingTeams = true;
+            try {
+                const response = await axios.get('/api/teams');
+                this.teams = response.data.data.map(team => ({ ...team, _addEmail: '' }));
+            } catch (err) {
+                console.error('Failed to load teams:', err);
+            } finally {
+                this.loadingTeams = false;
+            }
+        },
+        async createTeam() {
+            this.creatingTeam = true;
+            try {
+                const response = await axios.post('/api/teams', {
+                    name: this.newTeamName,
+                });
+                this.teams.push({ ...response.data.data, _addEmail: '' });
+                this.newTeamName = '';
+            } catch (err) {
+                alert(err.response?.data?.error || 'Failed to create team');
+            } finally {
+                this.creatingTeam = false;
+            }
+        },
+        async deleteTeam(team) {
+            if (!confirm(`Delete team "${team.name}"? All team members will lose access to shared actions.`)) return;
+            try {
+                await axios.delete(`/api/teams/${team.id}`);
+                this.teams = this.teams.filter(t => t.id !== team.id);
+            } catch (err) {
+                alert(err.response?.data?.error || 'Failed to delete team');
+            }
+        },
+        async addMember(team) {
+            this.addingMember = true;
+            try {
+                const response = await axios.post(`/api/teams/${team.id}/members`, {
+                    email: team._addEmail,
+                });
+                // Update the team in our list
+                const idx = this.teams.findIndex(t => t.id === team.id);
+                if (idx !== -1) {
+                    this.teams[idx] = { ...response.data.team, _addEmail: '' };
+                }
+            } catch (err) {
+                alert(err.response?.data?.error || 'Failed to add member');
+            } finally {
+                this.addingMember = false;
+            }
+        },
+        async removeMember(team, member) {
+            if (!confirm(`Remove ${member.name} from ${team.name}?`)) return;
+            try {
+                await axios.delete(`/api/teams/${team.id}/members/${member.id}`);
+                // Remove member from local state
+                const teamIdx = this.teams.findIndex(t => t.id === team.id);
+                if (teamIdx !== -1) {
+                    this.teams[teamIdx].members = this.teams[teamIdx].members.filter(m => m.id !== member.id);
+                    this.teams[teamIdx].member_count--;
+                }
+            } catch (err) {
+                alert(err.response?.data?.error || 'Failed to remove member');
             }
         },
     },

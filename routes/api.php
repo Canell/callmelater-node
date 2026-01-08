@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\StatusController;
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ConsentController;
@@ -87,6 +88,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/portal', [SubscriptionController::class, 'portal']);
         Route::post('/cancel', [SubscriptionController::class, 'cancel']);
         Route::post('/resume', [SubscriptionController::class, 'resume']);
+    });
+
+    // Account Management
+    Route::prefix('account')->group(function () {
+        Route::get('/', [AccountController::class, 'show']);
+        Route::put('/', [AccountController::class, 'update']);
+        Route::post('/members', [AccountController::class, 'addMember']);
+        Route::delete('/members/{userId}', [AccountController::class, 'removeMember']);
     });
 
     // Admin Dashboard (requires admin role)

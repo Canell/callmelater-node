@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('verified_domains', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->uuid('account_id');
             $table->string('domain')->comment('Normalized lowercase domain');
             $table->string('verification_token', 64);
             $table->enum('method', ['dns', 'file'])->nullable();
@@ -21,8 +21,11 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable()->comment('verified_at + 12 months');
             $table->timestamps();
 
-            // Unique domain per user
-            $table->unique(['user_id', 'domain']);
+            // Foreign key
+            $table->foreign('account_id')->references('id')->on('accounts')->cascadeOnDelete();
+
+            // Unique domain per account
+            $table->unique(['account_id', 'domain']);
 
             // Index for looking up by domain
             $table->index('domain');

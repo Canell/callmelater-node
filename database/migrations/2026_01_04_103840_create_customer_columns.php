@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Add account_id to users (every user belongs to one account)
         Schema::table('users', function (Blueprint $table) {
-            $table->string('stripe_id')->nullable()->index();
-            $table->string('pm_type')->nullable();
-            $table->string('pm_last_four', 4)->nullable();
-            $table->timestamp('trial_ends_at')->nullable();
+            $table->uuid('account_id')->nullable()->index();
+            $table->foreign('account_id')->references('id')->on('accounts')->nullOnDelete();
         });
     }
 
@@ -25,16 +24,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropIndex([
-                'stripe_id',
-            ]);
-
-            $table->dropColumn([
-                'stripe_id',
-                'pm_type',
-                'pm_last_four',
-                'trial_ends_at',
-            ]);
+            $table->dropForeign(['account_id']);
+            $table->dropColumn('account_id');
         });
     }
 };

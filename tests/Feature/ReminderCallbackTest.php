@@ -290,7 +290,8 @@ class ReminderCallbackTest extends TestCase
     private function createReminderWithCallback(): ScheduledAction
     {
         return ScheduledAction::create([
-            'owner_user_id' => $this->user->id,
+            'account_id' => $this->user->account_id,
+            'created_by_user_id' => $this->user->id,
             'name' => 'Test Reminder',
             'type' => ScheduledAction::TYPE_REMINDER,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
@@ -308,7 +309,8 @@ class ReminderCallbackTest extends TestCase
     private function createReminderWithoutCallback(): ScheduledAction
     {
         return ScheduledAction::create([
-            'owner_user_id' => $this->user->id,
+            'account_id' => $this->user->account_id,
+            'created_by_user_id' => $this->user->id,
             'name' => 'Test Reminder No Callback',
             'type' => ScheduledAction::TYPE_REMINDER,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,

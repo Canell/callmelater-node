@@ -15,26 +15,28 @@ class SubscriptionController extends Controller
     public function status(Request $request): JsonResponse
     {
         $user = $request->user();
+        $account = $user->account;
         $limits = $user->getPlanLimits();
 
-        // Get usage stats for current month
+        // Get usage stats for current month (account-wide)
         $startOfMonth = now()->startOfMonth();
-        $actionsThisMonth = $user->actions()->where('created_at', '>=', $startOfMonth)->count();
-        $executionsThisMonth = $user->actions()
+        $actionsThisMonth = $account->actions()->where('created_at', '>=', $startOfMonth)->count();
+        $executionsThisMonth = $account->actions()
             ->where('resolution_status', ScheduledAction::STATUS_EXECUTED)
             ->where('executed_at_utc', '>=', $startOfMonth)
             ->count();
-        $remindersThisMonth = $user->actions()
+        $remindersThisMonth = $account->actions()
             ->where('type', ScheduledAction::TYPE_REMINDER)
             ->where('created_at', '>=', $startOfMonth)
             ->count();
 
         return response()->json([
-            'subscribed' => $user->subscribed('default'),
-            'plan' => $user->getPlan(),
-            'on_trial' => $user->onTrial('default'),
-            'canceled' => $user->subscription('default')?->canceled() ?? false,
-            'ends_at' => $user->subscription('default')?->ends_at,
+            'subscribed' => $account->subscribed('default'),
+            'plan' => $account->getPlan(),
+            'on_trial' => $account->onTrial('default'),
+            'canceled' => $account->subscription('default')?->canceled() ?? false,
+            'ends_at' => $account->subscription('default')?->ends_at,
+            'can_manage_billing' => $user->canManageBilling(),
             'limits' => [
                 'actions_per_month' => $limits['max_actions_per_month'] ?? null,
                 'active_actions' => $limits['max_pending_actions'] ?? null,
@@ -62,6 +64,13 @@ class SubscriptionController extends Controller
         ]);
 
         $user = $request->user();
+        $account = $user->account;
+
+        // Only owner/admin can manage billing
+        if (! $user->canManageBilling()) {
+            return response()->json(['error' => 'Only account owner or admin can manage billing'], 403);
+        }
+
         $billing = $request->input('billing', 'monthly');
         $priceId = $this->getPriceId($request->input('plan'), $billing);
 
@@ -69,7 +78,7 @@ class SubscriptionController extends Controller
             return response()->json(['error' => 'Invalid plan or billing period'], 400);
         }
 
-        $checkout = $user->newSubscription('default', $priceId)
+        $checkout = $account->newSubscription('default', $priceId)
             ->checkout([
                 'success_url' => config('app.url').'/dashboard?subscription=success',
                 'cancel_url' => config('app.url').'/pricing?subscription=cancelled',
@@ -89,8 +98,14 @@ class SubscriptionController extends Controller
     public function portal(Request $request): JsonResponse
     {
         $user = $request->user();
+        $account = $user->account;
 
-        $url = $user->billingPortalUrl(
+        // Only owner/admin can manage billing
+        if (! $user->canManageBilling()) {
+            return response()->json(['error' => 'Only account owner or admin can manage billing'], 403);
+        }
+
+        $url = $account->billingPortalUrl(
             config('app.url') . '/dashboard'
         );
 
@@ -105,16 +120,22 @@ class SubscriptionController extends Controller
     public function cancel(Request $request): JsonResponse
     {
         $user = $request->user();
+        $account = $user->account;
 
-        if (! $user->subscribed('default')) {
+        // Only owner/admin can manage billing
+        if (! $user->canManageBilling()) {
+            return response()->json(['error' => 'Only account owner or admin can manage billing'], 403);
+        }
+
+        if (! $account->subscribed('default')) {
             return response()->json(['error' => 'No active subscription'], 400);
         }
 
-        $user->subscription('default')->cancel();
+        $account->subscription('default')->cancel();
 
         return response()->json([
             'message' => 'Subscription cancelled',
-            'ends_at' => $user->subscription('default')->ends_at,
+            'ends_at' => $account->subscription('default')->ends_at,
         ]);
     }
 
@@ -124,7 +145,14 @@ class SubscriptionController extends Controller
     public function resume(Request $request): JsonResponse
     {
         $user = $request->user();
-        $subscription = $user->subscription('default');
+        $account = $user->account;
+
+        // Only owner/admin can manage billing
+        if (! $user->canManageBilling()) {
+            return response()->json(['error' => 'Only account owner or admin can manage billing'], 403);
+        }
+
+        $subscription = $account->subscription('default');
 
         if (! $subscription || ! $subscription->canceled()) {
             return response()->json(['error' => 'No canceled subscription to resume'], 400);

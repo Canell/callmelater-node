@@ -77,7 +77,7 @@ class DomainController extends Controller
     {
         $normalizedDomain = VerifiedDomain::normalizeDomain($domain);
 
-        $verification = VerifiedDomain::where('user_id', $request->user()->id)
+        $verification = VerifiedDomain::where('account_id', $request->user()->account_id)
             ->where('domain', $normalizedDomain)
             ->first();
 
@@ -123,7 +123,7 @@ class DomainController extends Controller
     {
         $normalizedDomain = VerifiedDomain::normalizeDomain($domain);
 
-        $verification = VerifiedDomain::where('user_id', $request->user()->id)
+        $verification = VerifiedDomain::where('account_id', $request->user()->account_id)
             ->where('domain', $normalizedDomain)
             ->first();
 

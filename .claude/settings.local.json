@@ -30,7 +30,11 @@
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" \"/Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan\" make:migration create_callback_attempts_table)",
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" \"/Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan\" migrate --force)",
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" \"/Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan\" test)",
-      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" \"/Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan\" test --filter=ReminderCallbackTest)"
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" \"/Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan\" test --filter=ReminderCallbackTest)",
+      "Bash(grep:*)",
+      "Bash(xargs ls:*)",
+      "Bash(cat:*)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan migrate:fresh --force)"
     ]
   }
 }

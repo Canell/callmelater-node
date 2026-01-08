@@ -75,7 +75,7 @@
                   <li class="included">Email + SMS reminders</li>
                   <li class="included">90-day history</li>
                   <li class="included">Webhook signatures</li>
-                  <li class="included">Priority support</li>
+                  <li class="included">Callback webhooks</li>
                 </ul>
                 <button @click="subscribe('pro')" class="btn btn-cml-primary w-100" :disabled="loading">
                   {{ loading ? 'Loading...' : 'Subscribe' }}
@@ -107,9 +107,9 @@
                   <li class="included">Email + SMS reminders</li>
                   <li class="included">1-year history</li>
                   <li class="included">Webhook signatures</li>
-                  <li class="included">Team features</li>
-                  <li class="included">Escalation rules</li>
-                  <li class="included">Dedicated support</li>
+                  <li class="included">Callback webhooks</li>
+                  <li class="included">Team workspaces</li>
+                  <li class="included">Priority email support</li>
                 </ul>
                 <button @click="subscribe('business')" class="btn btn-outline-cml w-100" :disabled="loading">
                   {{ loading ? 'Loading...' : 'Subscribe' }}
@@ -126,13 +126,12 @@
                 <div class="price-display mb-3">Custom</div>
                 <p class="text-muted small mb-4">For large organizations</p>
                 <ul class="feature-list mb-4">
+                  <li class="included">Everything in Business</li>
                   <li class="included">Unlimited actions</li>
-                  <li class="included">Unlimited retries</li>
                   <li class="included">Custom retention</li>
-                  <li class="included">SLA guarantees</li>
-                  <li class="included">On-premise option</li>
-                  <li class="included">Dedicated infrastructure</li>
-                  <li class="included">24/7 support</li>
+                  <li class="included">SSO / SAML</li>
+                  <li class="included">Dedicated support</li>
+                  <li class="included">Custom SLA available</li>
                 </ul>
                 <a href="mailto:sales@callmelater.io" class="btn btn-outline-secondary w-100">Contact Sales</a>
               </div>

@@ -27,8 +27,8 @@ class ActionService
             $this->checkDomainVerification($user, $data);
         }
         $action = new ScheduledAction();
-        $action->owner_user_id = $user->id;
-        $action->owner_team_id = $data['team_id'] ?? null;
+        $action->account_id = $user->account_id;
+        $action->created_by_user_id = $user->id;
         $action->name = $data['name'];
         $action->description = $data['description'] ?? null;
         $action->type = $data['type'];

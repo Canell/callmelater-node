@@ -4,17 +4,16 @@ namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Cashier\Billable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens, Billable;
+    use HasFactory, Notifiable, HasApiTokens;
 
     protected $fillable = [
         'name',
@@ -24,6 +23,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'timezone',
         'webhook_secret',
         'notification_preferences',
+        'account_id',
     ];
 
     protected $hidden = [
@@ -42,80 +42,82 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    /**
+     * Auto-create an account when a new user registers.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (User $user) {
+            // Skip if user already has an account (e.g., invited to existing account)
+            if ($user->account_id) {
+                return;
+            }
+
+            // Create personal account for new user
+            $account = Account::create([
+                'name' => "{$user->name}'s Account",
+                'owner_id' => $user->id,
+            ]);
+
+            $user->update(['account_id' => $account->id]);
+            $account->members()->attach($user->id, ['role' => 'owner']);
+        });
+    }
+
     public function isAdmin(): bool
     {
         return $this->is_admin === true;
     }
 
-    public function ownedTeams(): HasMany
+    /**
+     * The account this user belongs to.
+     */
+    public function account(): BelongsTo
     {
-        return $this->hasMany(Team::class, 'owner_id');
+        return $this->belongsTo(Account::class);
     }
 
-    public function teams(): BelongsToMany
+    /**
+     * All accounts the user is a member of (for potential future multi-account support).
+     */
+    public function accounts(): BelongsToMany
     {
-        return $this->belongsToMany(Team::class)
+        return $this->belongsToMany(Account::class)
             ->withPivot('role')
             ->withTimestamps();
     }
 
-    public function actions(): HasMany
-    {
-        return $this->hasMany(ScheduledAction::class, 'owner_user_id');
-    }
-
     /**
-     * Get the user's current plan name.
+     * Get the user's current plan name (proxy to account).
      */
     public function getPlan(): string
     {
-        if (! $this->subscribed('default')) {
-            return 'free';
-        }
-
-        $subscription = $this->subscription('default');
-        $priceId = $subscription?->stripe_price;
-
-        // Check both monthly and annual price IDs for each plan
-        $proPrices = [
-            config('services.stripe.prices.pro_monthly'),
-            config('services.stripe.prices.pro_annual'),
-        ];
-        $businessPrices = [
-            config('services.stripe.prices.business_monthly'),
-            config('services.stripe.prices.business_annual'),
-        ];
-
-        if (in_array($priceId, $proPrices, true)) {
-            return 'pro';
-        }
-
-        if (in_array($priceId, $businessPrices, true)) {
-            return 'business';
-        }
-
-        return 'free';
+        return $this->account?->getPlan() ?? 'free';
     }
 
     /**
-     * Get all limits for the user's current plan.
+     * Get all limits for the user's current plan (proxy to account).
      *
      * @return array<string, int>
      */
     public function getPlanLimits(): array
     {
-        $plan = $this->getPlan();
-
-        return config("callmelater.plans.{$plan}", config('callmelater.plans.free'));
+        return $this->account?->getPlanLimits() ?? config('callmelater.plans.free');
     }
 
     /**
-     * Get a specific limit for the user's current plan.
+     * Get a specific limit for the user's current plan (proxy to account).
      */
     public function getPlanLimit(string $key, int $default = 0): int
     {
-        $limits = $this->getPlanLimits();
+        return $this->account?->getPlanLimit($key, $default) ?? $default;
+    }
 
-        return $limits[$key] ?? $default;
+    /**
+     * Check if user can manage billing (owner or admin of their account).
+     */
+    public function canManageBilling(): bool
+    {
+        return $this->account?->userCanManage($this) ?? false;
     }
 }

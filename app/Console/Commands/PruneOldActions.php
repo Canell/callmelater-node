@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Account;
 use App\Models\ScheduledAction;
-use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +14,7 @@ class PruneOldActions extends Command
                             {--dry-run : Show what would be deleted without actually deleting}
                             {--batch-size=100 : Number of actions to process per batch}';
 
-    protected $description = 'Delete completed/failed actions older than the user\'s plan history limit';
+    protected $description = 'Delete completed/failed actions older than the account\'s plan history limit';
 
     /**
      * Terminal statuses that are eligible for pruning.
@@ -39,17 +39,17 @@ class PruneOldActions extends Command
         $this->info('Starting action pruning...');
 
         $totalDeleted = 0;
-        $userStats = [];
+        $accountStats = [];
 
-        // Process users in chunks to avoid memory issues
-        User::query()
-            ->select(['id', 'email'])
-            ->chunk(100, function ($users) use ($dryRun, $batchSize, &$totalDeleted, &$userStats) {
-                foreach ($users as $user) {
-                    $deleted = $this->pruneUserActions($user, $dryRun, $batchSize);
+        // Process accounts in chunks to avoid memory issues
+        Account::query()
+            ->select(['id', 'name'])
+            ->chunk(100, function ($accounts) use ($dryRun, $batchSize, &$totalDeleted, &$accountStats) {
+                foreach ($accounts as $account) {
+                    $deleted = $this->pruneAccountActions($account, $dryRun, $batchSize);
                     if ($deleted > 0) {
                         $totalDeleted += $deleted;
-                        $userStats[$user->email] = $deleted;
+                        $accountStats[$account->name] = $deleted;
                     }
                 }
             });
@@ -57,8 +57,8 @@ class PruneOldActions extends Command
         if ($totalDeleted > 0) {
             $this->newLine();
             $this->info('Pruning summary:');
-            foreach ($userStats as $email => $count) {
-                $this->line("  {$email}: {$count} actions");
+            foreach ($accountStats as $name => $count) {
+                $this->line("  {$name}: {$count} actions");
             }
         }
 
@@ -69,21 +69,21 @@ class PruneOldActions extends Command
         if (! $dryRun && $totalDeleted > 0) {
             Log::info('Pruned old actions', [
                 'total_deleted' => $totalDeleted,
-                'users_affected' => count($userStats),
+                'accounts_affected' => count($accountStats),
             ]);
         }
 
         return self::SUCCESS;
     }
 
-    private function pruneUserActions(User $user, bool $dryRun, int $batchSize): int
+    private function pruneAccountActions(Account $account, bool $dryRun, int $batchSize): int
     {
-        $historyDays = $user->getPlanLimit('history_days', 365);
+        $historyDays = $account->getPlanLimit('history_days', 365);
         $cutoffDate = now()->subDays($historyDays);
 
         // Count actions to be pruned
         $query = ScheduledAction::query()
-            ->where('owner_user_id', $user->id)
+            ->where('account_id', $account->id)
             ->whereIn('resolution_status', self::TERMINAL_STATUSES)
             ->where('created_at', '<', $cutoffDate);
 
@@ -93,7 +93,7 @@ class PruneOldActions extends Command
             return 0;
         }
 
-        $this->line("User {$user->email}: {$count} actions older than {$historyDays} days");
+        $this->line("Account {$account->name}: {$count} actions older than {$historyDays} days");
 
         if ($dryRun) {
             return $count;
@@ -103,7 +103,7 @@ class PruneOldActions extends Command
         $deleted = 0;
         do {
             $ids = ScheduledAction::query()
-                ->where('owner_user_id', $user->id)
+                ->where('account_id', $account->id)
                 ->whereIn('resolution_status', self::TERMINAL_STATUSES)
                 ->where('created_at', '<', $cutoffDate)
                 ->limit($batchSize)

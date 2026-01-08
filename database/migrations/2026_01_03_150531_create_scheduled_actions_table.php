@@ -11,9 +11,9 @@ return new class extends Migration
         Schema::create('scheduled_actions', function (Blueprint $table) {
             $table->uuid('id')->primary();
 
-            // Multi-tenancy
-            $table->foreignId('owner_user_id')->constrained('users')->cascadeOnDelete();
-            $table->uuid('owner_team_id')->nullable();
+            // Multi-tenancy - actions belong to accounts
+            $table->uuid('account_id');
+            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
 
             // Type & intent
             $table->string('name')->nullable();
@@ -53,18 +53,17 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // Foreign key for team
-            $table->foreign('owner_team_id')->references('id')->on('teams')->nullOnDelete();
+            // Foreign key for account
+            $table->foreign('account_id')->references('id')->on('accounts')->cascadeOnDelete();
 
-            // Unique constraint for idempotency
-            $table->unique(['owner_user_id', 'idempotency_key'], 'unique_idempotency');
+            // Unique constraint for idempotency (per account)
+            $table->unique(['account_id', 'idempotency_key'], 'unique_idempotency');
 
             // Indexes for dispatcher queries
             $table->index(['resolution_status', 'execute_at_utc', 'next_retry_at'], 'idx_dispatch_queue');
 
             // Indexes for dashboard queries
-            $table->index(['owner_user_id', 'resolution_status', 'created_at'], 'idx_user_actions');
-            $table->index(['owner_team_id', 'resolution_status', 'created_at'], 'idx_team_actions');
+            $table->index(['account_id', 'resolution_status', 'created_at'], 'idx_account_actions');
         });
     }
 
