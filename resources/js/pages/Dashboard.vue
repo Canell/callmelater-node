@@ -3,9 +3,24 @@
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">Actions</h2>
-            <router-link to="/actions/create" class="btn btn-cml-primary">
-                Add Action
-            </router-link>
+            <div class="d-flex align-items-center gap-3">
+                <!-- Auto-refresh indicator -->
+                <div class="auto-refresh-indicator d-flex align-items-center gap-2">
+                    <button
+                        class="btn btn-sm"
+                        :class="autoRefresh ? 'btn-outline-success' : 'btn-outline-secondary'"
+                        @click="toggleAutoRefresh"
+                        :title="autoRefresh ? 'Auto-refresh enabled (click to pause)' : 'Auto-refresh paused (click to resume)'"
+                    >
+                        <span v-if="autoRefresh" class="refresh-dot"></span>
+                        <span v-else>&#10074;&#10074;</span>
+                    </button>
+                    <small class="text-muted" v-if="lastRefresh">{{ formatLastRefresh() }}</small>
+                </div>
+                <router-link to="/actions/create" class="btn btn-cml-primary">
+                    Add Action
+                </router-link>
+            </div>
         </div>
 
         <!-- Filters -->
@@ -61,7 +76,7 @@
                             <th>Type</th>
                             <th>Status</th>
                             <th>Scheduled For</th>
-                            <th>Created</th>
+                            <th class="text-muted">Created</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -73,8 +88,10 @@
                                 </router-link>
                             </td>
                             <td>
-                                <span :class="['badge', action.type === 'http' ? 'bg-primary' : 'bg-info']">
-                                    {{ action.type.toUpperCase() }}
+                                <span class="type-label">
+                                    <span v-if="action.type === 'http'">&#128279;</span>
+                                    <span v-else>&#128276;</span>
+                                    {{ action.type === 'http' ? 'HTTP' : 'Reminder' }}
                                 </span>
                             </td>
                             <td>
@@ -83,7 +100,7 @@
                                 </span>
                             </td>
                             <td>{{ formatDate(action.execute_at) }}</td>
-                            <td>{{ formatDate(action.created_at) }}</td>
+                            <td class="text-muted">{{ formatDate(action.created_at) }}</td>
                             <td>
                                 <div class="dropdown">
                                     <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
@@ -93,6 +110,11 @@
                                         <li>
                                             <router-link :to="`/actions/${action.id}`" class="dropdown-item">
                                                 View Details
+                                            </router-link>
+                                        </li>
+                                        <li>
+                                            <router-link :to="`/actions/create?clone=${action.id}`" class="dropdown-item">
+                                                Clone
                                             </router-link>
                                         </li>
                                         <li v-if="canCancel(action.status)">
@@ -142,6 +164,11 @@ export default {
             searchQuery: '',
             statusFilter: '',
             typeFilter: '',
+            // Auto-refresh
+            autoRefresh: true,
+            refreshInterval: null,
+            refreshSeconds: 30,
+            lastRefresh: null,
         };
     },
     computed: {
@@ -158,6 +185,10 @@ export default {
     },
     mounted() {
         this.loadActions();
+        this.startAutoRefresh();
+    },
+    beforeUnmount() {
+        this.stopAutoRefresh();
     },
     watch: {
         statusFilter() {
@@ -172,8 +203,8 @@ export default {
         formatStatus,
         statusBadgeClass,
         canCancel,
-        async loadActions(page = 1) {
-            this.loading = true;
+        async loadActions(page = 1, silent = false) {
+            if (!silent) this.loading = true;
             try {
                 const params = { page };
                 if (this.statusFilter) params.status = this.statusFilter;
@@ -182,11 +213,37 @@ export default {
                 const response = await axios.get('/api/v1/actions', { params });
                 this.actions = response.data.data;
                 this.meta = response.data.meta;
+                this.lastRefresh = new Date();
             } catch (err) {
                 console.error('Failed to load actions:', err);
             } finally {
                 this.loading = false;
             }
+        },
+        startAutoRefresh() {
+            if (this.refreshInterval) return;
+            this.refreshInterval = setInterval(() => {
+                if (this.autoRefresh && !document.hidden) {
+                    this.loadActions(this.meta.current_page || 1, true);
+                }
+            }, this.refreshSeconds * 1000);
+        },
+        stopAutoRefresh() {
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+                this.refreshInterval = null;
+            }
+        },
+        toggleAutoRefresh() {
+            this.autoRefresh = !this.autoRefresh;
+        },
+        formatLastRefresh() {
+            if (!this.lastRefresh) return '';
+            const now = new Date();
+            const diff = Math.floor((now - this.lastRefresh) / 1000);
+            if (diff < 5) return 'just now';
+            if (diff < 60) return `${diff}s ago`;
+            return `${Math.floor(diff / 60)}m ago`;
         },
         async cancelAction(action) {
             if (!confirm(`Cancel action "${action.name}"?`)) return;
@@ -206,6 +263,31 @@ export default {
 /* Fix dropdown being clipped by table-responsive overflow */
 .table-responsive {
     overflow: visible;
+}
+
+/* Auto-refresh indicator */
+.refresh-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: #22c55e;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* Type label with icon */
+.type-label {
+    font-size: 0.9em;
+    color: #6b7280;
 }
 
 /* Re-enable horizontal scroll only when needed on small screens */

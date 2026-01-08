@@ -67,7 +67,7 @@ class ConsentController extends Controller
             ]);
         }
 
-        return redirect('/consent/declined');
+        return redirect('/consent/declined?token=' . $token);
     }
 
     /**
@@ -95,6 +95,6 @@ class ConsentController extends Controller
             ]);
         }
 
-        return redirect('/consent/unsubscribed');
+        return redirect('/consent/unsubscribed?token=' . $token);
     }
 }

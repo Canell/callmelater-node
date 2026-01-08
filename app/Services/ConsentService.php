@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Mail\ReminderMail;
 use App\Models\NotificationConsent;
+use App\Models\ReminderRecipient;
+use App\Models\ScheduledAction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class ConsentService
 {
@@ -82,14 +86,24 @@ class ConsentService
      */
     protected function countNewRecipientsToday(User $sender): int
     {
-        // This would be tracked in a separate table or via action metadata
-        // For now, we'll count from scheduled_actions
-        return DB::table('scheduled_actions')
+        // Count unique recipient emails from reminder actions created today
+        // We need to extract emails from the JSON escalation_rules->recipients array
+        $actions = DB::table('scheduled_actions')
             ->where('owner_user_id', $sender->id)
             ->where('type', 'reminder')
             ->where('created_at', '>=', now()->startOfDay())
-            ->distinct()
-            ->count(DB::raw("escalation_rules->'recipients'"));
+            ->pluck('escalation_rules');
+
+        $uniqueRecipients = collect();
+        foreach ($actions as $rules) {
+            $decoded = is_string($rules) ? json_decode($rules, true) : $rules;
+            $recipients = $decoded['recipients'] ?? [];
+            foreach ($recipients as $recipient) {
+                $uniqueRecipients->push(strtolower(trim($recipient)));
+            }
+        }
+
+        return $uniqueRecipients->unique()->count();
     }
 
     /**
@@ -142,7 +156,49 @@ class ConsentService
             'email' => $consent->email,
         ]);
 
+        // Process any pending reminders for this recipient
+        $this->processPendingReminders($consent->email);
+
         return $consent;
+    }
+
+    /**
+     * Send reminders that were waiting for consent.
+     */
+    protected function processPendingReminders(string $email): void
+    {
+        $pendingRecipients = ReminderRecipient::where('email', $email)
+            ->where('status', ReminderRecipient::STATUS_AWAITING_CONSENT)
+            ->get();
+
+        foreach ($pendingRecipients as $recipient) {
+            /** @var ScheduledAction $action */
+            $action = $recipient->action;
+
+            // Only send if the action is still awaiting response
+            if ($action->resolution_status !== ScheduledAction::STATUS_AWAITING_RESPONSE) {
+                $recipient->update(['status' => ReminderRecipient::STATUS_SUPPRESSED]);
+                continue;
+            }
+
+            // Send the reminder email
+            try {
+                Mail::to($recipient->email)->send(new ReminderMail($action, $recipient));
+
+                $recipient->update(['status' => ReminderRecipient::STATUS_PENDING]);
+
+                Log::info('Sent pending reminder after consent', [
+                    'action_id' => $action->id,
+                    'recipient' => $recipient->email,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to send pending reminder after consent', [
+                    'action_id' => $action->id,
+                    'recipient' => $recipient->email,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**

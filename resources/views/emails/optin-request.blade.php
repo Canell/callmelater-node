@@ -7,6 +7,7 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
             line-height: 1.6;
             color: #374151;
             margin: 0;
@@ -68,7 +69,6 @@
             border: 1px solid #d1d5db;
         }
         .note {
-            font-size: 14px;
             color: #6b7280;
             margin-top: 24px;
         }
@@ -76,7 +76,7 @@
             margin-top: 32px;
             padding-top: 24px;
             border-top: 1px solid #e5e7eb;
-            font-size: 13px;
+            font-size: 14px;
             color: #9ca3af;
         }
         .footer a {
@@ -109,7 +109,7 @@
                 <a href="{{ $declineUrl }}" class="button button-secondary">Decline</a>
             </div>
 
-            <p class="note">If you decline, you won't receive any reminders. You can change your preference at any time.</p>
+            <p class="note">If you decline, you won't receive any reminders from CallMeLater. If you accept now and change your mind later, you can unsubscribe using the link at the bottom of any reminder email.</p>
 
             <div class="footer">
                 <p>CallMeLater<br>

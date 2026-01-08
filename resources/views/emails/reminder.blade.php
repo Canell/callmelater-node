@@ -7,6 +7,7 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px;
             line-height: 1.6;
             color: #333;
             max-width: 600px;
@@ -68,7 +69,7 @@
             margin-top: 32px;
             padding-top: 24px;
             border-top: 1px solid #eee;
-            font-size: 12px;
+            font-size: 14px;
             color: #6b7280;
         }
         .footer a {
@@ -112,6 +113,11 @@
                 This link expires on {{ $action->token_expires_at->format('M j, Y \a\t g:i A T') }}.
                 @endif
             </p>
+            @if($unsubscribeUrl)
+            <p style="margin-top: 16px;">
+                <a href="{{ $unsubscribeUrl }}">Unsubscribe from all reminders</a>
+            </p>
+            @endif
         </div>
     </div>
 </body>

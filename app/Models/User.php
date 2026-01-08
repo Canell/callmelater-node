@@ -21,11 +21,15 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'is_admin',
+        'timezone',
+        'webhook_secret',
+        'notification_preferences',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
+        'webhook_secret',
     ];
 
     protected function casts(): array
@@ -34,6 +38,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'notification_preferences' => 'array',
         ];
     }
 

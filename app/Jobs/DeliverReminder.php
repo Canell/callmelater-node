@@ -78,12 +78,22 @@ class DeliverReminder implements ShouldQueue
             $isPhone = $this->isPhoneNumber($recipient);
             $isEmail = filter_var($recipient, FILTER_VALIDATE_EMAIL) !== false;
 
-            $recipientRecord = ReminderRecipient::create([
-                'action_id' => $this->action->id,
-                'email' => $recipient,
-                'status' => ReminderRecipient::STATUS_PENDING,
-                'response_token' => Str::random(64),
-            ]);
+            // Use firstOrCreate to handle retries/re-dispatches gracefully
+            $recipientRecord = ReminderRecipient::firstOrCreate(
+                [
+                    'action_id' => $this->action->id,
+                    'email' => $recipient,
+                ],
+                [
+                    'status' => ReminderRecipient::STATUS_PENDING,
+                    'response_token' => Str::random(64),
+                ]
+            );
+
+            // Skip if already processed (not pending)
+            if ($recipientRecord->status !== ReminderRecipient::STATUS_PENDING) {
+                continue;
+            }
 
             // For email recipients, check consent status
             if ($isEmail && in_array('email', $channels)) {

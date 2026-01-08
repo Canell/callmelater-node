@@ -162,12 +162,22 @@
                                 No events yet
                             </div>
                             <div v-else class="list-group list-group-flush">
-                                <div v-for="(event, index) in events" :key="event.id" class="list-group-item">
+                                <div
+                                    v-for="(event, index) in events"
+                                    :key="event.id"
+                                    class="list-group-item event-item"
+                                    :class="{ 'expandable': hasDetails(event), 'expanded': expandedEvents[event.id] }"
+                                    @click="toggleEvent(event)"
+                                >
+                                    <!-- Event header (always visible) -->
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
-                                            <span class="badge bg-secondary me-2">#{{ events.length - index }}</span>
+                                            <span v-if="hasDetails(event)" class="expand-icon me-1">
+                                                {{ expandedEvents[event.id] ? '&#9660;' : '&#9654;' }}
+                                            </span>
+                                            <span class="badge bg-secondary me-2">Attempt #{{ event.attempt_number || (events.length - index) }}</span>
                                             <span :class="['badge', eventBadgeClass(event)]">
-                                                {{ event.event_type || event.status }}
+                                                {{ formatEventStatus(event) }}
                                             </span>
                                             <span v-if="event.actor_email" class="text-muted ms-2">
                                                 {{ event.actor_email }}
@@ -176,18 +186,59 @@
                                                 HTTP {{ event.response_code }}
                                             </span>
                                         </div>
-                                        <small class="text-muted">
-                                            {{ formatDate(event.created_at) }}
-                                            <span v-if="event.duration_ms">({{ event.duration_ms }}ms)</span>
+                                        <small class="text-muted text-nowrap">
+                                            <span v-if="event.duration_ms" class="me-2">{{ event.duration_ms }}ms</span>
+                                            {{ formatTime(event.created_at) }}
                                         </small>
                                     </div>
+
+                                    <!-- Brief summary (always visible) -->
                                     <div v-if="event.notes || event.error_message" class="mt-2 small text-muted">
                                         {{ event.notes || event.error_message }}
                                     </div>
+
+                                    <!-- Expanded details (for HTTP attempts) -->
+                                    <div v-if="expandedEvents[event.id] && event._type === 'attempt'" class="mt-3 event-details">
+                                        <div class="row mb-2">
+                                            <div class="col-4">
+                                                <small class="text-muted d-block">Status Code</small>
+                                                <strong>{{ event.response_code || 'N/A' }}</strong>
+                                            </div>
+                                            <div class="col-4">
+                                                <small class="text-muted d-block">Duration</small>
+                                                <strong>{{ event.duration_ms }}ms</strong>
+                                            </div>
+                                            <div class="col-4">
+                                                <small class="text-muted d-block">Timestamp</small>
+                                                <strong>{{ formatDate(event.created_at) }}</strong>
+                                            </div>
+                                        </div>
+
+                                        <!-- Response preview -->
+                                        <div v-if="event.response_preview" class="mt-3">
+                                            <small class="text-muted d-block mb-1">
+                                                Response preview
+                                                <span v-if="event.response_truncated" class="text-warning">(truncated to 10 KB)</span>
+                                            </small>
+                                            <pre class="response-preview bg-dark text-light p-2 rounded mb-0"><code>{{ event.response_preview }}</code></pre>
+                                        </div>
+                                        <div v-else-if="event.status === 'success'" class="mt-3">
+                                            <small class="text-muted">No response body returned.</small>
+                                        </div>
+
+                                        <!-- Error details -->
+                                        <div v-if="event.error_message" class="mt-3">
+                                            <small class="text-muted d-block mb-1">Error</small>
+                                            <div class="alert alert-danger py-2 px-3 mb-0">
+                                                {{ event.error_message }}
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Connection error hint -->
                                     <div v-if="isConnectionError(event)" class="mt-2 small">
                                         <div class="alert alert-warning py-2 px-3 mb-0">
-                                            <strong>Possible causes:</strong> This failure may be caused by firewall rules, network restrictions, or the endpoint being unreachable.
+                                            <strong>Possible causes:</strong> Firewall rules, network restrictions, or endpoint unreachable.
                                             <a href="/docs/webhook-security" class="alert-link">Check IP allowlisting</a>
                                         </div>
                                     </div>
@@ -204,7 +255,7 @@
 <script>
 import axios from 'axios';
 import { useActionStatus } from '../composables/useActionStatus';
-import { formatDate } from '../utils/dateFormatting';
+import { formatDate, formatTime } from '../utils/dateFormatting';
 
 const { formatStatus, statusBadgeClass, recipientBadgeClass, canCancel } = useActionStatus();
 
@@ -215,6 +266,7 @@ export default {
             action: null,
             loading: true,
             cancelling: false,
+            expandedEvents: {},
         };
     },
     computed: {
@@ -238,10 +290,31 @@ export default {
     },
     methods: {
         formatDate,
+        formatTime,
         formatStatus,
         statusBadgeClass,
         recipientBadgeClass,
         canCancel,
+        hasDetails(event) {
+            // HTTP attempts have expandable details
+            return event._type === 'attempt';
+        },
+        toggleEvent(event) {
+            if (!this.hasDetails(event)) return;
+            this.expandedEvents = {
+                ...this.expandedEvents,
+                [event.id]: !this.expandedEvents[event.id]
+            };
+        },
+        formatEventStatus(event) {
+            if (event._type === 'attempt') {
+                if (event.status === 'success') {
+                    return `Success (HTTP ${event.response_code})`;
+                }
+                return event.response_code ? `Failed (HTTP ${event.response_code})` : 'Failed';
+            }
+            return event.event_type || event.status;
+        },
         async loadAction() {
             this.loading = true;
             try {
@@ -293,3 +366,39 @@ export default {
     }
 };
 </script>
+
+<style scoped>
+/* Expandable event items */
+.event-item.expandable {
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+
+.event-item.expandable:hover {
+    background-color: #f8f9fa;
+}
+
+.event-item.expanded {
+    background-color: #f8f9fa;
+}
+
+.expand-icon {
+    font-size: 0.75em;
+    color: #6b7280;
+}
+
+/* Event details section */
+.event-details {
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Response preview */
+.response-preview {
+    max-height: 300px;
+    overflow: auto;
+    font-size: 0.85em;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+</style>

@@ -4,10 +4,21 @@
             <div class="col-lg-8">
                 <div class="d-flex align-items-center mb-4">
                     <router-link to="/dashboard" class="text-decoration-none me-3">&larr; Back</router-link>
-                    <h2 class="mb-0">Create Action</h2>
+                    <div>
+                        <h2 class="mb-0">{{ cloneSourceName ? 'Clone Action' : 'Create Action' }}</h2>
+                        <small v-if="cloneSourceName" class="text-muted">Cloning from "{{ cloneSourceName }}"</small>
+                    </div>
                 </div>
 
-                <form @submit.prevent="submit">
+                <!-- Loading state when cloning -->
+                <div v-if="cloning" class="text-center py-5">
+                    <div class="spinner-border text-muted" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Loading action data...</p>
+                </div>
+
+                <form v-if="!cloning" @submit.prevent="submit">
                     <!-- Type Selection -->
                     <div class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
@@ -362,7 +373,7 @@ export default {
                 description: '',
                 execute_at: '',
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                max_attempts: 5,
+                max_attempts: 3,
                 retry_strategy: 'exponential',
                 message: '',
                 confirmation_mode: 'first_response',
@@ -407,6 +418,9 @@ export default {
             // URL validation
             urlError: null,
             urlValidating: false,
+            // Cloning
+            cloning: false,
+            cloneSourceName: null,
             // Tooltip content
             retryTooltip: `<strong>Exponential backoff</strong><br>After a failure, retries are delayed with increasing intervals (e.g. 1min, 5min, 15min, 1hr).<br><br><strong>Linear</strong><br>Retries use fixed intervals.<br><br><em>Client errors (4xx) are not retried.</em>`,
         };
@@ -442,6 +456,12 @@ export default {
     },
     mounted() {
         this.loadServerInfo();
+
+        // Check if we're cloning an existing action
+        const cloneId = this.$route.query.clone;
+        if (cloneId) {
+            this.loadClonedAction(cloneId);
+        }
     },
     beforeUnmount() {
         // Clean up cooldown interval
@@ -456,6 +476,52 @@ export default {
                 this.outboundIp = response.data.outbound_ip;
             } catch (err) {
                 console.error('Failed to load server info:', err);
+            }
+        },
+        async loadClonedAction(actionId) {
+            this.cloning = true;
+            try {
+                const response = await axios.get(`/api/v1/actions/${actionId}`);
+                const action = response.data.data;
+
+                this.cloneSourceName = action.name;
+
+                // Populate basic info
+                this.form.type = action.type;
+                this.form.name = `${action.name} (copy)`;
+                this.form.description = action.description || '';
+                this.form.timezone = action.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+                // Default to delay scheduling for clones (1 hour from now)
+                this.scheduleType = 'delay';
+                this.delayAmount = 1;
+                this.delayUnit = 'h';
+
+                if (action.type === 'http') {
+                    // HTTP-specific fields
+                    const httpReq = action.http_request || {};
+                    this.httpRequest.method = httpReq.method || 'POST';
+                    this.httpRequest.url = httpReq.url || '';
+                    this.headersJson = httpReq.headers ? JSON.stringify(httpReq.headers, null, 2) : '';
+                    this.bodyJson = httpReq.body ? JSON.stringify(httpReq.body, null, 2) : '';
+                    this.form.max_attempts = action.max_attempts || 3;
+                    this.form.retry_strategy = action.retry_strategy || 'exponential';
+                } else if (action.type === 'reminder') {
+                    // Reminder-specific fields
+                    this.form.message = action.message || '';
+                    this.form.confirmation_mode = action.confirmation_mode || 'first_response';
+                    this.form.max_snoozes = action.max_snoozes || 5;
+
+                    // Extract recipients from escalation_rules
+                    const rules = action.escalation_rules || {};
+                    const recipients = rules.recipients || [];
+                    this.recipientsText = recipients.join('\n');
+                }
+            } catch (err) {
+                console.error('Failed to load action for cloning:', err);
+                this.error = 'Failed to load the action to clone. Please try again.';
+            } finally {
+                this.cloning = false;
             }
         },
         copyIp() {

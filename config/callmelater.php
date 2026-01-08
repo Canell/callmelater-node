@@ -102,6 +102,7 @@ return [
             'max_retries' => 3,
             'new_recipients_per_day' => 5,
             'optin_emails_per_day' => 10,
+            'history_days' => 7,
         ],
         'pro' => [
             'max_actions_per_month' => 5000,
@@ -111,6 +112,7 @@ return [
             'max_retries' => 5,
             'new_recipients_per_day' => 50,
             'optin_emails_per_day' => 100,
+            'history_days' => 30,
         ],
         'business' => [
             'max_actions_per_month' => 50000,
@@ -120,6 +122,7 @@ return [
             'max_retries' => 10,
             'new_recipients_per_day' => 200,
             'optin_emails_per_day' => 500,
+            'history_days' => 365,
         ],
     ],
 

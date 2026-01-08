@@ -17,6 +17,8 @@ import Admin from './pages/Admin.vue';
 import AdminStatus from './pages/AdminStatus.vue';
 import UseCases from './pages/UseCases.vue';
 import Status from './pages/Status.vue';
+import ConsentResult from './pages/ConsentResult.vue';
+import Settings from './pages/Settings.vue';
 
 // Define routes
 const routes = [
@@ -26,6 +28,12 @@ const routes = [
     { path: '/use-cases', name: 'use-cases', component: UseCases },
     { path: '/status', name: 'status', component: Status, meta: { hideNavFooter: true } },
 
+    // Consent result pages (public, no auth required)
+    { path: '/consent/accepted', name: 'consent-accepted', component: ConsentResult, meta: { hideNavFooter: true } },
+    { path: '/consent/declined', name: 'consent-declined', component: ConsentResult, meta: { hideNavFooter: true } },
+    { path: '/consent/unsubscribed', name: 'consent-unsubscribed', component: ConsentResult, meta: { hideNavFooter: true } },
+    { path: '/consent/error', name: 'consent-error', component: ConsentResult, meta: { hideNavFooter: true } },
+
     // Auth pages
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },
     { path: '/register', name: 'register', component: Register, meta: { guest: true } },
@@ -34,6 +42,7 @@ const routes = [
     { path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
     { path: '/actions/create', name: 'create-action', component: CreateAction, meta: { requiresAuth: true } },
     { path: '/actions/:id', name: 'action-detail', component: ActionDetail, meta: { requiresAuth: true } },
+    { path: '/settings', name: 'settings', component: Settings, meta: { requiresAuth: true } },
 
     // Admin pages (requires admin role - API enforces)
     { path: '/admin', name: 'admin', component: Admin, meta: { requiresAuth: true } },

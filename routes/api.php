@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TokenController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\PublicStatusController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -46,6 +47,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+
+    // User settings
+    Route::put('/user/profile', [UserController::class, 'updateProfile']);
+    Route::put('/user/password', [UserController::class, 'updatePassword']);
+    Route::get('/user/webhook-secret', [UserController::class, 'getWebhookSecret']);
+    Route::post('/user/webhook-secret', [UserController::class, 'regenerateWebhookSecret']);
+    Route::put('/user/notifications', [UserController::class, 'updateNotifications']);
+    Route::delete('/user', [UserController::class, 'destroy']);
 
     // API Token Management
     Route::get('/tokens', [TokenController::class, 'index']);

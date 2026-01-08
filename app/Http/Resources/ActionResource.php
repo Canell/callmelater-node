@@ -32,6 +32,7 @@ class ActionResource extends JsonResource
             'http_request' => $this->when($this->type === 'http', $this->http_request),
             'attempt_count' => $this->when($this->type === 'http', $this->attempt_count),
             'max_attempts' => $this->when($this->type === 'http', $this->max_attempts),
+            'retry_strategy' => $this->when($this->type === 'http', $this->retry_strategy),
             'next_retry_at' => $this->when($this->next_retry_at !== null, fn () => $this->next_retry_at?->toIso8601String()),
 
             // Reminder-specific
@@ -39,6 +40,7 @@ class ActionResource extends JsonResource
             'confirmation_mode' => $this->when($this->type === 'reminder', $this->confirmation_mode),
             'snooze_count' => $this->when($this->type === 'reminder', $this->snooze_count),
             'max_snoozes' => $this->when($this->type === 'reminder', $this->max_snoozes),
+            'escalation_rules' => $this->when($this->type === 'reminder', $this->escalation_rules),
             'token_expires_at' => $this->when($this->token_expires_at !== null, fn () => $this->token_expires_at?->toIso8601String()),
 
             // Relationships (when loaded)

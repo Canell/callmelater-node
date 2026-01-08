@@ -22,7 +22,10 @@
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"\\(new App\\\\Services\\\\StatusService\\)->seedDefaultComponents\\(\\)\")",
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan tinker --execute=\"echo App\\\\Models\\\\SystemComponent::count\\(\\) . '' components created''\")",
       "Bash(composer require:*)",
-      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan test)"
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan test)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" /Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan make:migration add_settings_fields_to_users_table --table=users)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" /Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan migrate --force)",
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" /Users/flavienb/Documents/PhpStorm Projects/Canell/CallMeLater/artisan route:list --path=user)"
     ]
   }
 }

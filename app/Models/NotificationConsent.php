@@ -206,13 +206,14 @@ class NotificationConsent extends Model
 
     /**
      * Decline/unsubscribe (opt-out).
+     * This is reversible - user can re-subscribe later.
      */
     public function optOut(string $reason = 'user_declined'): void
     {
         $this->status = self::STATUS_OPTED_OUT;
         $this->revoked_at = now();
-        $this->suppressed = true;
-        $this->suppression_reason = $reason;
+        // Note: We don't set suppressed = true here because user-initiated
+        // opt-outs should be reversible. Use suppress() for permanent blocks.
         $this->save();
     }
 
