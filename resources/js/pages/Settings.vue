@@ -265,6 +265,10 @@
                                             <td class="text-muted">New recipients per day</td>
                                             <td>{{ usage.limits?.new_recipients_per_day || 5 }}</td>
                                         </tr>
+                                        <tr>
+                                            <td class="text-muted">History retention</td>
+                                            <td>{{ formatHistoryDays(usage.limits?.history_days) }}</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -438,6 +442,12 @@ export default {
     },
     methods: {
         formatDate,
+        formatHistoryDays(days) {
+            if (!days) return '7 days';
+            if (days >= 365) return days === 365 ? '1 year' : `${Math.floor(days / 365)} years`;
+            if (days >= 30) return days === 30 ? '30 days' : `${days} days`;
+            return `${days} days`;
+        },
         async loadSettings() {
             this.loading = true;
             try {

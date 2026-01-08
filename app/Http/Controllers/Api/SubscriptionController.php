@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ScheduledAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,6 +15,19 @@ class SubscriptionController extends Controller
     public function status(Request $request): JsonResponse
     {
         $user = $request->user();
+        $limits = $user->getPlanLimits();
+
+        // Get usage stats for current month
+        $startOfMonth = now()->startOfMonth();
+        $actionsThisMonth = $user->actions()->where('created_at', '>=', $startOfMonth)->count();
+        $executionsThisMonth = $user->actions()
+            ->where('resolution_status', ScheduledAction::STATUS_EXECUTED)
+            ->where('executed_at_utc', '>=', $startOfMonth)
+            ->count();
+        $remindersThisMonth = $user->actions()
+            ->where('type', ScheduledAction::TYPE_REMINDER)
+            ->where('created_at', '>=', $startOfMonth)
+            ->count();
 
         return response()->json([
             'subscribed' => $user->subscribed('default'),
@@ -21,6 +35,19 @@ class SubscriptionController extends Controller
             'on_trial' => $user->onTrial('default'),
             'canceled' => $user->subscription('default')?->canceled() ?? false,
             'ends_at' => $user->subscription('default')?->ends_at,
+            'limits' => [
+                'actions_per_month' => $limits['max_actions_per_month'] ?? null,
+                'active_actions' => $limits['max_pending_actions'] ?? null,
+                'max_attempts' => $limits['max_retries'] ?? 3,
+                'recipients_per_reminder' => $limits['max_recipients'] ?? 5,
+                'new_recipients_per_day' => $limits['new_recipients_per_day'] ?? 5,
+                'history_days' => $limits['history_days'] ?? 365,
+            ],
+            'usage' => [
+                'actions_this_month' => $actionsThisMonth,
+                'executions_this_month' => $executionsThisMonth,
+                'reminders_this_month' => $remindersThisMonth,
+            ],
         ]);
     }
 

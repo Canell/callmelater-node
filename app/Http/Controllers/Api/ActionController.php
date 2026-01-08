@@ -21,8 +21,23 @@ class ActionController extends Controller
 
     public function index(Request $request): ActionCollection
     {
+        $user = $request->user();
+        $historyDays = $user->getPlanLimit('history_days', 365);
+        $cutoffDate = now()->subDays($historyDays);
+
         $query = ScheduledAction::query()
-            ->forUser($request->user()->id)
+            ->forUser($user->id)
+            ->where(function ($q) use ($cutoffDate) {
+                // Show all non-terminal actions (pending, scheduled, awaiting response)
+                $q->whereNotIn('resolution_status', [
+                    ScheduledAction::STATUS_EXECUTED,
+                    ScheduledAction::STATUS_FAILED,
+                    ScheduledAction::STATUS_CANCELLED,
+                    ScheduledAction::STATUS_EXPIRED,
+                ])
+                // Or show terminal actions within history window
+                ->orWhere('created_at', '>=', $cutoffDate);
+            })
             ->orderBy('created_at', 'desc');
 
         // Filter by status
