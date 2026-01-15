@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\ReminderEvent;
 use App\Models\ScheduledAction;
 use App\Models\User;
@@ -316,26 +317,32 @@ class AdminController extends Controller
             'total_paying' => 0,
         ];
 
-        // Count users without active subscriptions (free tier)
-        $stats['free'] = User::whereDoesntHave('subscriptions', function ($query) {
+        // Count accounts without active subscriptions (free tier)
+        // Billable trait is on Account, not User
+        $stats['free'] = Account::whereDoesntHave('subscriptions', function ($query) {
             $query->where('stripe_status', 'active');
         })->count();
 
         // Count by plan (requires checking stripe_price against config)
-        $proPrice = config('services.stripe.prices.pro');
-        $businessPrice = config('services.stripe.prices.business');
+        $proPriceMonthly = config('services.stripe.prices.pro_monthly');
+        $proPriceAnnual = config('services.stripe.prices.pro_annual');
+        $businessPriceMonthly = config('services.stripe.prices.business_monthly');
+        $businessPriceAnnual = config('services.stripe.prices.business_annual');
 
-        if ($proPrice) {
+        $proPrices = array_filter([$proPriceMonthly, $proPriceAnnual]);
+        $businessPrices = array_filter([$businessPriceMonthly, $businessPriceAnnual]);
+
+        if (!empty($proPrices)) {
             $stats['pro'] = DB::table('subscriptions')
                 ->where('stripe_status', 'active')
-                ->where('stripe_price', $proPrice)
+                ->whereIn('stripe_price', $proPrices)
                 ->count();
         }
 
-        if ($businessPrice) {
+        if (!empty($businessPrices)) {
             $stats['business'] = DB::table('subscriptions')
                 ->where('stripe_status', 'active')
-                ->where('stripe_price', $businessPrice)
+                ->whereIn('stripe_price', $businessPrices)
                 ->count();
         }
 

@@ -41,6 +41,12 @@ class HealthMonitorService
         // Process any degradation that needs reminders
         $this->processReminders();
 
+        // Create heartbeat action to dogfood our own system
+        $heartbeatResult = $this->createHeartbeat();
+        if ($heartbeatResult) {
+            $results['heartbeat'] = $heartbeatResult;
+        }
+
         return [
             'enabled' => true,
             'metrics' => $metrics,
@@ -110,7 +116,7 @@ class HealthMonitorService
             return ['error' => 'Component not found'];
         }
 
-        $thresholds = config('callmelater.health_monitor.thresholds');
+        $thresholds = $this->getThresholds();
         $failureRate = $metrics['failure_rate'];
 
         $result = ['previous_status' => $component->current_status];
@@ -152,7 +158,7 @@ class HealthMonitorService
             return ['error' => 'Component not found'];
         }
 
-        $thresholds = config('callmelater.health_monitor.thresholds');
+        $thresholds = $this->getThresholds();
         $result = ['previous_status' => $component->current_status];
 
         // Check for critical issues
@@ -365,5 +371,86 @@ MSG;
     private function getSystemUser(): User
     {
         return SystemUserSeeder::getSystemUser();
+    }
+
+    /**
+     * Get thresholds with defaults to prevent null errors.
+     */
+    private function getThresholds(): array
+    {
+        return array_merge([
+            'failure_rate_degraded' => 10,
+            'failure_rate_critical' => 25,
+            'stuck_executing_degraded' => 5,
+            'stuck_executing_critical' => 15,
+            'queue_pending_degraded' => 100,
+            'queue_failed_degraded' => 10,
+        ], config('callmelater.health_monitor.thresholds', []));
+    }
+
+    /**
+     * Create a heartbeat HTTP action to test our own delivery pipeline.
+     */
+    private function createHeartbeat(): ?array
+    {
+        if (!config('callmelater.health_monitor.heartbeat_enabled', true)) {
+            return null;
+        }
+
+        $systemUser = $this->getSystemUser();
+        $heartbeatId = uniqid('hb_');
+
+        try {
+            $action = $this->actionService->create($systemUser, [
+                'type' => 'http',
+                'name' => 'Health Monitor Heartbeat',
+                'intent' => ['delay' => '1m'],
+                'http_request' => [
+                    'method' => 'POST',
+                    'url' => $this->getHeartbeatUrl(),
+                    'headers' => [
+                        'Content-Type' => 'application/json',
+                        'X-Heartbeat-Id' => $heartbeatId,
+                    ],
+                    'body' => json_encode([
+                        'heartbeat_id' => $heartbeatId,
+                        'created_at' => now()->toIso8601String(),
+                        'source' => 'health_monitor',
+                    ]),
+                ],
+                'max_attempts' => 3,
+            ]);
+
+            Log::info('Health monitor: Heartbeat action created', [
+                'action_id' => $action->id,
+                'heartbeat_id' => $heartbeatId,
+                'execute_at' => $action->execute_at_utc?->toIso8601String(),
+            ]);
+
+            return [
+                'action_id' => $action->id,
+                'heartbeat_id' => $heartbeatId,
+                'status' => 'created',
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Health monitor: Failed to create heartbeat', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'status' => 'failed',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Get the heartbeat URL.
+     */
+    private function getHeartbeatUrl(): string
+    {
+        $baseUrl = config('app.url');
+        return rtrim($baseUrl, '/') . '/api/internal/heartbeat';
     }
 }

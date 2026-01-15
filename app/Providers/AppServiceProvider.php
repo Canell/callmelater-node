@@ -126,5 +126,11 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinutes(10, 3)->by('email:' . $email),
             ];
         });
+
+        // Internal heartbeat endpoint - generous limit for self-monitoring
+        RateLimiter::for('heartbeat', function (Request $request) {
+            // Allow 30 per minute from any IP (health checks run every 5 min)
+            return Limit::perMinute(30)->by($request->ip());
+        });
     }
 }

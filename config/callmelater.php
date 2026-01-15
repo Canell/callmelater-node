@@ -159,6 +159,9 @@ return [
         // Minutes to wait before sending reminder (after degradation starts)
         'reminder_delay' => 15,
 
+        // Enable/disable heartbeat (creates HTTP action to test our own pipeline)
+        'heartbeat_enabled' => env('HEALTH_MONITOR_HEARTBEAT_ENABLED', true),
+
         // Thresholds for component status changes
         'thresholds' => [
             // Failure rate (%) - webhook delivery component

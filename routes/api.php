@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\StatusController;
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\HeartbeatController;
 use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
@@ -39,6 +40,11 @@ Route::post('/v1/respond', [ResponseController::class, 'respond'])
 // Public contact form (rate limited)
 Route::post('/contact', [ContactController::class, 'store'])
     ->middleware('throttle:contact');
+
+// Internal heartbeat endpoint (receives self-pings from health monitor)
+Route::post('/internal/heartbeat', [HeartbeatController::class, 'ping'])
+    ->name('api.health.heartbeat')
+    ->middleware('throttle:heartbeat');
 
 // Public consent endpoints (token-based, no login required)
 Route::prefix('v1/consent')->middleware('throttle:consent')->group(function () {
@@ -113,6 +119,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/stats/trends', [AdminController::class, 'trends']);
         Route::get('/health', [AdminController::class, 'health']);
         Route::get('/queue', [AdminController::class, 'queue']);
+        Route::get('/heartbeat', [HeartbeatController::class, 'status']);
 
         // Status Page Management
         Route::get('/status/components', [StatusController::class, 'components']);
