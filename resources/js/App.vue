@@ -120,8 +120,9 @@
                     <div class="col-6 col-md-2">
                         <h6 class="footer-heading">Legal</h6>
                         <ul class="list-unstyled footer-links">
-                            <li><a href="/terms">Terms</a></li>
-                            <li><a href="/privacy">Privacy</a></li>
+                            <li><router-link to="/terms">Terms</router-link></li>
+                            <li><router-link to="/privacy">Privacy</router-link></li>
+                            <li><router-link to="/cookies">Cookies</router-link></li>
                         </ul>
                     </div>
                 </div>
@@ -168,8 +169,8 @@ export default {
             return this.user?.is_admin === true;
         },
         showFooter() {
-            // Show footer on public pages (home, use-cases, pricing, login, register, contact)
-            const publicRoutes = ['home', 'use-cases', 'pricing', 'login', 'register', 'contact'];
+            // Show footer on public pages (home, use-cases, pricing, login, register, contact, legal)
+            const publicRoutes = ['home', 'use-cases', 'pricing', 'login', 'register', 'contact', 'terms', 'privacy', 'cookies'];
             return publicRoutes.includes(this.$route.name);
         },
         hideNavFooter() {
