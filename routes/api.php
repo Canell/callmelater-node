@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ConsentController;
+use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
@@ -34,6 +35,10 @@ Route::get('/public/server-info', function () {
 // Public endpoint for reminder responses (token-based auth, rate limited)
 Route::post('/v1/respond', [ResponseController::class, 'respond'])
     ->middleware('throttle:reminder-response');
+
+// Public contact form (rate limited)
+Route::post('/contact', [ContactController::class, 'store'])
+    ->middleware('throttle:contact');
 
 // Public consent endpoints (token-based, no login required)
 Route::prefix('v1/consent')->middleware('throttle:consent')->group(function () {

@@ -328,8 +328,32 @@
                                 <textarea class="form-control" v-model="form.message" rows="4" required placeholder="Enter the reminder message..."></textarea>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Recipients * (one email per line)</label>
-                                <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="user@example.com"></textarea>
+                                <label class="form-label">Notification Channels *</label>
+                                <div class="d-flex gap-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="channel-email" v-model="channels.email">
+                                        <label class="form-check-label" for="channel-email">Email</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="channel-sms" v-model="channels.sms" :disabled="userPlan === 'free'">
+                                        <label class="form-check-label" for="channel-sms">
+                                            SMS
+                                            <span v-if="userPlan === 'free'" class="badge bg-secondary ms-1">Pro</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div v-if="userPlan === 'free'" class="form-text">
+                                    <router-link to="/pricing">Upgrade to Pro</router-link> to send SMS reminders.
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    Recipients *
+                                    <span class="text-muted fw-normal">
+                                        (one per line{{ channels.sms ? ' — emails or phone numbers with country code' : '' }})
+                                    </span>
+                                </label>
+                                <textarea class="form-control" v-model="recipientsText" rows="3" :placeholder="channels.sms ? 'user@example.com\n+15551234567' : 'user@example.com'"></textarea>
                             </div>
                             <div class="row mb-3">
                                 <div class="col-md-6">
@@ -420,6 +444,10 @@ export default {
             headersJson: '',
             bodyJson: '',
             recipientsText: '',
+            channels: {
+                email: true,
+                sms: false,
+            },
             timezones: [
                 'UTC',
                 'America/New_York',
@@ -559,10 +587,15 @@ export default {
                     this.form.max_snoozes = action.max_snoozes || 5;
                     this.form.callback_url = action.callback_url || '';
 
-                    // Extract recipients from escalation_rules
+                    // Extract recipients and channels from escalation_rules
                     const rules = action.escalation_rules || {};
                     const recipients = rules.recipients || [];
                     this.recipientsText = recipients.join('\n');
+
+                    // Restore channels
+                    const actionChannels = rules.channels || ['email'];
+                    this.channels.email = actionChannels.includes('email');
+                    this.channels.sms = actionChannels.includes('sms');
                 }
             } catch (err) {
                 console.error('Failed to load action for cloning:', err);
@@ -764,8 +797,15 @@ export default {
                     payload.message = this.form.message;
                     payload.confirmation_mode = this.form.confirmation_mode;
                     payload.max_snoozes = parseInt(this.form.max_snoozes);
+
+                    // Build channels array from checkboxes
+                    const selectedChannels = [];
+                    if (this.channels.email) selectedChannels.push('email');
+                    if (this.channels.sms) selectedChannels.push('sms');
+
                     payload.escalation_rules = {
                         recipients: this.recipientsText.split('\n').map(e => e.trim()).filter(e => e),
+                        channels: selectedChannels,
                     };
                     if (this.form.callback_url?.trim()) {
                         payload.callback_url = this.form.callback_url.trim();

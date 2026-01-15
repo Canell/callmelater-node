@@ -115,8 +115,7 @@
                         <h6 class="footer-heading">Resources</h6>
                         <ul class="list-unstyled footer-links">
                             <li><a :href="statusUrl">Status</a></li>
-                            <li><a :href="blogUrl">Blog</a></li>
-                            <li><a :href="'mailto:support@' + appDomain">Contact</a></li>
+                            <li><router-link to="/contact">Contact</router-link></li>
                         </ul>
                     </div>
                     <div class="col-6 col-md-2">
@@ -124,13 +123,6 @@
                         <ul class="list-unstyled footer-links">
                             <li><a href="/terms">Terms</a></li>
                             <li><a href="/privacy">Privacy</a></li>
-                        </ul>
-                    </div>
-                    <div class="col-6 col-md-2">
-                        <h6 class="footer-heading">Connect</h6>
-                        <ul class="list-unstyled footer-links">
-                            <li><a href="https://github.com/callmelater">GitHub</a></li>
-                            <li><a href="https://twitter.com/callmelater">Twitter</a></li>
                         </ul>
                     </div>
                 </div>
@@ -170,9 +162,6 @@ export default {
         statusUrl() {
             return '/status';
         },
-        blogUrl() {
-            return `https://blog.${this.appDomain}`;
-        },
         isAuthenticated() {
             return !!this.authToken;
         },
@@ -180,8 +169,8 @@ export default {
             return this.user?.is_admin === true;
         },
         showFooter() {
-            // Show footer on public pages (home, use-cases, pricing, login, register)
-            const publicRoutes = ['home', 'use-cases', 'pricing', 'login', 'register'];
+            // Show footer on public pages (home, use-cases, pricing, login, register, contact)
+            const publicRoutes = ['home', 'use-cases', 'pricing', 'login', 'register', 'contact'];
             return publicRoutes.includes(this.$route.name);
         },
         hideNavFooter() {

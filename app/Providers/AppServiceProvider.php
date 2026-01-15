@@ -61,6 +61,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by($request->ip());
         });
 
+        // Contact form rate limit (prevent spam)
+        RateLimiter::for('contact', function (Request $request) {
+            return [
+                Limit::perMinute(3)->by($request->ip()),
+                Limit::perHour(10)->by($request->ip()),
+            ];
+        });
+
         // Public status page rate limit (generous, cached anyway)
         RateLimiter::for('status', function (Request $request) {
             return Limit::perMinute(60)->by($request->ip());

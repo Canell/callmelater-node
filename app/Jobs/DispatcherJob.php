@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Jobs\ResolveIntentJob;
 use App\Models\ScheduledAction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,6 +22,9 @@ class DispatcherJob implements ShouldQueue
 
     public function handle(): void
     {
+        // First, recover any stuck pending_resolution actions
+        $this->recoverPendingResolution();
+
         $dispatched = 0;
 
         // Process in batches to avoid memory issues
@@ -111,6 +115,42 @@ class DispatcherJob implements ShouldQueue
                 'action_id' => $action->id,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Recover actions stuck in pending_resolution state.
+     *
+     * This handles cases where ResolveIntentJob was lost (e.g., Redis restart).
+     * Safe to call multiple times - ResolveIntentJob is idempotent.
+     */
+    private function recoverPendingResolution(): void
+    {
+        // Find actions stuck in pending_resolution for more than 5 minutes
+        $stuck = ScheduledAction::query()
+            ->where('resolution_status', ScheduledAction::STATUS_PENDING_RESOLUTION)
+            ->where('created_at', '<', now()->subMinutes(5))
+            ->limit(50)
+            ->get();
+
+        if ($stuck->isEmpty()) {
+            return;
+        }
+
+        $recovered = 0;
+        foreach ($stuck as $action) {
+            // Idempotent: refresh and check state before dispatching
+            $action->refresh();
+            if ($action->resolution_status !== ScheduledAction::STATUS_PENDING_RESOLUTION) {
+                continue;
+            }
+
+            ResolveIntentJob::dispatch($action);
+            $recovered++;
+        }
+
+        if ($recovered > 0) {
+            Log::info("Recovered stuck pending_resolution actions", ['count' => $recovered]);
         }
     }
 }

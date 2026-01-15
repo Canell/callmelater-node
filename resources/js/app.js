@@ -19,6 +19,7 @@ import UseCases from './pages/UseCases.vue';
 import Status from './pages/Status.vue';
 import ConsentResult from './pages/ConsentResult.vue';
 import Settings from './pages/Settings.vue';
+import Contact from './pages/Contact.vue';
 
 // Define routes
 const routes = [
@@ -26,6 +27,7 @@ const routes = [
     { path: '/', name: 'home', component: Home },
     { path: '/pricing', name: 'pricing', component: Pricing },
     { path: '/use-cases', name: 'use-cases', component: UseCases },
+    { path: '/contact', name: 'contact', component: Contact },
     { path: '/status', name: 'status', component: Status, meta: { hideNavFooter: true } },
 
     // Consent result pages (public, no auth required)

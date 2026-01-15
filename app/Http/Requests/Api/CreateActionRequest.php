@@ -53,7 +53,9 @@ class CreateActionRequest extends FormRequest
             ])],
             'escalation_rules' => ['nullable', 'array'],
             'escalation_rules.recipients' => ['required_if:type,reminder', 'array', 'min:1'],
-            'escalation_rules.recipients.*' => ['email'],
+            'escalation_rules.recipients.*' => ['required', 'string', 'regex:/^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\+[1-9]\d{6,14})$/'],
+            'escalation_rules.channels' => ['nullable', 'array'],
+            'escalation_rules.channels.*' => ['string', Rule::in(['email', 'sms'])],
             'escalation_rules.token_expiry_days' => ['nullable', 'integer', 'min:1', 'max:30'],
             'escalation_rules.escalate_after_hours' => ['nullable', 'integer', 'min:1'],
             'escalation_rules.escalation_contacts' => ['nullable', 'array'],
@@ -72,6 +74,7 @@ class CreateActionRequest extends FormRequest
             'execute_at.after' => 'The execution time must be in the future.',
             'http_request.url.url' => 'The URL must be a valid HTTP or HTTPS URL.',
             'escalation_rules.recipients.required_if' => 'At least one recipient is required for reminders.',
+            'escalation_rules.recipients.*.regex' => 'Each recipient must be a valid email address or phone number (E.164 format, e.g. +15551234567).',
         ];
     }
 
@@ -149,6 +152,12 @@ class CreateActionRequest extends FormRequest
 
             if (count($recipients) > $maxRecipients) {
                 $validator->errors()->add('escalation_rules.recipients', "Your plan allows up to {$maxRecipients} recipients per reminder.");
+            }
+
+            // Check SMS channel requires paid plan
+            $channels = $this->input('escalation_rules.channels', []);
+            if (in_array('sms', $channels) && $user->getPlan() === 'free') {
+                $validator->errors()->add('escalation_rules.channels', 'SMS reminders require a Pro or Business plan.');
             }
         }
 
