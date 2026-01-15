@@ -108,9 +108,9 @@
 
         <div class="footer">
             <p>
-                This reminder was sent by <strong>{{ config('app.name') }}</strong>.<br>
+                You're receiving this message because it was scheduled via <strong>{{ config('app.name') }}</strong> on behalf of <strong>{{ $action->account->name ?? 'Unknown' }}</strong>.
                 @if($action->token_expires_at)
-                This link expires on {{ $action->token_expires_at->format('M j, Y \a\t g:i A T') }}.
+                <br>This link expires on {{ $action->token_expires_at->format('M j, Y \a\t g:i A T') }}.
                 @endif
             </p>
             @if($unsubscribeUrl)

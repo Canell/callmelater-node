@@ -37,6 +37,7 @@ class OptInRequestMail extends Mailable
             view: 'emails.optin-request',
             with: [
                 'senderName' => $this->sender->name,
+                'accountName' => $this->action->account->name ?? $this->sender->name,
                 'recipientEmail' => $this->consent->email,
                 'acceptUrl' => "{$baseUrl}/api/v1/consent/accept/{$token}",
                 'declineUrl' => "{$baseUrl}/api/v1/consent/decline/{$token}",

@@ -112,8 +112,7 @@
             <p class="note">If you decline, you won't receive any reminders from CallMeLater. If you accept now and change your mind later, you can unsubscribe using the link at the bottom of any reminder email.</p>
 
             <div class="footer">
-                <p>CallMeLater<br>
-                This request was sent on behalf of {{ $senderName }}.</p>
+                <p>You're receiving this message because it was scheduled via <strong>{{ config('app.name') }}</strong> on behalf of <strong>{{ $accountName }}</strong>.</p>
             </div>
         </div>
     </div>
