@@ -97,6 +97,13 @@ class DeliverReminder implements ShouldQueue
 
             // For email recipients, check consent status
             if ($isEmail && in_array('email', $channels)) {
+                // Skip consent for admin/system-created actions (internal alerts)
+                if ($owner?->is_admin) {
+                    $this->sendEmail($recipientRecord);
+                    $sentCount++;
+                    continue;
+                }
+
                 $consentStatus = $this->handleEmailConsent($recipient, $consentService, $owner);
 
                 if ($consentStatus === 'opted_in') {

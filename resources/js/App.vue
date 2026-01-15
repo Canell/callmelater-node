@@ -108,7 +108,6 @@
                             <li><router-link to="/use-cases">Use Cases</router-link></li>
                             <li><router-link to="/pricing">Pricing</router-link></li>
                             <li><a :href="docsUrl">Docs</a></li>
-                            <li><a :href="docsUrl + '/api'">API</a></li>
                         </ul>
                     </div>
                     <div class="col-6 col-md-2">
@@ -132,7 +131,7 @@
                         &copy; {{ currentYear }} CallMeLater. All rights reserved.
                     </p>
                     <p class="text-muted small mb-0">
-                        Made with care for developers who value reliability.
+                        Made with care in Rixensart, Belgium.
                     </p>
                 </div>
             </div>

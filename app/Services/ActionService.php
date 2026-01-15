@@ -167,6 +167,11 @@ class ActionService
      */
     private function checkDomainVerification(User $user, array $data): void
     {
+        // Skip domain verification for admin/system users
+        if ($user->is_admin) {
+            return;
+        }
+
         $httpRequest = $data['http_request'] ?? [];
         $url = $httpRequest['url'] ?? null;
 

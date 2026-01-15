@@ -146,6 +146,14 @@ class ScheduledAction extends Model
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
+    /**
+     * Get the owner of this action (creator if set, otherwise account owner).
+     */
+    public function getOwnerAttribute(): ?User
+    {
+        return $this->creator ?? $this->account?->owner;
+    }
+
     public function deliveryAttempts(): HasMany
     {
         return $this->hasMany(DeliveryAttempt::class, 'action_id');
