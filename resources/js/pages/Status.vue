@@ -128,8 +128,8 @@
         </div>
       </section>
 
-      <!-- No Incidents Message -->
-      <section v-if="recentIncidents.length === 0" class="container py-4">
+      <!-- No Incidents Message (only show if no active AND no recent incidents) -->
+      <section v-if="recentIncidents.length === 0 && activeIncidents.length === 0" class="container py-4">
         <div class="no-incidents">
           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>

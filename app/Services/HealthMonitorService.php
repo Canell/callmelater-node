@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Mail\IncidentAlertMail;
 use App\Models\AdminNotificationPreference;
 use App\Models\ComponentDegradationTracking;
 use App\Models\Incident;
@@ -11,6 +12,7 @@ use App\Models\User;
 use Database\Seeders\SystemUserSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
 
 class HealthMonitorService
@@ -347,11 +349,13 @@ MSG;
             ? "Critical: High failure rate ({$failureRate}%)"
             : "Critical: {$stuckCount} actions stuck";
 
-        $summary = $failureRate !== null
-            ? "Automated incident: Failure rate exceeded {$failureRate}% (threshold: " . config('callmelater.health_monitor.thresholds.failure_rate_critical') . "%)"
-            : "Automated incident: {$stuckCount} actions stuck in EXECUTING state (threshold: " . config('callmelater.health_monitor.thresholds.stuck_executing_critical') . ")";
+        $reason = $failureRate !== null
+            ? "Failure rate exceeded {$failureRate}% (threshold: " . $this->getThresholds()['failure_rate_critical'] . "%)"
+            : "{$stuckCount} actions stuck in EXECUTING state (threshold: " . $this->getThresholds()['stuck_executing_critical'] . ")";
 
-        $this->statusService->createIncident(
+        $summary = "Automated incident: {$reason}";
+
+        $incident = $this->statusService->createIncident(
             $title,
             Incident::IMPACT_CRITICAL,
             [$component->id],
@@ -363,6 +367,38 @@ MSG;
             'component' => $component->slug,
             'title' => $title,
         ]);
+
+        // Send notification to admins who opted into incident alerts
+        $this->sendIncidentNotification($incident, $component, $reason);
+    }
+
+    /**
+     * Send email notification for a new incident.
+     */
+    private function sendIncidentNotification(Incident $incident, SystemComponent $component, string $reason): void
+    {
+        $recipients = AdminNotificationPreference::getIncidentAlertRecipients();
+
+        if (empty($recipients)) {
+            Log::info("Health monitor: No admins opted into incident alerts, skipping notification");
+            return;
+        }
+
+        try {
+            foreach ($recipients as $email) {
+                Mail::to($email)->queue(new IncidentAlertMail($incident, $component->name, $reason));
+            }
+
+            Log::info("Health monitor: Sent incident notifications", [
+                'incident_id' => $incident->id,
+                'recipients' => count($recipients),
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Health monitor: Failed to send incident notification", [
+                'incident_id' => $incident->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -412,11 +448,11 @@ MSG;
                         'Content-Type' => 'application/json',
                         'X-Heartbeat-Id' => $heartbeatId,
                     ],
-                    'body' => json_encode([
+                    'body' => [
                         'heartbeat_id' => $heartbeatId,
                         'created_at' => now()->toIso8601String(),
                         'source' => 'health_monitor',
-                    ]),
+                    ],
                 ],
                 'max_attempts' => 3,
             ]);
