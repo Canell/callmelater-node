@@ -422,6 +422,39 @@
                         </div>
                     </div>
 
+                    <!-- Admin Notifications (admins only) -->
+                    <div v-show="activeTab === 'admin'" class="card card-cml">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">Health Monitoring Alerts</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Receive alerts when system health issues are detected. CallMeLater monitors itself and can notify you of problems.
+                            </p>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="admin-health" v-model="adminNotifications.health_alerts">
+                                <label class="form-check-label" for="admin-health">
+                                    <strong>Health alerts</strong>
+                                    <div class="text-muted small">Notify me when components are degraded (e.g., high failure rates, stuck jobs)</div>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="admin-incidents" v-model="adminNotifications.incident_alerts">
+                                <label class="form-check-label" for="admin-incidents">
+                                    <strong>Incident alerts</strong>
+                                    <div class="text-muted small">Notify me when incidents are created or resolved</div>
+                                </label>
+                            </div>
+
+                            <button class="btn btn-cml-primary mt-3" @click="saveAdminNotifications" :disabled="savingAdminNotifications">
+                                {{ savingAdminNotifications ? 'Saving...' : 'Save Preferences' }}
+                            </button>
+                            <span v-if="adminNotificationsSaved" class="text-success ms-2">Saved!</span>
+                        </div>
+                    </div>
+
                     <!-- Danger Zone -->
                     <div v-show="activeTab === 'danger'" class="card card-cml border-danger">
                         <div class="card-header bg-transparent">
@@ -485,6 +518,7 @@ export default {
                 { id: 'api', label: 'API & Security' },
                 { id: 'usage', label: 'Usage & Limits' },
                 { id: 'notifications', label: 'Notifications' },
+                { id: 'admin', label: 'Admin Alerts', adminOnly: true },
                 { id: 'danger', label: 'Danger Zone' },
             ],
             user: null,
@@ -553,6 +587,14 @@ export default {
             editingTeam: null,
             addMemberEmail: '',
             addingMember: false,
+
+            // Admin Notifications
+            adminNotifications: {
+                health_alerts: true,
+                incident_alerts: true,
+            },
+            savingAdminNotifications: false,
+            adminNotificationsSaved: false,
         };
     },
     computed: {
@@ -560,6 +602,9 @@ export default {
             return this.tabs.filter(tab => {
                 if (tab.businessOnly) {
                     return this.usage.plan === 'business';
+                }
+                if (tab.adminOnly) {
+                    return this.user?.is_admin === true;
                 }
                 return true;
             });
@@ -613,6 +658,11 @@ export default {
 
                 // Load usage stats
                 await this.loadUsage();
+
+                // Load admin notifications for admin users
+                if (this.user.is_admin) {
+                    await this.loadAdminNotifications();
+                }
             } catch (err) {
                 console.error('Failed to load settings:', err);
             } finally {
@@ -727,6 +777,30 @@ export default {
                 alert(err.response?.data?.message || 'Failed to save preferences');
             } finally {
                 this.savingNotifications = false;
+            }
+        },
+        async saveAdminNotifications() {
+            this.savingAdminNotifications = true;
+            this.adminNotificationsSaved = false;
+            try {
+                await axios.put('/api/user/admin-notifications', this.adminNotifications);
+                this.adminNotificationsSaved = true;
+                setTimeout(() => { this.adminNotificationsSaved = false; }, 3000);
+            } catch (err) {
+                alert(err.response?.data?.message || 'Failed to save admin preferences');
+            } finally {
+                this.savingAdminNotifications = false;
+            }
+        },
+        async loadAdminNotifications() {
+            try {
+                const response = await axios.get('/api/user/admin-notifications');
+                this.adminNotifications = {
+                    health_alerts: response.data.health_alerts ?? true,
+                    incident_alerts: response.data.incident_alerts ?? true,
+                };
+            } catch (err) {
+                console.error('Failed to load admin notifications:', err);
             }
         },
         async deleteAccount() {

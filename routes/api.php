@@ -62,6 +62,10 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::put('/user/notifications', [UserController::class, 'updateNotifications']);
     Route::delete('/user', [UserController::class, 'destroy']);
 
+    // Admin notification preferences (for admins only)
+    Route::get('/user/admin-notifications', [UserController::class, 'getAdminNotifications']);
+    Route::put('/user/admin-notifications', [UserController::class, 'updateAdminNotifications']);
+
     // API Token Management
     Route::get('/tokens', [TokenController::class, 'index']);
     Route::post('/tokens', [TokenController::class, 'store']);

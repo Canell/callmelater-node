@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\DispatcherJob;
+use App\Jobs\HealthMonitorJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -17,3 +18,6 @@ Schedule::command('app:check-expired-reminders')->everyFiveMinutes();
 
 // Recover stuck EXECUTING actions every 5 minutes (worker crash recovery)
 Schedule::command('app:recover-stuck-executing-actions')->everyFiveMinutes();
+
+// Health monitor - self-monitoring via dogfooding (every 5 minutes)
+Schedule::job(new HealthMonitorJob())->everyFiveMinutes()->withoutOverlapping();

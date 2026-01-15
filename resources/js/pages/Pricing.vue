@@ -129,7 +129,6 @@
                   <li class="included">Everything in Business</li>
                   <li class="included">Unlimited actions</li>
                   <li class="included">Custom retention</li>
-                  <li class="included">SSO / SAML</li>
                   <li class="included">Dedicated support</li>
                   <li class="included">Custom SLA available</li>
                 </ul>

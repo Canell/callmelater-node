@@ -137,4 +137,41 @@ return [
         'min_token_expiry_days' => 1,
         'max_token_expiry_days' => 30,
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Health Monitor (Self-Monitoring / Dogfooding)
+    |--------------------------------------------------------------------------
+    |
+    | Automated health monitoring that uses CallMeLater to monitor itself.
+    | Creates internal reminder actions when components are degraded
+    | and auto-creates incidents for critical issues.
+    |
+    */
+
+    'health_monitor' => [
+        // Enable/disable automated health monitoring
+        'enabled' => env('HEALTH_MONITOR_ENABLED', true),
+
+        // How often to check health (minutes)
+        'check_interval' => 5,
+
+        // Minutes to wait before sending reminder (after degradation starts)
+        'reminder_delay' => 15,
+
+        // Thresholds for component status changes
+        'thresholds' => [
+            // Failure rate (%) - webhook delivery component
+            'failure_rate_degraded' => 10,   // 10%+ = degraded
+            'failure_rate_critical' => 25,   // 25%+ = outage + auto-incident
+
+            // Stuck actions - scheduler component
+            'stuck_executing_degraded' => 5,  // 5+ stuck = degraded
+            'stuck_executing_critical' => 15, // 15+ stuck = outage + auto-incident
+
+            // Queue health - scheduler component
+            'queue_pending_degraded' => 100,  // 100+ pending jobs = degraded
+            'queue_failed_degraded' => 10,    // 10+ failed/hour = degraded
+        ],
+    ],
 ];

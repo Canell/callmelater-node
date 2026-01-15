@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use App\Models\AdminNotificationPreference;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -111,6 +112,68 @@ class UserController extends Controller
         return response()->json([
             'message' => 'Notification preferences updated',
             'preferences' => $validated,
+        ]);
+    }
+
+    /**
+     * Get admin notification preferences (admins only).
+     */
+    public function getAdminNotifications(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->isAdmin()) {
+            return response()->json([
+                'message' => 'Admin access required',
+            ], 403);
+        }
+
+        $prefs = AdminNotificationPreference::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'health_alerts' => true,
+                'incident_alerts' => true,
+                'channels' => ['email'],
+            ]
+        );
+
+        return response()->json([
+            'health_alerts' => $prefs->health_alerts,
+            'incident_alerts' => $prefs->incident_alerts,
+            'channels' => $prefs->channels,
+        ]);
+    }
+
+    /**
+     * Update admin notification preferences (admins only).
+     */
+    public function updateAdminNotifications(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->isAdmin()) {
+            return response()->json([
+                'message' => 'Admin access required',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'health_alerts' => ['sometimes', 'boolean'],
+            'incident_alerts' => ['sometimes', 'boolean'],
+            'channels' => ['sometimes', 'array'],
+            'channels.*' => ['string', 'in:email,sms'],
+        ]);
+
+        $prefs = AdminNotificationPreference::updateOrCreate(
+            ['user_id' => $user->id],
+            $validated
+        );
+
+        return response()->json([
+            'message' => 'Admin notification preferences updated',
+            'health_alerts' => $prefs->health_alerts,
+            'incident_alerts' => $prefs->incident_alerts,
+            'channels' => $prefs->channels,
         ]);
     }
 
