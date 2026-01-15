@@ -304,6 +304,71 @@ class AdminController extends Controller
     }
 
     /**
+     * Get list of users with their account and subscription info.
+     */
+    public function users(): JsonResponse
+    {
+        $users = User::with(['account.subscriptions'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($user) {
+                $account = $user->account;
+                $subscription = $account?->subscriptions()
+                    ->where('stripe_status', 'active')
+                    ->first();
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'is_admin' => $user->is_admin,
+                    'email_verified_at' => $user->email_verified_at,
+                    'created_at' => $user->created_at,
+                    'account' => $account ? [
+                        'id' => $account->id,
+                        'name' => $account->name,
+                        'is_owner' => $account->owner_id === $user->id,
+                    ] : null,
+                    'plan' => $this->getUserPlan($subscription),
+                    'actions_count' => $account ? ScheduledAction::where('account_id', $account->id)->count() : 0,
+                ];
+            });
+
+        return response()->json([
+            'users' => $users,
+            'total' => $users->count(),
+        ]);
+    }
+
+    /**
+     * Get user's plan based on subscription.
+     */
+    private function getUserPlan($subscription): string
+    {
+        if (!$subscription) {
+            return 'free';
+        }
+
+        $proPrices = array_filter([
+            config('services.stripe.prices.pro_monthly'),
+            config('services.stripe.prices.pro_annual'),
+        ]);
+        $businessPrices = array_filter([
+            config('services.stripe.prices.business_monthly'),
+            config('services.stripe.prices.business_annual'),
+        ]);
+
+        if (in_array($subscription->stripe_price, $businessPrices)) {
+            return 'business';
+        }
+        if (in_array($subscription->stripe_price, $proPrices)) {
+            return 'pro';
+        }
+
+        return 'free';
+    }
+
+    /**
      * Get subscription stats by plan.
      *
      * @return array<string, int>

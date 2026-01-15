@@ -285,6 +285,76 @@
                 </div>
             </div>
         </div>
+
+        <!-- Users List -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card card-cml">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Users</h5>
+                        <button class="btn btn-sm btn-outline-secondary" @click="loadUsers" :disabled="loadingUsers">
+                            <span v-if="loadingUsers" class="spinner-border spinner-border-sm me-1"></span>
+                            {{ users ? 'Refresh' : 'Load Users' }}
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="loadingUsers" class="text-center py-4">
+                            <div class="spinner-border spinner-border-sm text-muted"></div>
+                        </div>
+                        <div v-else-if="users" class="table-responsive">
+                            <table class="table table-sm table-cml table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Account</th>
+                                        <th>Plan</th>
+                                        <th class="text-end">Actions</th>
+                                        <th>Joined</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="user in users.users" :key="user.id">
+                                        <td>
+                                            {{ user.name }}
+                                            <span v-if="user.is_admin" class="badge bg-danger ms-1">Admin</span>
+                                        </td>
+                                        <td>
+                                            <a :href="'mailto:' + user.email" class="text-decoration-none">
+                                                {{ user.email }}
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <span v-if="user.account">
+                                                {{ user.account.name }}
+                                                <span v-if="user.account.is_owner" class="badge bg-secondary ms-1">Owner</span>
+                                            </span>
+                                            <span v-else class="text-muted">-</span>
+                                        </td>
+                                        <td>
+                                            <span :class="planBadgeClass(user.plan)">{{ user.plan }}</span>
+                                        </td>
+                                        <td class="text-end">{{ user.actions_count }}</td>
+                                        <td>{{ formatShortDate(user.created_at) }}</td>
+                                        <td>
+                                            <span v-if="user.email_verified_at" class="badge bg-success">Verified</span>
+                                            <span v-else class="badge bg-warning text-dark">Unverified</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div class="text-muted small mt-2">
+                                Total: {{ users.total }} users
+                            </div>
+                        </div>
+                        <div v-else class="text-center py-4 text-muted">
+                            Click "Load Users" to view the user list
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -297,10 +367,12 @@ export default {
     data() {
         return {
             loading: false,
+            loadingUsers: false,
             overview: null,
             trends: null,
             health: null,
             queue: null,
+            users: null,
         };
     },
     computed: {
@@ -383,6 +455,25 @@ export default {
             } catch (err) {
                 console.error('Failed to load queue:', err);
             }
+        },
+        async loadUsers() {
+            this.loadingUsers = true;
+            try {
+                const response = await axios.get('/api/admin/users');
+                this.users = response.data;
+            } catch (err) {
+                console.error('Failed to load users:', err);
+            } finally {
+                this.loadingUsers = false;
+            }
+        },
+        planBadgeClass(plan) {
+            const classes = {
+                free: 'badge bg-secondary',
+                pro: 'badge bg-primary',
+                business: 'badge bg-success',
+            };
+            return classes[plan] || 'badge bg-secondary';
         },
         formatTime,
         formatShortDate,

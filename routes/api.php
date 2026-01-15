@@ -120,6 +120,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/health', [AdminController::class, 'health']);
         Route::get('/queue', [AdminController::class, 'queue']);
         Route::get('/heartbeat', [HeartbeatController::class, 'status']);
+        Route::get('/users', [AdminController::class, 'users']);
 
         // Status Page Management
         Route::get('/status/components', [StatusController::class, 'components']);
