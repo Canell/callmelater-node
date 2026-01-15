@@ -66,8 +66,7 @@
                             <hr>
 
                             <h2>7. Contact</h2>
-                            <p>If you have any questions about this Cookie Notice, please contact:</p>
-                            <p><strong>Email:</strong> <a href="mailto:privacy@callmelater.io">privacy@callmelater.io</a></p>
+                            <p>If you have any questions about this Cookie Notice, please <router-link to="/contact">contact us</router-link>.</p>
 
                             <hr>
 

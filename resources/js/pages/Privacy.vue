@@ -115,8 +115,7 @@
                             <hr>
 
                             <h2>12. Contact</h2>
-                            <p>For privacy-related questions or requests:</p>
-                            <p><strong>Email:</strong> <a href="mailto:privacy@callmelater.io">privacy@callmelater.io</a></p>
+                            <p>For privacy-related questions or requests, please <router-link to="/contact">contact us</router-link>.</p>
                         </div>
                     </div>
                 </div>

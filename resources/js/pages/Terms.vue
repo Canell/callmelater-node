@@ -111,8 +111,7 @@
                             <hr>
 
                             <h2>12. Contact</h2>
-                            <p>For questions regarding these Terms, contact:</p>
-                            <p><strong>Email:</strong> <a href="mailto:legal@callmelater.io">legal@callmelater.io</a></p>
+                            <p>For questions regarding these Terms, please <router-link to="/contact">contact us</router-link>.</p>
                         </div>
                     </div>
                 </div>
