@@ -34,7 +34,7 @@
               <router-link to="/register" class="btn btn-cml-primary btn-lg me-3">
                 Start Free
               </router-link>
-              <a href="https://docs.callmelater.io" class="btn btn-outline-secondary btn-lg">
+              <a :href="docsUrl" class="btn btn-outline-secondary btn-lg">
                 Read the Docs
               </a>
             </div>
@@ -274,6 +274,9 @@ import { createHttpAction, createReminderAction, httpActionJson, reminderActionJ
 const route = useRoute();
 const router = useRouter();
 const showVerifiedModal = ref(false);
+
+const appDomain = import.meta.env.VITE_APP_DOMAIN || 'callmelater.io';
+const docsUrl = `https://docs.${appDomain}`;
 
 onMounted(() => {
   // Check for verified=1 query param

@@ -30,7 +30,7 @@
                             <router-link class="nav-link" to="/pricing">Pricing</router-link>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="https://docs.callmelater.io">Docs</a>
+                            <a class="nav-link" :href="docsUrl">Docs</a>
                         </li>
                     </ul>
 
@@ -107,16 +107,16 @@
                         <ul class="list-unstyled footer-links">
                             <li><router-link to="/use-cases">Use Cases</router-link></li>
                             <li><router-link to="/pricing">Pricing</router-link></li>
-                            <li><a href="https://docs.callmelater.io">Docs</a></li>
-                            <li><a href="https://docs.callmelater.io/api">API</a></li>
+                            <li><a :href="docsUrl">Docs</a></li>
+                            <li><a :href="docsUrl + '/api'">API</a></li>
                         </ul>
                     </div>
                     <div class="col-6 col-md-2">
                         <h6 class="footer-heading">Resources</h6>
                         <ul class="list-unstyled footer-links">
-                            <li><a href="https://status.callmelater.io">Status</a></li>
-                            <li><a href="https://blog.callmelater.io">Blog</a></li>
-                            <li><a href="mailto:support@callmelater.io">Contact</a></li>
+                            <li><a :href="statusUrl">Status</a></li>
+                            <li><a :href="blogUrl">Blog</a></li>
+                            <li><a :href="'mailto:support@' + appDomain">Contact</a></li>
                         </ul>
                     </div>
                     <div class="col-6 col-md-2">
@@ -157,11 +157,24 @@ export default {
         return {
             user: null,
             resending: false,
+            authToken: localStorage.getItem('token'),
         };
     },
     computed: {
+        appDomain() {
+            return import.meta.env.VITE_APP_DOMAIN || 'callmelater.io';
+        },
+        docsUrl() {
+            return `https://docs.${this.appDomain}`;
+        },
+        statusUrl() {
+            return '/status';
+        },
+        blogUrl() {
+            return `https://blog.${this.appDomain}`;
+        },
         isAuthenticated() {
-            return !!localStorage.getItem('token');
+            return !!this.authToken;
         },
         isAdmin() {
             return this.user?.is_admin === true;
@@ -199,6 +212,7 @@ export default {
                 // 419 CSRF errors are handled by axios interceptor
                 if (err.response?.status === 401) {
                     localStorage.removeItem('token');
+                    this.authToken = null;
                     this.user = null;
                 }
             }
@@ -210,6 +224,7 @@ export default {
                 // Ignore logout errors
             }
             localStorage.removeItem('token');
+            this.authToken = null;
             this.user = null;
             this.$router.push({ name: 'home' });
         },
@@ -226,8 +241,15 @@ export default {
         }
     },
     watch: {
-        isAuthenticated(newVal) {
-            if (newVal) {
+        // Watch route changes to detect magic link auth and sync auth state
+        '$route'() {
+            // Sync authToken with localStorage (detects magic link auth)
+            const currentToken = localStorage.getItem('token');
+            if (this.authToken !== currentToken) {
+                this.authToken = currentToken;
+            }
+            // If authenticated but no user data, fetch it
+            if (this.authToken && !this.user) {
                 this.fetchUser();
             }
         }

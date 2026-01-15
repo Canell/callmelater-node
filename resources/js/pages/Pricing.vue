@@ -36,7 +36,7 @@
             <div class="card pricing-card h-100">
               <div class="card-body">
                 <h5 class="card-title text-muted text-uppercase small fw-semibold">Free</h5>
-                <div class="price-display mb-3">$0<span class="price-period">/month</span></div>
+                <div class="price-display mb-3">€0<span class="price-period">/month</span></div>
                 <p class="text-muted small mb-4">For trying things out</p>
                 <ul class="feature-list mb-4">
                   <li class="included">100 actions/month</li>
@@ -59,12 +59,12 @@
                 <h5 class="card-title text-muted text-uppercase small fw-semibold">Pro</h5>
                 <div class="price-display mb-1">
                   <span class="price-amount" :key="billingPeriod">
-                    ${{ billingPeriod === 'annual' ? '24' : '29' }}
+                    €{{ billingPeriod === 'annual' ? '16' : '19' }}
                   </span>
                   <span class="price-period">/month</span>
                 </div>
                 <div v-if="billingPeriod === 'annual'" class="annual-note mb-3">
-                  <span class="text-success small fw-medium">$290/year</span>
+                  <span class="text-success small fw-medium">€190/year</span>
                   <span class="text-muted small"> (2 months free)</span>
                 </div>
                 <div v-else class="mb-3">&nbsp;</div>
@@ -91,12 +91,12 @@
                 <h5 class="card-title text-muted text-uppercase small fw-semibold">Business</h5>
                 <div class="price-display mb-1">
                   <span class="price-amount" :key="billingPeriod">
-                    ${{ billingPeriod === 'annual' ? '82' : '99' }}
+                    €{{ billingPeriod === 'annual' ? '66' : '79' }}
                   </span>
                   <span class="price-period">/month</span>
                 </div>
                 <div v-if="billingPeriod === 'annual'" class="annual-note mb-3">
-                  <span class="text-success small fw-medium">$990/year</span>
+                  <span class="text-success small fw-medium">€790/year</span>
                   <span class="text-muted small"> (2 months free)</span>
                 </div>
                 <div v-else class="mb-3">&nbsp;</div>

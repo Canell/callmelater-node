@@ -595,7 +595,7 @@ export default {
                 ]);
 
                 this.user = userRes.data;
-                this.tokens = tokensRes.data;
+                this.tokens = tokensRes.data.tokens || [];
                 this.outboundIp = serverRes.data.outbound_ip;
                 this.webhookSecret = webhookRes.data.secret;
 
@@ -673,7 +673,13 @@ export default {
                     name: this.newTokenName,
                 });
                 this.newlyCreatedToken = response.data.token;
-                this.tokens.push(response.data.accessToken);
+                this.tokens.unshift({
+                    id: response.data.id,
+                    name: response.data.name,
+                    abilities: response.data.abilities,
+                    created_at: new Date().toISOString(),
+                    last_used_at: null,
+                });
                 this.newTokenName = '';
             } catch (err) {
                 alert(err.response?.data?.message || 'Failed to create token');

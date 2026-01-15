@@ -57,6 +57,15 @@ const router = createRouter({
 
 // Navigation guard for auth
 router.beforeEach((to, from, next) => {
+    // Check for magic link auth signal
+    if (to.query.auth === 'magic') {
+        localStorage.setItem('token', 'authenticated');
+        // Remove the query param and continue
+        const { auth, ...query } = to.query;
+        next({ path: to.path, query, replace: true });
+        return;
+    }
+
     const isAuthenticated = localStorage.getItem('token');
 
     if (to.meta.requiresAuth && !isAuthenticated) {

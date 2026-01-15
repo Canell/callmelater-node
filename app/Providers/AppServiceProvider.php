@@ -106,5 +106,17 @@ class AppServiceProvider extends ServiceProvider
                     ], 429);
                 });
         });
+
+        // Magic link rate limit - prevent abuse
+        RateLimiter::for('magic-link', function (Request $request) {
+            $email = strtolower(trim($request->input('email', '')));
+
+            return [
+                // Per IP: 5 requests per minute
+                Limit::perMinute(5)->by($request->ip()),
+                // Per email: 3 requests per 10 minutes
+                Limit::perMinutes(10, 3)->by('email:' . $email),
+            ];
+        });
     }
 }
