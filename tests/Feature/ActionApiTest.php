@@ -55,6 +55,84 @@ class ActionApiTest extends TestCase
         ]);
     }
 
+    public function test_can_create_action_without_name(): void
+    {
+        $response = $this->postJson('/api/v1/actions', [
+            'type' => 'http',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'http_request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.name', 'HTTP Action');
+    }
+
+    public function test_can_create_action_without_type_defaults_to_http(): void
+    {
+        $response = $this->postJson('/api/v1/actions', [
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'http_request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.type', 'http');
+    }
+
+    public function test_minimal_http_action_payload(): void
+    {
+        // This is the minimal valid payload as documented
+        $response = $this->postJson('/api/v1/actions', [
+            'intent' => ['delay' => '1m'],
+            'http_request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.type', 'http')
+            ->assertJsonPath('data.name', 'HTTP Action');
+    }
+
+    public function test_action_uses_user_webhook_secret_by_default(): void
+    {
+        // Ensure user has a webhook secret
+        $this->user->update(['webhook_secret' => 'whsec_test_user_secret']);
+
+        $response = $this->postJson('/api/v1/actions', [
+            'intent' => ['delay' => '1h'],
+            'http_request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+        ]);
+
+        $response->assertStatus(201);
+
+        $action = ScheduledAction::find($response->json('data.id'));
+        $this->assertEquals('whsec_test_user_secret', $action->webhook_secret);
+    }
+
+    public function test_action_can_override_webhook_secret(): void
+    {
+        $this->user->update(['webhook_secret' => 'whsec_user_default']);
+
+        $response = $this->postJson('/api/v1/actions', [
+            'intent' => ['delay' => '1h'],
+            'http_request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+            'webhook_secret' => 'custom_action_secret',
+        ]);
+
+        $response->assertStatus(201);
+
+        $action = ScheduledAction::find($response->json('data.id'));
+        $this->assertEquals('custom_action_secret', $action->webhook_secret);
+    }
+
     public function test_can_create_http_action_with_intent(): void
     {
         $response = $this->postJson('/api/v1/actions', [

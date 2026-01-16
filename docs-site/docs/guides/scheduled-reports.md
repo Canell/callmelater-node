@@ -83,13 +83,9 @@ function scheduleMonthlyReport(userId) {
   );
 
   return callmelater.createAction({
-    type: 'http',
     idempotency_key: `monthly-${userId}-${lastDay.toISOString().slice(0, 7)}`,
-    intent: {
-      execute_at: lastDay.toISOString()
-    },
+    execute_at: lastDay.toISOString(),
     http_request: {
-      method: 'POST',
       url: 'https://your-app.com/webhooks/generate-report',
       body: {
         type: 'monthly_summary',

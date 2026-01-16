@@ -26,7 +26,7 @@ The exact JSON body you provided when creating the action.
 
 ## Webhook Signatures
 
-If you set a `webhook_secret` when creating the action, every request is signed.
+Every HTTP action is signed using your account's webhook secret (found in Settings → Webhook Secret). You can also override it per-action by setting `webhook_secret` when creating the action.
 
 ### Signature Header
 

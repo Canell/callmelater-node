@@ -22,23 +22,24 @@ curl -X POST https://api.callmelater.io/v1/actions \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "http",
     "idempotency_key": "trial-end-user-42",
     "intent": {
       "delay": "14d"
     },
     "http_request": {
-      "method": "POST",
       "url": "https://your-app.com/webhooks/trial-expired",
       "body": {
         "event": "trial_expired",
         "user_id": 42,
         "action": "downgrade_to_free"
       }
-    },
-    "webhook_secret": "your-webhook-secret"
+    }
   }'
 ```
+
+:::tip Minimal payload
+The `type` field defaults to `http`, and the request will be signed with your account's webhook secret automatically.
+:::
 
 ## Handle the Webhook
 

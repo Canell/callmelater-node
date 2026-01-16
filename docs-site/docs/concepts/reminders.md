@@ -21,15 +21,14 @@ Reminders let you get human confirmation before proceeding with an action.
   "intent": {
     "preset": "tomorrow"
   },
-  "reminder_message": "Please confirm the production deployment",
-  "recipients": [
-    "ops@example.com",
-    "+1234567890"
-  ],
-  "confirmation_mode": "any",
-  "max_snoozes": 3,
-  "snooze_duration": "1h",
-  "expires_after": "24h"
+  "message": "Please confirm the production deployment",
+  "escalation_rules": {
+    "recipients": ["ops@example.com", "+1234567890"],
+    "channels": ["email", "sms"],
+    "token_expiry_days": 1
+  },
+  "confirmation_mode": "first_response",
+  "max_snoozes": 3
 }
 ```
 
@@ -46,13 +45,13 @@ You can mix channels in the same reminder.
 
 ## Confirmation Modes
 
-### `any` (Default)
+### `first_response` (Default)
 
 The reminder is resolved when **any** recipient responds.
 
 Use for: General notifications where one confirmation is enough.
 
-### `all`
+### `all_required`
 
 The reminder requires **all** recipients to confirm.
 
@@ -74,29 +73,32 @@ Configure snooze behavior:
 
 ```json
 {
-  "max_snoozes": 3,
-  "snooze_duration": "1h"
+  "max_snoozes": 5
 }
 ```
 
-- `max_snoozes`: How many times recipients can snooze (default: 3)
-- `snooze_duration`: How long until the next reminder (default: 1 hour)
+- `max_snoozes`: How many times recipients can snooze (default: 5)
 
 When snooze limit is reached, the snooze button is hidden.
 
 ## Expiration
 
-Set when an unanswered reminder should expire:
+Set when response links should expire:
 
 ```json
 {
-  "expires_after": "24h"
+  "escalation_rules": {
+    "recipients": ["user@example.com"],
+    "token_expiry_days": 7
+  }
 }
 ```
 
+- `token_expiry_days`: Days until response links expire (default: 7, max: 30)
+
 When a reminder expires without response:
-- Status changes to `failed`
-- Escalation contacts are notified (if configured)
+- Status changes to `expired`
+- Response links no longer work
 
 ## Escalation
 
@@ -104,10 +106,11 @@ Configure escalation for critical reminders:
 
 ```json
 {
-  "escalation_contacts": [
-    "manager@example.com"
-  ],
-  "escalate_after": "4h"
+  "escalation_rules": {
+    "recipients": ["team@example.com"],
+    "escalation_contacts": ["manager@example.com"],
+    "escalate_after_hours": 4
+  }
 }
 ```
 

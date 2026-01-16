@@ -30,12 +30,12 @@ curl -X POST https://api.callmelater.io/v1/actions \
     "intent": {
       "delay": "0m"
     },
-    "reminder_message": "Please approve deployment of v2.1.0 to production",
-    "recipients": [
-      "tech-lead@example.com"
-    ],
-    "confirmation_mode": "any",
-    "expires_after": "4h"
+    "message": "Please approve deployment of v2.1.0 to production",
+    "escalation_rules": {
+      "recipients": ["tech-lead@example.com"],
+      "token_expiry_days": 1
+    },
+    "confirmation_mode": "first_response"
   }'
 ```
 
@@ -50,12 +50,14 @@ Require everyone to approve:
 
 ```json
 {
-  "confirmation_mode": "all",
-  "recipients": [
-    "cto@example.com",
-    "security@example.com",
-    "ops@example.com"
-  ]
+  "confirmation_mode": "all_required",
+  "escalation_rules": {
+    "recipients": [
+      "cto@example.com",
+      "security@example.com",
+      "ops@example.com"
+    ]
+  }
 }
 ```
 
@@ -67,17 +69,19 @@ If no one responds, escalate to a manager:
 
 ```json
 {
-  "recipients": ["team@example.com"],
-  "escalation_contacts": ["manager@example.com"],
-  "escalate_after": "2h",
-  "expires_after": "8h"
+  "escalation_rules": {
+    "recipients": ["team@example.com"],
+    "escalation_contacts": ["manager@example.com"],
+    "escalate_after_hours": 2,
+    "token_expiry_days": 1
+  }
 }
 ```
 
 Timeline:
 - 0h: Team receives reminder
 - 2h: If no response, manager is notified
-- 8h: If still no response, action fails
+- 24h: If still no response, response links expire
 
 ## Handle the Response
 
@@ -105,10 +109,11 @@ async function requestDeploymentApproval(version, environment) {
     type: 'reminder',
     idempotency_key: `deploy-${version}-${environment}`,
     intent: { delay: '0m' },
-    reminder_message: `Approve deployment of ${version} to ${environment}?`,
-    recipients: getApprovers(environment),
-    confirmation_mode: environment === 'production' ? 'all' : 'any',
-    expires_after: '4h'
+    message: `Approve deployment of ${version} to ${environment}?`,
+    escalation_rules: {
+      recipients: getApprovers(environment),
+    },
+    confirmation_mode: environment === 'production' ? 'all_required' : 'first_response',
   });
 
   // Wait for response (in practice, use webhooks)
