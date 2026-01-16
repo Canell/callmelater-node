@@ -95,8 +95,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
+
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 const form = ref({
     name: '',
@@ -108,9 +110,45 @@ const form = ref({
 const submitting = ref(false);
 const submitted = ref(false);
 const error = ref(null);
+const recaptchaLoaded = ref(false);
+
+// Load reCAPTCHA script
+function loadRecaptcha() {
+    if (!RECAPTCHA_SITE_KEY || window.grecaptcha) {
+        recaptchaLoaded.value = !!window.grecaptcha;
+        return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+        recaptchaLoaded.value = true;
+    };
+    document.head.appendChild(script);
+}
+
+// Get reCAPTCHA token
+async function getRecaptchaToken() {
+    if (!RECAPTCHA_SITE_KEY || !window.grecaptcha) {
+        return null;
+    }
+
+    return new Promise((resolve) => {
+        window.grecaptcha.ready(() => {
+            window.grecaptcha
+                .execute(RECAPTCHA_SITE_KEY, { action: 'contact' })
+                .then(resolve)
+                .catch(() => resolve(null));
+        });
+    });
+}
 
 // Pre-fill email if user is authenticated
 onMounted(async () => {
+    loadRecaptcha();
+
     const token = localStorage.getItem('token');
     if (token) {
         try {
@@ -123,12 +161,26 @@ onMounted(async () => {
     }
 });
 
+// Hide reCAPTCHA badge when leaving page
+onUnmounted(() => {
+    const badge = document.querySelector('.grecaptcha-badge');
+    if (badge) {
+        badge.style.visibility = 'hidden';
+    }
+});
+
 async function submitForm() {
     submitting.value = true;
     error.value = null;
 
     try {
-        await axios.post('/api/contact', form.value);
+        // Get reCAPTCHA token
+        const recaptchaToken = await getRecaptchaToken();
+
+        await axios.post('/api/contact', {
+            ...form.value,
+            recaptcha_token: recaptchaToken,
+        });
         submitted.value = true;
     } catch (err) {
         error.value = err.response?.data?.message || 'Failed to send message. Please try again.';

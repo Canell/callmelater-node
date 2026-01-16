@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class ContactController extends Controller
@@ -17,7 +19,15 @@ class ContactController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'subject' => ['required', 'string', 'in:general,support,billing,enterprise,feedback'],
             'message' => ['required', 'string', 'max:5000'],
+            'recaptcha_token' => ['nullable', 'string'],
         ]);
+
+        // Verify reCAPTCHA if configured
+        if (! $this->verifyRecaptcha($validated['recaptcha_token'] ?? null, $request->ip())) {
+            return response()->json([
+                'message' => 'Security verification failed. Please try again.',
+            ], 422);
+        }
 
         // Check if sender is an existing user
         $existingUser = User::where('email', $validated['email'])->first();
@@ -33,6 +43,76 @@ class ContactController extends Controller
         return response()->json([
             'message' => 'Message sent successfully',
         ]);
+    }
+
+    private function verifyRecaptcha(?string $token, ?string $ip): bool
+    {
+        $secretKey = config('services.recaptcha.secret_key');
+
+        // If reCAPTCHA is not configured, allow the request
+        if (empty($secretKey)) {
+            return true;
+        }
+
+        // If no token provided when reCAPTCHA is configured, reject
+        if (empty($token)) {
+            Log::warning('Contact form submitted without reCAPTCHA token', ['ip' => $ip]);
+
+            return false;
+        }
+
+        try {
+            $response = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
+                'secret' => $secretKey,
+                'response' => $token,
+                'remoteip' => $ip,
+            ]);
+
+            $result = $response->json();
+
+            if (! ($result['success'] ?? false)) {
+                Log::warning('reCAPTCHA verification failed', [
+                    'ip' => $ip,
+                    'error_codes' => $result['error-codes'] ?? [],
+                ]);
+
+                return false;
+            }
+
+            // Check score (0.0 = bot, 1.0 = human)
+            $score = $result['score'] ?? 0;
+            $minScore = config('services.recaptcha.min_score', 0.5);
+
+            if ($score < $minScore) {
+                Log::warning('reCAPTCHA score too low', [
+                    'ip' => $ip,
+                    'score' => $score,
+                    'min_score' => $minScore,
+                ]);
+
+                return false;
+            }
+
+            // Verify action matches
+            if (($result['action'] ?? '') !== 'contact') {
+                Log::warning('reCAPTCHA action mismatch', [
+                    'ip' => $ip,
+                    'action' => $result['action'] ?? 'unknown',
+                ]);
+
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('reCAPTCHA verification error', [
+                'ip' => $ip,
+                'error' => $e->getMessage(),
+            ]);
+
+            // On error, allow the request (fail open) to not block legitimate users
+            return true;
+        }
     }
 
     private function getUserInfo(?User $user): array
