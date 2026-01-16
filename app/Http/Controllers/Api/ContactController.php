@@ -123,21 +123,58 @@ class ContactController extends Controller
                 'plan' => null,
                 'account_name' => null,
                 'member_since' => null,
+                'subscription_status' => null,
+                'subscription_ends_at' => null,
             ];
+        }
+
+        $account = $user->account;
+        $subscription = $account?->subscription('default');
+
+        // Determine subscription status
+        $subscriptionStatus = 'None';
+        $subscriptionEndsAt = null;
+
+        if ($subscription) {
+            if ($subscription->canceled()) {
+                $subscriptionStatus = 'Cancelled';
+                $subscriptionEndsAt = $subscription->ends_at?->format('M j, Y');
+            } elseif ($subscription->onTrial()) {
+                $subscriptionStatus = 'Trial';
+                $subscriptionEndsAt = $subscription->trial_ends_at?->format('M j, Y');
+            } elseif ($subscription->active()) {
+                $subscriptionStatus = 'Active';
+                // Get current period end from Stripe
+                if ($subscription->asStripeSubscription()) {
+                    $stripeSubscription = $subscription->asStripeSubscription();
+                    $subscriptionEndsAt = date('M j, Y', $stripeSubscription->current_period_end);
+                }
+            }
         }
 
         return [
             'is_user' => true,
             'plan' => ucfirst($user->getPlan()),
-            'account_name' => $user->account?->name,
+            'account_name' => $account?->name,
             'member_since' => $user->created_at?->format('M j, Y'),
+            'subscription_status' => $subscriptionStatus,
+            'subscription_ends_at' => $subscriptionEndsAt,
         ];
     }
 
     private function formatMessage(array $data, array $userInfo): string
     {
+        $subscriptionLine = '';
+        if ($userInfo['is_user'] && $userInfo['subscription_status']) {
+            $subscriptionLine = "\nSubscription: {$userInfo['subscription_status']}";
+            if ($userInfo['subscription_ends_at']) {
+                $label = $userInfo['subscription_status'] === 'Cancelled' ? 'Ends' : 'Renews';
+                $subscriptionLine .= " ({$label}: {$userInfo['subscription_ends_at']})";
+            }
+        }
+
         $userSection = $userInfo['is_user']
-            ? "Existing User: Yes\nPlan: {$userInfo['plan']}\nAccount: {$userInfo['account_name']}\nMember Since: {$userInfo['member_since']}"
+            ? "Existing User: Yes\nPlan: {$userInfo['plan']}\nAccount: {$userInfo['account_name']}\nMember Since: {$userInfo['member_since']}{$subscriptionLine}"
             : "Existing User: No";
 
         return <<<TEXT
