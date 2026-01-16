@@ -22,7 +22,7 @@
 
                             <h2>1. About CallMeLater</h2>
                             <p>CallMeLater is a software-as-a-service platform that allows users to schedule future actions, including automated HTTP requests and reminder notifications, for execution at a later time.</p>
-                            <p>The Service is operated by CallMeLater ("we", "us", or "our").</p>
+                            <p>The Service is operated by <strong>Canell SRL</strong>, a company registered in Belgium (VAT: BE0778.716.691), referred to as "we", "us", or "our" throughout these Terms. For more information about our company, visit <a href="https://canell.be" target="_blank" rel="noopener">canell.be</a>.</p>
 
                             <hr>
 
@@ -106,7 +106,7 @@
                             <hr>
 
                             <h2>11. Governing Law</h2>
-                            <p>These Terms are governed by the laws of the European Union and the laws of the country in which CallMeLater is established.</p>
+                            <p>These Terms are governed by the laws of Belgium. Any disputes arising from or relating to these Terms shall be subject to the exclusive jurisdiction of the courts of Belgium.</p>
 
                             <hr>
 

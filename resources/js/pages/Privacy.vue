@@ -20,8 +20,9 @@
 
                             <hr>
 
-                            <h2>1. Roles and Scope</h2>
-                            <p>CallMeLater acts as:</p>
+                            <h2>1. Data Controller</h2>
+                            <p>CallMeLater is operated by <strong>Canell SRL</strong>, a company registered in Belgium (VAT: BE0778.716.691). For more information about our company, visit <a href="https://canell.be" target="_blank" rel="noopener">canell.be</a>.</p>
+                            <p>Canell SRL acts as:</p>
                             <ul>
                                 <li><strong>Data Controller</strong> for account and billing data</li>
                                 <li><strong>Data Processor</strong> for reminder recipient data submitted by users</li>
@@ -114,7 +115,12 @@
 
                             <hr>
 
-                            <h2>12. Contact</h2>
+                            <h2>12. Governing Law</h2>
+                            <p>This Privacy Policy is governed by the laws of Belgium and the General Data Protection Regulation (GDPR). You have the right to lodge a complaint with the Belgian Data Protection Authority (Gegevensbeschermingsautoriteit) or your local supervisory authority.</p>
+
+                            <hr>
+
+                            <h2>13. Contact</h2>
                             <p>For privacy-related questions or requests, please <router-link to="/contact">contact us</router-link>.</p>
                         </div>
                     </div>
