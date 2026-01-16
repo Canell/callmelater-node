@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\PublicStatusController;
@@ -111,6 +112,17 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::put('/', [AccountController::class, 'update']);
         Route::post('/members', [AccountController::class, 'addMember']);
         Route::delete('/members/{userId}', [AccountController::class, 'removeMember']);
+    });
+
+    // Team Management (Business plan)
+    Route::prefix('teams')->group(function () {
+        Route::get('/', [TeamController::class, 'index']);
+        Route::post('/', [TeamController::class, 'store']);
+        Route::get('/{team}', [TeamController::class, 'show']);
+        Route::put('/{team}', [TeamController::class, 'update']);
+        Route::delete('/{team}', [TeamController::class, 'destroy']);
+        Route::post('/{team}/members', [TeamController::class, 'addMember']);
+        Route::delete('/{team}/members/{userId}', [TeamController::class, 'removeMember']);
     });
 
     // Admin Dashboard (requires admin role)
