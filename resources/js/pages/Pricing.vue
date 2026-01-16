@@ -132,7 +132,7 @@
                   <li class="included">Dedicated support</li>
                   <li class="included">Custom SLA available</li>
                 </ul>
-                <a href="mailto:sales@callmelater.io" class="btn btn-outline-secondary w-100">Contact Sales</a>
+                <router-link to="/contact" class="btn btn-outline-secondary w-100">Contact Sales</router-link>
               </div>
             </div>
           </div>
