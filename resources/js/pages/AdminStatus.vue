@@ -328,6 +328,7 @@ import { formatRelativeTime } from '../utils/dateFormatting';
 
 export default {
     name: 'AdminStatus',
+    inject: ['toast'],
     data() {
         return {
             components: [],
@@ -398,7 +399,7 @@ export default {
                 component.status_label = this.getStatusLabel(status);
             } catch (err) {
                 console.error('Failed to update component:', err);
-                alert('Failed to update component status');
+                this.toast.error('Failed to update component status');
             } finally {
                 this.updatingComponent = null;
             }
@@ -416,7 +417,7 @@ export default {
                 }
             } catch (err) {
                 console.error('Failed to update incident:', err);
-                alert('Failed to update incident status');
+                this.toast.error('Failed to update incident status');
             } finally {
                 this.updatingIncident = null;
             }
@@ -435,7 +436,7 @@ export default {
                 await Promise.all([this.loadComponents(), this.loadIncidents()]);
             } catch (err) {
                 console.error('Failed to create incident:', err);
-                alert('Failed to create incident: ' + (err.response?.data?.message || err.message));
+                this.toast.error('Failed to create incident: ' + (err.response?.data?.message || err.message));
             } finally {
                 this.creatingIncident = false;
             }

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\HeartbeatController;
 use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
+use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TeamController;
@@ -54,6 +55,10 @@ Route::prefix('v1/consent')->middleware('throttle:consent')->group(function () {
     Route::get('/unsubscribe/{token}', [ConsentController::class, 'unsubscribe']);
 });
 
+// Public invitation endpoint (view invitation details)
+Route::get('/invitations/{token}', [InvitationController::class, 'show'])
+    ->middleware('throttle:api');
+
 // Authenticated endpoints (Bearer token or SPA cookie)
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     // Current user
@@ -77,6 +82,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::get('/tokens', [TokenController::class, 'index']);
     Route::post('/tokens', [TokenController::class, 'store']);
     Route::delete('/tokens/{id}', [TokenController::class, 'destroy']);
+
+    // Team Invitations
+    Route::post('/invitations/{token}/accept', [InvitationController::class, 'accept']);
 
     // Actions API (v1)
     Route::prefix('v1')->group(function () {
@@ -123,6 +131,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::delete('/{team}', [TeamController::class, 'destroy']);
         Route::post('/{team}/members', [TeamController::class, 'addMember']);
         Route::delete('/{team}/members/{userId}', [TeamController::class, 'removeMember']);
+        Route::get('/{team}/invitations', [TeamController::class, 'invitations']);
+        Route::delete('/{team}/invitations/{invitation}', [TeamController::class, 'cancelInvitation']);
     });
 
     // Admin Dashboard (requires admin role)

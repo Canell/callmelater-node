@@ -1,5 +1,8 @@
 <template>
     <div id="app">
+        <!-- Toast Notifications -->
+        <Toast ref="toast" />
+
         <!-- Top Navigation -->
         <nav v-if="!hideNavFooter" class="navbar navbar-expand-lg navbar-cml">
             <div class="container">
@@ -142,14 +145,28 @@
 
 <script>
 import axios from 'axios';
+import Toast from './components/Toast.vue';
 
 export default {
     name: 'App',
+    components: {
+        Toast,
+    },
     data() {
         return {
             user: null,
             resending: false,
             authToken: localStorage.getItem('token'),
+        };
+    },
+    provide() {
+        return {
+            toast: {
+                success: (msg, title) => this.$refs.toast?.success(msg, title),
+                error: (msg, title) => this.$refs.toast?.error(msg, title),
+                warning: (msg, title) => this.$refs.toast?.warning(msg, title),
+                info: (msg, title) => this.$refs.toast?.info(msg, title),
+            },
         };
     },
     computed: {
@@ -221,9 +238,9 @@ export default {
             this.resending = true;
             try {
                 await axios.post('/email/verification-notification');
-                alert('Verification email sent! Please check your inbox.');
+                this.$refs.toast?.success('Verification email sent! Please check your inbox.');
             } catch (err) {
-                alert('Failed to send verification email. Please try again.');
+                this.$refs.toast?.error('Failed to send verification email. Please try again.');
             } finally {
                 this.resending = false;
             }

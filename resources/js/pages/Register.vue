@@ -78,6 +78,7 @@ import axios from 'axios';
 
 export default {
     name: 'Register',
+    inject: ['toast'],
     data() {
         return {
             form: {
@@ -143,9 +144,9 @@ export default {
                 if (err.response?.status === 429) {
                     // Rate limited - start longer cooldown
                     this.startCooldown(120);
-                    alert('Too many requests. Please wait a few minutes.');
+                    this.toast.warning('Too many requests. Please wait a few minutes.');
                 } else {
-                    alert('Failed to resend email. Please try again.');
+                    this.toast.error('Failed to resend email. Please try again.');
                 }
             } finally {
                 this.resending = false;

@@ -614,6 +614,7 @@ export default {
     components: {
         ConfirmModal,
     },
+    inject: ['toast'],
     data() {
         return {
             loading: true,
@@ -864,7 +865,7 @@ export default {
                 this.profileSaved = true;
                 setTimeout(() => { this.profileSaved = false; }, 3000);
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to save profile');
+                this.toast.error(err.response?.data?.message || 'Failed to save profile');
             } finally {
                 this.savingProfile = false;
             }
@@ -901,7 +902,7 @@ export default {
                 });
                 this.newTokenName = '';
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to create token');
+                this.toast.error(err.response?.data?.message || 'Failed to create token');
             } finally {
                 this.creatingToken = false;
             }
@@ -921,7 +922,7 @@ export default {
                 await axios.delete(`/api/tokens/${token.id}`);
                 this.tokens = this.tokens.filter(t => t.id !== token.id);
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to revoke token');
+                this.toast.error(err.response?.data?.message || 'Failed to revoke token');
             }
         },
         copyToken() {
@@ -949,7 +950,7 @@ export default {
                 this.webhookSecret = response.data.secret;
                 this.showWebhookSecret = true;
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to regenerate secret');
+                this.toast.error(err.response?.data?.message || 'Failed to regenerate secret');
             }
         },
         async saveNotifications() {
@@ -960,7 +961,7 @@ export default {
                 this.notificationsSaved = true;
                 setTimeout(() => { this.notificationsSaved = false; }, 3000);
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to save preferences');
+                this.toast.error(err.response?.data?.message || 'Failed to save preferences');
             } finally {
                 this.savingNotifications = false;
             }
@@ -973,7 +974,7 @@ export default {
                     window.location.href = response.data.portal_url;
                 }
             } catch (err) {
-                alert(err.response?.data?.error || 'Failed to open billing portal');
+                this.toast.error(err.response?.data?.error || 'Failed to open billing portal');
             } finally {
                 this.openingPortal = false;
             }
@@ -999,7 +1000,7 @@ export default {
                     }
                 });
             } catch (err) {
-                alert(err.response?.data?.error || 'Failed to cancel subscription');
+                this.toast.error(err.response?.data?.error || 'Failed to cancel subscription');
             } finally {
                 this.cancelingSubscription = false;
             }
@@ -1013,7 +1014,7 @@ export default {
                     query: { status: 'resumed' }
                 });
             } catch (err) {
-                alert(err.response?.data?.error || 'Failed to resume subscription');
+                this.toast.error(err.response?.data?.error || 'Failed to resume subscription');
             } finally {
                 this.resumingSubscription = false;
             }
@@ -1026,7 +1027,7 @@ export default {
                 this.adminNotificationsSaved = true;
                 setTimeout(() => { this.adminNotificationsSaved = false; }, 3000);
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to save admin preferences');
+                this.toast.error(err.response?.data?.message || 'Failed to save admin preferences');
             } finally {
                 this.savingAdminNotifications = false;
             }
@@ -1049,7 +1050,7 @@ export default {
                 localStorage.removeItem('token');
                 this.$router.push('/');
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to delete account');
+                this.toast.error(err.response?.data?.message || 'Failed to delete account');
             } finally {
                 this.deletingAccount = false;
             }
@@ -1074,9 +1075,10 @@ export default {
                     name: this.newTeamName,
                 });
                 this.teams.push({ ...response.data.data, _addEmail: '' });
+                this.toast.success(`Team "${this.newTeamName}" created.`);
                 this.newTeamName = '';
             } catch (err) {
-                alert(err.response?.data?.error || 'Failed to create team');
+                this.toast.error(err.response?.data?.error || 'Failed to create team');
             } finally {
                 this.creatingTeam = false;
             }
@@ -1095,8 +1097,9 @@ export default {
             try {
                 await axios.delete(`/api/teams/${team.id}`);
                 this.teams = this.teams.filter(t => t.id !== team.id);
+                this.toast.success('Team deleted.');
             } catch (err) {
-                alert(err.response?.data?.error || 'Failed to delete team');
+                this.toast.error(err.response?.data?.error || 'Failed to delete team');
             }
         },
         async addMember(team) {
@@ -1110,8 +1113,14 @@ export default {
                 if (idx !== -1) {
                     this.teams[idx] = { ...response.data.team, _addEmail: '' };
                 }
+                // Show success message
+                if (response.data.invitation_sent) {
+                    this.toast.success(response.data.message);
+                } else {
+                    this.toast.success('Member added to team.');
+                }
             } catch (err) {
-                alert(err.response?.data?.error || 'Failed to add member');
+                this.toast.error(err.response?.data?.error || 'Failed to add member');
             } finally {
                 this.addingMember = false;
             }
@@ -1135,8 +1144,9 @@ export default {
                     this.teams[teamIdx].members = this.teams[teamIdx].members.filter(m => m.id !== member.id);
                     this.teams[teamIdx].member_count--;
                 }
+                this.toast.success('Member removed from team.');
             } catch (err) {
-                alert(err.response?.data?.error || 'Failed to remove member');
+                this.toast.error(err.response?.data?.error || 'Failed to remove member');
             }
         },
     },

@@ -280,6 +280,7 @@ export default {
     components: {
         ConfirmModal,
     },
+    inject: ['toast'],
     data() {
         return {
             action: null,
@@ -395,7 +396,7 @@ export default {
                 await axios.delete(`/api/v1/actions/${this.action.id}`);
                 this.$router.push('/');
             } catch (err) {
-                alert(err.response?.data?.message || 'Failed to cancel action');
+                this.toast.error(err.response?.data?.message || 'Failed to cancel action');
             } finally {
                 this.cancelling = false;
             }
