@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Account;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Cashier\Cashier;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Use Account model for Stripe billing (not User)
+        Cashier::useCustomerModel(Account::class);
+
         $this->configureRateLimiting();
     }
 

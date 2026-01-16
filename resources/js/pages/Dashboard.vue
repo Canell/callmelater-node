@@ -1,5 +1,16 @@
 <template>
     <div class="container py-4">
+        <!-- Confirm Modal -->
+        <ConfirmModal
+            :show="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :confirm-text="confirmModal.confirmText"
+            :variant="confirmModal.variant"
+            @confirm="handleConfirm"
+            @cancel="confirmModal.show = false"
+        />
+
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2 class="mb-0">Actions</h2>
@@ -103,7 +114,7 @@
                                             </router-link>
                                         </li>
                                         <li v-if="canCancel(action.status)">
-                                            <button class="dropdown-item text-danger" @click="cancelAction(action)">
+                                            <button class="dropdown-item text-danger" @click="confirmCancelAction(action)">
                                                 Cancel
                                             </button>
                                         </li>
@@ -136,11 +147,15 @@
 import axios from 'axios';
 import { useActionStatus } from '../composables/useActionStatus';
 import { formatDate } from '../utils/dateFormatting';
+import ConfirmModal from '../components/ConfirmModal.vue';
 
 const { formatStatus, statusBadgeClass, canCancel } = useActionStatus();
 
 export default {
     name: 'Dashboard',
+    components: {
+        ConfirmModal,
+    },
     data() {
         return {
             actions: [],
@@ -152,6 +167,16 @@ export default {
             // Auto-refresh (runs silently in background)
             refreshInterval: null,
             refreshSeconds: 30,
+            // Confirm modal
+            confirmModal: {
+                show: false,
+                title: '',
+                message: '',
+                confirmText: 'Confirm',
+                variant: 'warning',
+                action: null,
+                data: null,
+            },
         };
     },
     computed: {
@@ -216,9 +241,25 @@ export default {
                 this.refreshInterval = null;
             }
         },
-        async cancelAction(action) {
-            if (!confirm(`Cancel action "${action.name}"?`)) return;
-
+        confirmCancelAction(action) {
+            this.confirmModal = {
+                show: true,
+                title: 'Cancel Action',
+                message: `Cancel "${action.name}"? This action will not be executed.`,
+                confirmText: 'Yes, Cancel',
+                variant: 'danger',
+                action: 'doCancelAction',
+                data: action,
+            };
+        },
+        handleConfirm() {
+            const { action, data } = this.confirmModal;
+            this.confirmModal.show = false;
+            if (action && typeof this[action] === 'function') {
+                this[action](data);
+            }
+        },
+        async doCancelAction(action) {
             try {
                 await axios.delete(`/api/v1/actions/${action.id}`);
                 this.loadActions();

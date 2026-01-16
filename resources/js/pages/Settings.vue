@@ -2,6 +2,18 @@
     <div class="container py-4">
         <h2 class="mb-4">Settings</h2>
 
+        <!-- Confirm Modal -->
+        <ConfirmModal
+            :show="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :confirm-text="confirmModal.confirmText"
+            :cancel-text="confirmModal.cancelText"
+            :variant="confirmModal.variant"
+            @confirm="handleConfirm"
+            @cancel="confirmModal.show = false"
+        />
+
         <div class="row">
             <!-- Left nav -->
             <div class="col-md-3 mb-4">
@@ -131,7 +143,7 @@
                                             <button
                                                 v-if="team.owner.id === user?.id"
                                                 class="btn btn-sm btn-outline-danger"
-                                                @click="deleteTeam(team)"
+                                                @click="confirmDeleteTeam(team)"
                                             >
                                                 Delete
                                             </button>
@@ -157,7 +169,7 @@
                                                             <button
                                                                 v-if="member.role !== 'owner' && team.owner.id === user?.id"
                                                                 class="btn btn-sm btn-outline-secondary"
-                                                                @click="removeMember(team, member)"
+                                                                @click="confirmRemoveMember(team, member)"
                                                             >
                                                                 Remove
                                                             </button>
@@ -224,7 +236,7 @@
                                             <td>{{ formatDate(token.created_at) }}</td>
                                             <td>{{ token.last_used_at ? formatDate(token.last_used_at) : 'Never' }}</td>
                                             <td>
-                                                <button class="btn btn-sm btn-outline-danger" @click="revokeToken(token)">
+                                                <button class="btn btn-sm btn-outline-danger" @click="confirmRevokeToken(token)">
                                                     Revoke
                                                 </button>
                                             </td>
@@ -279,7 +291,7 @@
                                     <button class="btn btn-outline-secondary" @click="showWebhookSecret = !showWebhookSecret">
                                         {{ showWebhookSecret ? 'Hide' : 'Show' }}
                                     </button>
-                                    <button class="btn btn-outline-secondary" @click="regenerateWebhookSecret">
+                                    <button class="btn btn-outline-secondary" @click="confirmRegenerateWebhookSecret">
                                         Regenerate
                                     </button>
                                 </div>
@@ -379,6 +391,84 @@
                                         </tr>
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Billing -->
+                    <div v-show="activeTab === 'billing'" class="card card-cml">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">Billing & Subscription</h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Current Plan -->
+                            <div class="mb-4">
+                                <label class="form-label text-muted">Current Plan</label>
+                                <div class="d-flex align-items-center">
+                                    <strong class="text-capitalize fs-5">{{ billing.plan }}</strong>
+                                    <span v-if="billing.canceled" class="badge bg-warning ms-2">Canceling</span>
+                                    <span v-else-if="billing.on_trial" class="badge bg-info ms-2">Trial</span>
+                                    <span v-else-if="billing.subscribed" class="badge bg-success ms-2">Active</span>
+                                </div>
+                                <div v-if="billing.canceled && billing.ends_at" class="text-muted small mt-1">
+                                    Access until {{ formatDate(billing.ends_at) }}
+                                </div>
+                            </div>
+
+                            <!-- Actions based on subscription state -->
+                            <div v-if="billing.plan === 'free'" class="mb-4">
+                                <p class="text-muted">Upgrade to Pro or Business for more actions, retries, and features.</p>
+                                <router-link to="/pricing" class="btn btn-cml-primary">
+                                    View Plans & Upgrade
+                                </router-link>
+                            </div>
+
+                            <div v-else-if="billing.can_manage" class="mb-4">
+                                <!-- Manage subscription -->
+                                <p class="text-muted mb-3">
+                                    Manage your subscription, update payment methods, and view invoices in the billing portal.
+                                </p>
+                                <button class="btn btn-cml-primary me-2" @click="openBillingPortal" :disabled="openingPortal">
+                                    {{ openingPortal ? 'Opening...' : 'Manage Subscription' }}
+                                </button>
+                                <router-link to="/pricing" class="btn btn-outline-secondary">
+                                    Change Plan
+                                </router-link>
+
+                                <hr class="my-4">
+
+                                <!-- Cancel / Resume -->
+                                <div v-if="billing.canceled">
+                                    <p class="text-muted">Your subscription is set to cancel. You can resume it to keep your current plan.</p>
+                                    <button class="btn btn-outline-success" @click="resumeSubscription" :disabled="resumingSubscription">
+                                        {{ resumingSubscription ? 'Resuming...' : 'Resume Subscription' }}
+                                    </button>
+                                </div>
+                                <div v-else>
+                                    <h6 class="text-muted">Cancel Subscription</h6>
+                                    <p class="text-muted small">You'll keep access until the end of your billing period.</p>
+                                    <button class="btn btn-outline-danger btn-sm" @click="confirmCancelSubscription" :disabled="cancelingSubscription">
+                                        {{ cancelingSubscription ? 'Canceling...' : 'Cancel Subscription' }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-else class="mb-4">
+                                <p class="text-muted">Only the account owner can manage billing.</p>
+                            </div>
+
+                            <!-- Billing Portal Features -->
+                            <div v-if="billing.subscribed && billing.can_manage" class="bg-light p-3 rounded">
+                                <h6 class="mb-3">In the billing portal you can:</h6>
+                                <ul class="mb-3 text-muted">
+                                    <li>Update payment method</li>
+                                    <li>View and download invoices</li>
+                                    <li>Update billing address</li>
+                                    <li>View payment history</li>
+                                </ul>
+                                <button class="btn btn-outline-secondary btn-sm" @click="openBillingPortal" :disabled="openingPortal">
+                                    {{ openingPortal ? 'Opening...' : 'Open Billing Portal' }}
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -505,9 +595,13 @@
 <script>
 import axios from 'axios';
 import { formatDate } from '../utils/dateFormatting';
+import ConfirmModal from '../components/ConfirmModal.vue';
 
 export default {
     name: 'Settings',
+    components: {
+        ConfirmModal,
+    },
     data() {
         return {
             loading: true,
@@ -517,6 +611,7 @@ export default {
                 { id: 'teams', label: 'Teams', businessOnly: true },
                 { id: 'api', label: 'API & Security' },
                 { id: 'usage', label: 'Usage & Limits' },
+                { id: 'billing', label: 'Billing' },
                 { id: 'notifications', label: 'Notifications' },
                 { id: 'admin', label: 'Admin Alerts', adminOnly: true },
                 { id: 'danger', label: 'Danger Zone' },
@@ -574,6 +669,19 @@ export default {
             savingNotifications: false,
             notificationsSaved: false,
 
+            // Billing
+            billing: {
+                subscribed: false,
+                plan: 'free',
+                canceled: false,
+                ends_at: null,
+                on_trial: false,
+                can_manage: false,
+            },
+            openingPortal: false,
+            cancelingSubscription: false,
+            resumingSubscription: false,
+
             // Delete account
             showDeleteConfirm: false,
             deleteConfirmEmail: '',
@@ -595,6 +703,18 @@ export default {
             },
             savingAdminNotifications: false,
             adminNotificationsSaved: false,
+
+            // Confirm Modal
+            confirmModal: {
+                show: false,
+                title: '',
+                message: '',
+                confirmText: 'Confirm',
+                cancelText: 'Cancel',
+                variant: 'warning',
+                action: null,
+                data: null,
+            },
         };
     },
     computed: {
@@ -611,6 +731,11 @@ export default {
         },
     },
     mounted() {
+        // Check for tab query parameter (e.g., from subscription result page)
+        const tab = this.$route.query.tab;
+        if (tab && this.tabs.some(t => t.id === tab)) {
+            this.activeTab = tab;
+        }
         this.loadSettings();
     },
     watch: {
@@ -623,6 +748,25 @@ export default {
     },
     methods: {
         formatDate,
+        showConfirm({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', variant = 'warning', action, data = null }) {
+            this.confirmModal = {
+                show: true,
+                title,
+                message,
+                confirmText,
+                cancelText,
+                variant,
+                action,
+                data,
+            };
+        },
+        handleConfirm() {
+            const { action, data } = this.confirmModal;
+            this.confirmModal.show = false;
+            if (action && typeof this[action] === 'function') {
+                this[action](data);
+            }
+        },
         formatHistoryDays(days) {
             if (!days) return '7 days';
             if (days >= 365) return days === 365 ? '1 year' : `${Math.floor(days / 365)} years`;
@@ -681,6 +825,15 @@ export default {
                     reminders_sent: data.usage?.reminders_this_month || 0,
                     limits: data.limits,
                 };
+                // Also populate billing info
+                this.billing = {
+                    subscribed: data.subscribed,
+                    plan: data.plan,
+                    canceled: data.canceled,
+                    ends_at: data.ends_at,
+                    on_trial: data.on_trial,
+                    can_manage: data.can_manage_billing,
+                };
             } catch (err) {
                 console.error('Failed to load usage:', err);
             }
@@ -737,8 +890,17 @@ export default {
                 this.creatingToken = false;
             }
         },
-        async revokeToken(token) {
-            if (!confirm(`Revoke API key "${token.name}"? Any applications using this key will stop working.`)) return;
+        confirmRevokeToken(token) {
+            this.showConfirm({
+                title: 'Revoke API Key',
+                message: `Revoke "${token.name}"? Any applications using this key will stop working.`,
+                confirmText: 'Revoke Key',
+                variant: 'danger',
+                action: 'doRevokeToken',
+                data: token,
+            });
+        },
+        async doRevokeToken(token) {
             try {
                 await axios.delete(`/api/tokens/${token.id}`);
                 this.tokens = this.tokens.filter(t => t.id !== token.id);
@@ -756,8 +918,16 @@ export default {
             this.ipCopied = true;
             setTimeout(() => { this.ipCopied = false; }, 2000);
         },
-        async regenerateWebhookSecret() {
-            if (!confirm('Regenerate webhook secret? Existing webhooks using the old secret will fail verification.')) return;
+        confirmRegenerateWebhookSecret() {
+            this.showConfirm({
+                title: 'Regenerate Webhook Secret',
+                message: 'Existing webhooks using the old secret will fail verification. Are you sure?',
+                confirmText: 'Regenerate',
+                variant: 'warning',
+                action: 'doRegenerateWebhookSecret',
+            });
+        },
+        async doRegenerateWebhookSecret() {
             try {
                 const response = await axios.post('/api/user/webhook-secret');
                 this.webhookSecret = response.data.secret;
@@ -777,6 +947,59 @@ export default {
                 alert(err.response?.data?.message || 'Failed to save preferences');
             } finally {
                 this.savingNotifications = false;
+            }
+        },
+        async openBillingPortal() {
+            this.openingPortal = true;
+            try {
+                const response = await axios.post('/api/subscription/portal');
+                if (response.data.portal_url) {
+                    window.location.href = response.data.portal_url;
+                }
+            } catch (err) {
+                alert(err.response?.data?.error || 'Failed to open billing portal');
+            } finally {
+                this.openingPortal = false;
+            }
+        },
+        confirmCancelSubscription() {
+            this.showConfirm({
+                title: 'Cancel Subscription',
+                message: 'You\'ll keep access until the end of your billing period. Are you sure you want to cancel?',
+                confirmText: 'Yes, Cancel',
+                variant: 'danger',
+                action: 'doCancelSubscription',
+            });
+        },
+        async doCancelSubscription() {
+            this.cancelingSubscription = true;
+            try {
+                const response = await axios.post('/api/subscription/cancel');
+                this.$router.push({
+                    name: 'subscription-result',
+                    query: {
+                        status: 'canceled',
+                        ends_at: this.formatDate(response.data.ends_at)
+                    }
+                });
+            } catch (err) {
+                alert(err.response?.data?.error || 'Failed to cancel subscription');
+            } finally {
+                this.cancelingSubscription = false;
+            }
+        },
+        async resumeSubscription() {
+            this.resumingSubscription = true;
+            try {
+                await axios.post('/api/subscription/resume');
+                this.$router.push({
+                    name: 'subscription-result',
+                    query: { status: 'resumed' }
+                });
+            } catch (err) {
+                alert(err.response?.data?.error || 'Failed to resume subscription');
+            } finally {
+                this.resumingSubscription = false;
             }
         },
         async saveAdminNotifications() {
@@ -842,8 +1065,17 @@ export default {
                 this.creatingTeam = false;
             }
         },
-        async deleteTeam(team) {
-            if (!confirm(`Delete team "${team.name}"? All team members will lose access to shared actions.`)) return;
+        confirmDeleteTeam(team) {
+            this.showConfirm({
+                title: 'Delete Team',
+                message: `Delete "${team.name}"? All team members will lose access to shared actions.`,
+                confirmText: 'Delete Team',
+                variant: 'danger',
+                action: 'doDeleteTeam',
+                data: team,
+            });
+        },
+        async doDeleteTeam(team) {
             try {
                 await axios.delete(`/api/teams/${team.id}`);
                 this.teams = this.teams.filter(t => t.id !== team.id);
@@ -868,8 +1100,17 @@ export default {
                 this.addingMember = false;
             }
         },
-        async removeMember(team, member) {
-            if (!confirm(`Remove ${member.name} from ${team.name}?`)) return;
+        confirmRemoveMember(team, member) {
+            this.showConfirm({
+                title: 'Remove Team Member',
+                message: `Remove ${member.name} from ${team.name}?`,
+                confirmText: 'Remove',
+                variant: 'warning',
+                action: 'doRemoveMember',
+                data: { team, member },
+            });
+        },
+        async doRemoveMember({ team, member }) {
             try {
                 await axios.delete(`/api/teams/${team.id}/members/${member.id}`);
                 // Remove member from local state

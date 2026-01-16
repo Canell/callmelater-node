@@ -12,6 +12,7 @@ class SubscriptionController extends Controller
     /**
      * Get the current user's subscription status.
      */
+
     public function status(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -78,10 +79,30 @@ class SubscriptionController extends Controller
             return response()->json(['error' => 'Invalid plan or billing period'], 400);
         }
 
+        // If already subscribed, swap to the new plan instead of creating a new subscription
+        if ($account->subscribed('default')) {
+            $subscription = $account->subscription('default');
+
+            // If on the same price, no change needed
+            if ($subscription->stripe_price === $priceId) {
+                return response()->json(['error' => 'You are already on this plan'], 400);
+            }
+
+            // Swap to the new plan (prorated by default)
+            $subscription->swap($priceId);
+
+            return response()->json([
+                'message' => 'Plan changed successfully',
+                'plan' => $request->input('plan'),
+            ]);
+        }
+
+        // New subscription - use Stripe Checkout
+        $plan = $request->input('plan');
         $checkout = $account->newSubscription('default', $priceId)
             ->checkout([
-                'success_url' => config('app.url').'/dashboard?subscription=success',
-                'cancel_url' => config('app.url').'/pricing?subscription=cancelled',
+                'success_url' => config('app.url')."/subscription/result?status=subscribed&plan={$plan}",
+                'cancel_url' => config('app.url').'/subscription/result?status=cancelled',
             ]);
 
         /** @var string $url */

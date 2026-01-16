@@ -23,6 +23,7 @@ import Contact from './pages/Contact.vue';
 import Terms from './pages/Terms.vue';
 import Privacy from './pages/Privacy.vue';
 import Cookies from './pages/Cookies.vue';
+import SubscriptionResult from './pages/SubscriptionResult.vue';
 
 // Define routes
 const routes = [
@@ -41,6 +42,9 @@ const routes = [
     { path: '/consent/declined', name: 'consent-declined', component: ConsentResult, meta: { hideNavFooter: true } },
     { path: '/consent/unsubscribed', name: 'consent-unsubscribed', component: ConsentResult, meta: { hideNavFooter: true } },
     { path: '/consent/error', name: 'consent-error', component: ConsentResult, meta: { hideNavFooter: true } },
+
+    // Subscription result pages
+    { path: '/subscription/result', name: 'subscription-result', component: SubscriptionResult, meta: { hideNavFooter: true } },
 
     // Auth pages
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },

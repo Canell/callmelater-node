@@ -43,7 +43,7 @@
                   <li class="included">3 retry attempts</li>
                   <li class="included">Email reminders only</li>
                   <li class="included">7-day history</li>
-                  <li class="excluded">Webhook signatures</li>
+                  <li class="included">Webhook signatures</li>
                   <li class="excluded">SMS reminders</li>
                 </ul>
                 <router-link to="/register" class="btn btn-outline-cml w-100">Get Started</router-link>
@@ -259,13 +259,26 @@ async function subscribe(plan) {
       billing: billingPeriod.value
     });
 
-    // Redirect to Stripe Checkout
+    // Redirect to Stripe Checkout for new subscriptions
     if (response.data.checkout_url) {
       window.location.href = response.data.checkout_url;
     }
+    // Plan swap completed immediately
+    else if (response.data.message) {
+      router.push({
+        name: 'subscription-result',
+        query: { status: 'changed', plan: plan }
+      });
+    }
   } catch (error) {
     console.error('Subscription error:', error);
-    alert('Something went wrong. Please try again.');
+    const errorMsg = error.response?.data?.error;
+    if (errorMsg) {
+      router.push({
+        name: 'subscription-result',
+        query: { status: 'error', message: errorMsg }
+      });
+    }
   } finally {
     loading.value = false;
   }

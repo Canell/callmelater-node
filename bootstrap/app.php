@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
 
+        // Exclude Stripe webhooks from CSRF verification
+        $middleware->validateCsrfTokens(except: [
+            'stripe/*',
+        ]);
+
         // Add API request logging
         $middleware->appendToGroup('api', \App\Http\Middleware\LogApiRequests::class);
 

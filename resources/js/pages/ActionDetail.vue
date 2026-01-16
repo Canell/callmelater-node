@@ -1,5 +1,16 @@
 <template>
     <div class="container py-4">
+        <!-- Confirm Modal -->
+        <ConfirmModal
+            :show="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :confirm-text="confirmModal.confirmText"
+            :variant="confirmModal.variant"
+            @confirm="handleConfirm"
+            @cancel="confirmModal.show = false"
+        />
+
         <!-- Loading -->
         <div v-if="loading" class="text-center py-5">
             <div class="spinner-border text-muted" role="status">
@@ -148,7 +159,7 @@
                             <h5 class="mb-0 text-danger">Danger Zone</h5>
                         </div>
                         <div class="card-body">
-                            <button class="btn btn-outline-danger" @click="cancelAction" :disabled="cancelling">
+                            <button class="btn btn-outline-danger" @click="confirmCancelAction" :disabled="cancelling">
                                 {{ cancelling ? 'Cancelling...' : 'Cancel Action' }}
                             </button>
                         </div>
@@ -260,17 +271,28 @@
 import axios from 'axios';
 import { useActionStatus } from '../composables/useActionStatus';
 import { formatDate, formatTime } from '../utils/dateFormatting';
+import ConfirmModal from '../components/ConfirmModal.vue';
 
 const { formatStatus, statusBadgeClass, recipientBadgeClass, canCancel } = useActionStatus();
 
 export default {
     name: 'ActionDetail',
+    components: {
+        ConfirmModal,
+    },
     data() {
         return {
             action: null,
             loading: true,
             cancelling: false,
             expandedEvents: {},
+            confirmModal: {
+                show: false,
+                title: '',
+                message: '',
+                confirmText: 'Confirm',
+                variant: 'warning',
+            },
         };
     },
     computed: {
@@ -354,9 +376,20 @@ export default {
             const connectionKeywords = ['connection', 'timeout', 'refused', 'unreachable', 'network', 'dns', 'resolve'];
             return connectionKeywords.some(keyword => errorMsg.includes(keyword));
         },
-        async cancelAction() {
-            if (!confirm('Are you sure you want to cancel this action?')) return;
-
+        confirmCancelAction() {
+            this.confirmModal = {
+                show: true,
+                title: 'Cancel Action',
+                message: `Cancel "${this.action.name}"? This action will not be executed.`,
+                confirmText: 'Yes, Cancel',
+                variant: 'danger',
+            };
+        },
+        handleConfirm() {
+            this.confirmModal.show = false;
+            this.doCancelAction();
+        },
+        async doCancelAction() {
             this.cancelling = true;
             try {
                 await axios.delete(`/api/v1/actions/${this.action.id}`);
