@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Models\DeliveryAttempt;
 use App\Models\ScheduledAction;
 use App\Models\SystemComponent;
 use App\Models\User;
@@ -68,7 +69,7 @@ class HealthMonitorServiceTest extends TestCase
 
         $this->assertTrue($result['enabled']);
         $this->assertArrayHasKey('metrics', $result);
-        $this->assertArrayHasKey('failure_rate', $result['metrics']);
+        $this->assertArrayHasKey('delivery_error_rate', $result['metrics']);
         $this->assertArrayHasKey('stuck_executing', $result['metrics']);
         $this->assertArrayHasKey('queue_pending', $result['metrics']);
     }
@@ -77,9 +78,10 @@ class HealthMonitorServiceTest extends TestCase
     {
         config(['callmelater.health_monitor.enabled' => true]);
 
-        // Create some successful actions
-        $this->createAction(ScheduledAction::STATUS_EXECUTED);
-        $this->createAction(ScheduledAction::STATUS_EXECUTED);
+        // Create some successful delivery attempts
+        $action = $this->createAction(ScheduledAction::STATUS_EXECUTED);
+        $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_SUCCESS);
+        $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_SUCCESS);
 
         $result = $this->service->check();
 
@@ -91,31 +93,38 @@ class HealthMonitorServiceTest extends TestCase
         config(['callmelater.health_monitor.enabled' => true]);
         config(['callmelater.health_monitor.thresholds.failure_rate_degraded' => 10]);
 
-        // Create 8 successful and 2 failed (20% failure rate)
+        $action = $this->createAction(ScheduledAction::STATUS_EXECUTED);
+
+        // Create 8 successful and 2 delivery errors (20% delivery error rate)
         for ($i = 0; $i < 8; $i++) {
-            $this->createAction(ScheduledAction::STATUS_EXECUTED);
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_SUCCESS);
         }
         for ($i = 0; $i < 2; $i++) {
-            $this->createAction(ScheduledAction::STATUS_FAILED);
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_DELIVERY_ERROR);
         }
 
         $result = $this->service->check();
 
         $this->assertEquals('degraded', $result['results']['webhook_delivery']['action']);
-        $this->assertStringContainsString('Failure rate', $result['results']['webhook_delivery']['reason']);
+        $this->assertStringContainsString('error rate', $result['results']['webhook_delivery']['reason']);
     }
 
     public function test_webhook_delivery_becomes_outage_on_critical_failure_rate(): void
     {
         config(['callmelater.health_monitor.enabled' => true]);
         config(['callmelater.health_monitor.thresholds.failure_rate_critical' => 25]);
+        // Lower distribution guards for testing
+        config(['callmelater.health_monitor.thresholds.min_affected_accounts' => 1]);
+        config(['callmelater.health_monitor.thresholds.min_affected_domains' => 1]);
 
-        // Create 6 successful and 4 failed (40% failure rate)
+        $action = $this->createAction(ScheduledAction::STATUS_EXECUTED);
+
+        // Create 6 successful and 4 delivery errors (40% delivery error rate)
         for ($i = 0; $i < 6; $i++) {
-            $this->createAction(ScheduledAction::STATUS_EXECUTED);
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_SUCCESS);
         }
         for ($i = 0; $i < 4; $i++) {
-            $this->createAction(ScheduledAction::STATUS_FAILED);
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_DELIVERY_ERROR);
         }
 
         $result = $this->service->check();
@@ -163,43 +172,71 @@ class HealthMonitorServiceTest extends TestCase
     {
         config(['callmelater.health_monitor.enabled' => true]);
 
-        // Create 7 successful and 3 failed (30% failure rate)
+        $action = $this->createAction(ScheduledAction::STATUS_EXECUTED);
+
+        // Create 7 successful and 3 delivery errors (30% delivery error rate)
         for ($i = 0; $i < 7; $i++) {
-            $this->createAction(ScheduledAction::STATUS_EXECUTED);
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_SUCCESS);
         }
         for ($i = 0; $i < 3; $i++) {
-            $this->createAction(ScheduledAction::STATUS_FAILED);
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_DELIVERY_ERROR);
         }
 
         $result = $this->service->check();
 
-        $this->assertEquals(30, $result['metrics']['failure_rate']);
-        $this->assertEquals(10, $result['metrics']['last_hour_total']);
-        $this->assertEquals(3, $result['metrics']['last_hour_failed']);
+        $this->assertEquals(30, $result['metrics']['delivery_error_rate']);
+        $this->assertEquals(10, $result['metrics']['total_attempts']);
+        $this->assertEquals(3, $result['metrics']['delivery_errors']);
     }
 
-    public function test_old_actions_not_included_in_failure_rate(): void
+    public function test_old_delivery_attempts_not_included_in_failure_rate(): void
     {
         config(['callmelater.health_monitor.enabled' => true]);
+        config(['callmelater.health_monitor.thresholds.delivery_window_minutes' => 10]);
 
-        // Create old failed actions (more than 1 hour ago)
-        // Use DB update to avoid timestamp auto-update
+        $action = $this->createAction(ScheduledAction::STATUS_EXECUTED);
+
+        // Create old delivery errors (outside the 10-minute window)
         for ($i = 0; $i < 5; $i++) {
-            $action = $this->createAction(ScheduledAction::STATUS_FAILED);
-            ScheduledAction::withoutTimestamps(function () use ($action) {
-                $action->updated_at = now()->subHours(2);
-                $action->save();
+            $attempt = $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_DELIVERY_ERROR);
+            DeliveryAttempt::withoutTimestamps(function () use ($attempt) {
+                $attempt->created_at = now()->subMinutes(20);
+                $attempt->save();
             });
         }
 
-        // Create recent successful actions
-        $this->createAction(ScheduledAction::STATUS_EXECUTED);
+        // Create recent successful attempt
+        $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_SUCCESS);
 
         $result = $this->service->check();
 
-        // Should be 0% failure rate (only the recent successful one counts)
-        $this->assertEquals(0, $result['metrics']['failure_rate']);
-        $this->assertEquals(1, $result['metrics']['last_hour_total']);
+        // Should be 0% delivery error rate (only the recent successful one counts)
+        $this->assertEquals(0, $result['metrics']['delivery_error_rate']);
+        $this->assertEquals(1, $result['metrics']['total_attempts']);
+    }
+
+    public function test_customer_errors_do_not_affect_platform_health(): void
+    {
+        config(['callmelater.health_monitor.enabled' => true]);
+        config(['callmelater.health_monitor.thresholds.failure_rate_degraded' => 10]);
+
+        $action = $this->createAction(ScheduledAction::STATUS_EXECUTED);
+
+        // Create 5 successful and 5 customer 4xx errors (50% customer error rate)
+        // But 0% delivery error rate - should stay operational
+        for ($i = 0; $i < 5; $i++) {
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_SUCCESS);
+        }
+        for ($i = 0; $i < 5; $i++) {
+            $this->createDeliveryAttempt($action, DeliveryAttempt::CATEGORY_CUSTOMER_4XX);
+        }
+
+        $result = $this->service->check();
+
+        // Platform should stay operational because customer errors don't count
+        $this->assertEquals('operational', $result['results']['webhook_delivery']['action']);
+        $this->assertEquals(0, $result['metrics']['delivery_error_rate']);
+        $this->assertEquals(5, $result['metrics']['customer_4xx_count']);
     }
 
     /**
@@ -217,6 +254,32 @@ class HealthMonitorServiceTest extends TestCase
             'resolution_status' => $status,
             'execute_at_utc' => now()->subMinute(),
             'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+        ]);
+    }
+
+    /**
+     * Helper to create a delivery attempt with given failure category.
+     */
+    private function createDeliveryAttempt(ScheduledAction $action, string $failureCategory, ?string $targetDomain = null): DeliveryAttempt
+    {
+        static $attemptNumber = 0;
+        $attemptNumber++;
+
+        return DeliveryAttempt::create([
+            'action_id' => $action->id,
+            'attempt_number' => $attemptNumber,
+            'status' => $failureCategory === DeliveryAttempt::CATEGORY_SUCCESS
+                ? DeliveryAttempt::STATUS_SUCCESS
+                : DeliveryAttempt::STATUS_FAILED,
+            'failure_category' => $failureCategory,
+            'target_domain' => $targetDomain ?? 'example.com',
+            'response_code' => match ($failureCategory) {
+                DeliveryAttempt::CATEGORY_SUCCESS => 200,
+                DeliveryAttempt::CATEGORY_CUSTOMER_4XX => 403,
+                DeliveryAttempt::CATEGORY_CUSTOMER_5XX => 500,
+                default => null,
+            },
+            'duration_ms' => 100,
         ]);
     }
 }

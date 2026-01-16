@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\IncidentAlertMail;
 use App\Models\AdminNotificationPreference;
 use App\Models\ComponentDegradationTracking;
+use App\Models\DeliveryAttempt;
 use App\Models\Incident;
 use App\Models\ScheduledAction;
 use App\Models\SystemComponent;
@@ -59,25 +60,30 @@ class HealthMonitorService
 
     /**
      * Collect current health metrics.
+     *
+     * IMPORTANT: For webhook delivery health, we only count DELIVERY_ERROR (network/infrastructure issues).
+     * Customer-side errors (4xx/5xx from their endpoints) are tracked separately and do NOT affect
+     * platform health metrics. This prevents misconfigured customer webhooks from triggering incidents.
      */
     private function collectMetrics(): array
     {
         $now = now();
+        $thresholds = $this->getThresholds();
 
-        // Failure rate in last hour
-        $lastHourTotal = ScheduledAction::where('updated_at', '>=', $now->copy()->subHour())
-            ->whereIn('resolution_status', [
-                ScheduledAction::STATUS_EXECUTED,
-                ScheduledAction::STATUS_FAILED,
-            ])
-            ->count();
+        // Delivery metrics from delivery_attempts table (within configurable window)
+        $deliveryWindow = $now->copy()->subMinutes($thresholds['delivery_window_minutes'] ?? 10);
 
-        $lastHourFailed = ScheduledAction::where('updated_at', '>=', $now->copy()->subHour())
-            ->where('resolution_status', ScheduledAction::STATUS_FAILED)
-            ->count();
+        $deliveryAttempts = DeliveryAttempt::where('created_at', '>=', $deliveryWindow)
+            ->selectRaw('failure_category, COUNT(*) as count')
+            ->groupBy('failure_category')
+            ->pluck('count', 'failure_category');
 
-        $failureRate = $lastHourTotal > 0
-            ? round(($lastHourFailed / $lastHourTotal) * 100, 2)
+        $totalAttempts = $deliveryAttempts->sum();
+        $deliveryErrors = $deliveryAttempts->get(DeliveryAttempt::CATEGORY_DELIVERY_ERROR, 0);
+
+        // Only count DELIVERY_ERROR for platform health (not customer 4xx/5xx)
+        $deliveryErrorRate = $totalAttempts > 0
+            ? round(($deliveryErrors / $totalAttempts) * 100, 2)
             : 0;
 
         // Stuck actions
@@ -92,16 +98,22 @@ class HealthMonitorService
         try {
             $queuePending = Redis::llen('queues:default') ?: 0;
             $queueFailedLastHour = DB::table('failed_jobs')
-                ->where('failed_at', '>=', $now->subHour())
+                ->where('failed_at', '>=', $now->copy()->subHour())
                 ->count();
         } catch (\Exception $e) {
             Log::warning('Failed to collect queue metrics', ['error' => $e->getMessage()]);
         }
 
         return [
-            'failure_rate' => $failureRate,
-            'last_hour_total' => $lastHourTotal,
-            'last_hour_failed' => $lastHourFailed,
+            // Delivery metrics (only infrastructure errors affect health)
+            'delivery_error_rate' => $deliveryErrorRate,
+            'delivery_errors' => $deliveryErrors,
+            'total_attempts' => $totalAttempts,
+            // Customer-side metrics (for visibility, not health decisions)
+            'customer_4xx_count' => $deliveryAttempts->get(DeliveryAttempt::CATEGORY_CUSTOMER_4XX, 0),
+            'customer_5xx_count' => $deliveryAttempts->get(DeliveryAttempt::CATEGORY_CUSTOMER_5XX, 0),
+            'success_count' => $deliveryAttempts->get(DeliveryAttempt::CATEGORY_SUCCESS, 0),
+            // Scheduler metrics
             'stuck_executing' => $stuckExecuting,
             'queue_pending' => $queuePending,
             'queue_failed_last_hour' => $queueFailedLastHour,
@@ -110,6 +122,10 @@ class HealthMonitorService
 
     /**
      * Check Webhook Delivery component health.
+     *
+     * Only counts DELIVERY_ERROR (infrastructure issues) for health decisions.
+     * Additionally requires distribution guards: errors must be widespread
+     * (across multiple accounts and domains) to trigger incidents.
      */
     private function checkWebhookDelivery(array $metrics): array
     {
@@ -119,22 +135,39 @@ class HealthMonitorService
         }
 
         $thresholds = $this->getThresholds();
-        $failureRate = $metrics['failure_rate'];
+        $errorRate = $metrics['delivery_error_rate'];
 
         $result = ['previous_status' => $component->current_status];
 
-        if ($failureRate >= $thresholds['failure_rate_critical']) {
-            // Critical - set to outage and create incident
-            $result['action'] = 'outage';
-            $result['reason'] = "Failure rate {$failureRate}% exceeds critical threshold";
+        if ($errorRate >= $thresholds['failure_rate_critical']) {
+            // Check distribution before creating incident
+            $distribution = $this->checkDeliveryErrorDistribution();
+            $result['distribution'] = $distribution;
 
-            $this->setComponentStatus($component, SystemComponent::STATUS_OUTAGE, $result['reason']);
-            $this->createAutoIncident($component, $failureRate);
+            $minAccounts = $thresholds['min_affected_accounts'] ?? 5;
+            $minDomains = $thresholds['min_affected_domains'] ?? 3;
 
-        } elseif ($failureRate >= $thresholds['failure_rate_degraded']) {
+            if ($distribution['affected_accounts'] >= $minAccounts
+                && $distribution['affected_domains'] >= $minDomains) {
+                // Widespread issue - create outage and incident
+                $result['action'] = 'outage';
+                $result['reason'] = "Delivery error rate {$errorRate}% across {$distribution['affected_accounts']} accounts and {$distribution['affected_domains']} domains";
+
+                $this->setComponentStatus($component, SystemComponent::STATUS_OUTAGE, $result['reason']);
+                $this->createAutoIncident($component, $errorRate, null, $distribution);
+            } else {
+                // Elevated errors but isolated (likely single customer issue) - degrade but no incident
+                $result['action'] = 'degraded';
+                $result['reason'] = "Delivery errors elevated ({$errorRate}%) but isolated (accounts: {$distribution['affected_accounts']}, domains: {$distribution['affected_domains']})";
+
+                $this->setComponentStatus($component, SystemComponent::STATUS_DEGRADED, $result['reason']);
+                $this->trackDegradation($component);
+            }
+
+        } elseif ($errorRate >= $thresholds['failure_rate_degraded']) {
             // Degraded - set status and track for reminder
             $result['action'] = 'degraded';
-            $result['reason'] = "Failure rate {$failureRate}% exceeds degraded threshold";
+            $result['reason'] = "Delivery error rate {$errorRate}% exceeds degraded threshold";
 
             $this->setComponentStatus($component, SystemComponent::STATUS_DEGRADED, $result['reason']);
             $this->trackDegradation($component);
@@ -148,6 +181,31 @@ class HealthMonitorService
 
         $result['new_status'] = $component->fresh()->current_status;
         return $result;
+    }
+
+    /**
+     * Check the distribution of delivery errors.
+     *
+     * Returns how many distinct accounts and target domains are affected.
+     * Used to determine if errors are widespread (platform issue) or
+     * isolated (single customer misconfiguration).
+     */
+    private function checkDeliveryErrorDistribution(): array
+    {
+        $thresholds = $this->getThresholds();
+        $window = now()->subMinutes($thresholds['delivery_window_minutes'] ?? 10);
+
+        $distribution = DeliveryAttempt::where('delivery_attempts.created_at', '>=', $window)
+            ->where('failure_category', DeliveryAttempt::CATEGORY_DELIVERY_ERROR)
+            ->join('scheduled_actions', 'delivery_attempts.action_id', '=', 'scheduled_actions.id')
+            ->selectRaw('COUNT(DISTINCT scheduled_actions.created_by_user_id) as affected_accounts')
+            ->selectRaw('COUNT(DISTINCT delivery_attempts.target_domain) as affected_domains')
+            ->first();
+
+        return [
+            'affected_accounts' => $distribution->affected_accounts ?? 0,
+            'affected_domains' => $distribution->affected_domains ?? 0,
+        ];
     }
 
     /**
@@ -331,8 +389,10 @@ MSG;
 
     /**
      * Auto-create incident for critical issues.
+     *
+     * @param array<string, int>|null $distribution Distribution info (affected_accounts, affected_domains)
      */
-    private function createAutoIncident(SystemComponent $component, ?float $failureRate = null, ?int $stuckCount = null): void
+    private function createAutoIncident(SystemComponent $component, ?float $failureRate = null, ?int $stuckCount = null, ?array $distribution = null): void
     {
         // Check if there's already an active incident for this component
         $existingIncident = $component->incidents()
@@ -345,13 +405,16 @@ MSG;
 
         $systemUser = $this->getSystemUser();
 
-        $title = $failureRate !== null
-            ? "Critical: High failure rate ({$failureRate}%)"
-            : "Critical: {$stuckCount} actions stuck";
-
-        $reason = $failureRate !== null
-            ? "Failure rate exceeded {$failureRate}% (threshold: " . $this->getThresholds()['failure_rate_critical'] . "%)"
-            : "{$stuckCount} actions stuck in EXECUTING state (threshold: " . $this->getThresholds()['stuck_executing_critical'] . ")";
+        if ($failureRate !== null) {
+            $title = "Critical: High delivery error rate ({$failureRate}%)";
+            $reason = "Delivery error rate exceeded {$failureRate}% (threshold: " . $this->getThresholds()['failure_rate_critical'] . "%)";
+            if ($distribution) {
+                $reason .= " across {$distribution['affected_accounts']} accounts and {$distribution['affected_domains']} domains";
+            }
+        } else {
+            $title = "Critical: {$stuckCount} actions stuck";
+            $reason = "{$stuckCount} actions stuck in EXECUTING state (threshold: " . $this->getThresholds()['stuck_executing_critical'] . ")";
+        }
 
         $summary = "Automated incident: {$reason}";
 
@@ -366,6 +429,7 @@ MSG;
         Log::warning("Health monitor: Auto-created incident", [
             'component' => $component->slug,
             'title' => $title,
+            'distribution' => $distribution,
         ]);
 
         // Send notification to admins who opted into incident alerts
@@ -415,8 +479,14 @@ MSG;
     private function getThresholds(): array
     {
         return array_merge([
+            // Delivery error thresholds (only counts infrastructure errors, not customer 4xx/5xx)
             'failure_rate_degraded' => 10,
             'failure_rate_critical' => 25,
+            // Distribution guards - prevent single customer from triggering incidents
+            'min_affected_accounts' => 5,
+            'min_affected_domains' => 3,
+            'delivery_window_minutes' => 10,
+            // Scheduler thresholds
             'stuck_executing_degraded' => 5,
             'stuck_executing_critical' => 15,
             'queue_pending_degraded' => 100,

@@ -88,6 +88,7 @@ class DeliverHttpAction implements ShouldQueue
         $attempt = new DeliveryAttempt([
             'action_id' => $this->action->id,
             'attempt_number' => $this->action->attempt_count,
+            'target_domain' => parse_url($httpRequest['url'], PHP_URL_HOST),
         ]);
 
         try {
@@ -98,35 +99,44 @@ class DeliverHttpAction implements ShouldQueue
             );
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
 
-            $attempt->status = DeliveryAttempt::STATUS_SUCCESS;
             $attempt->response_code = $response->status();
             $attempt->response_body = substr($response->body(), 0, 10000);
             $attempt->duration_ms = $durationMs;
-            $attempt->save();
 
             if ($response->successful()) {
                 // 2xx - Success
+                $attempt->status = DeliveryAttempt::STATUS_SUCCESS;
+                $attempt->failure_category = DeliveryAttempt::CATEGORY_SUCCESS;
+                $attempt->save();
                 $this->handleSuccess($attempt, $response->status(), $durationMs);
             } elseif ($response->clientError()) {
-                // 4xx - Client error (domain failure, don't retry)
+                // 4xx - Client error (customer misconfiguration, don't retry)
+                $attempt->status = DeliveryAttempt::STATUS_FAILED;
+                $attempt->failure_category = DeliveryAttempt::CATEGORY_CUSTOMER_4XX;
+                $attempt->save();
                 $this->handleDomainFailure($attempt, $response->status(), $durationMs, isClientError: true);
             } else {
-                // 5xx - Server error (domain failure, retry)
+                // 5xx - Server error (customer server issue, retry)
+                $attempt->status = DeliveryAttempt::STATUS_FAILED;
+                $attempt->failure_category = DeliveryAttempt::CATEGORY_CUSTOMER_5XX;
+                $attempt->save();
                 $this->handleDomainFailure($attempt, $response->status(), $durationMs, isClientError: false);
             }
         } catch (ConnectionException $e) {
-            // Network/connection failure - always retry
+            // Network/connection failure - delivery error (our infrastructure issue)
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
             $attempt->status = DeliveryAttempt::STATUS_FAILED;
+            $attempt->failure_category = DeliveryAttempt::CATEGORY_DELIVERY_ERROR;
             $attempt->error_message = $e->getMessage();
             $attempt->duration_ms = $durationMs;
             $attempt->save();
 
             $this->handleSystemFailure($attempt, $e->getMessage(), $durationMs);
         } catch (\Throwable $e) {
-            // Other exceptions - treat as system failure, retry
+            // Other exceptions - delivery error (infrastructure issue)
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
             $attempt->status = DeliveryAttempt::STATUS_FAILED;
+            $attempt->failure_category = DeliveryAttempt::CATEGORY_DELIVERY_ERROR;
             $attempt->error_message = $e->getMessage();
             $attempt->duration_ms = $durationMs;
             $attempt->save();

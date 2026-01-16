@@ -13,10 +13,18 @@ class DeliveryAttempt extends Model
     public const STATUS_SUCCESS = 'success';
     public const STATUS_FAILED = 'failed';
 
+    // Failure categories for health monitoring
+    public const CATEGORY_SUCCESS = 'success';
+    public const CATEGORY_CUSTOMER_4XX = 'customer_4xx';
+    public const CATEGORY_CUSTOMER_5XX = 'customer_5xx';
+    public const CATEGORY_DELIVERY_ERROR = 'delivery_error';
+
     protected $fillable = [
         'action_id',
         'attempt_number',
         'status',
+        'failure_category',
+        'target_domain',
         'response_code',
         'response_body',
         'error_message',

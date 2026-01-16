@@ -164,9 +164,16 @@ return [
 
         // Thresholds for component status changes
         'thresholds' => [
-            // Failure rate (%) - webhook delivery component
+            // Delivery error rate (%) - only counts network/infrastructure errors
+            // Customer-side errors (4xx/5xx) are NOT included
             'failure_rate_degraded' => 10,   // 10%+ = degraded
             'failure_rate_critical' => 25,   // 25%+ = outage + auto-incident
+
+            // Distribution guards - prevent single customer from triggering incidents
+            // Incidents only trigger if errors are widespread (not isolated to one customer)
+            'min_affected_accounts' => 5,    // Must affect 5+ different accounts
+            'min_affected_domains' => 3,     // Must affect 3+ different target domains
+            'delivery_window_minutes' => 10, // Time window for distribution check
 
             // Stuck actions - scheduler component
             'stuck_executing_degraded' => 5,  // 5+ stuck = degraded
