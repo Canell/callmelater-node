@@ -406,13 +406,25 @@
                                 <label class="form-label text-muted">Current Plan</label>
                                 <div class="d-flex align-items-center">
                                     <strong class="text-capitalize fs-5">{{ billing.plan }}</strong>
-                                    <span v-if="billing.canceled" class="badge bg-warning ms-2">Canceling</span>
+                                    <span v-if="billing.is_manually_managed" class="badge bg-primary ms-2">Managed by Support</span>
+                                    <span v-else-if="billing.canceled" class="badge bg-warning ms-2">Canceling</span>
                                     <span v-else-if="billing.on_trial" class="badge bg-info ms-2">Trial</span>
                                     <span v-else-if="billing.subscribed" class="badge bg-success ms-2">Active</span>
                                 </div>
                                 <div v-if="billing.canceled && billing.ends_at" class="text-muted small mt-1">
                                     Access until {{ formatDate(billing.ends_at) }}
                                 </div>
+                                <div v-if="billing.is_manually_managed && billing.manual_plan_expires_at" class="text-muted small mt-1">
+                                    Access until {{ formatDate(billing.manual_plan_expires_at) }}
+                                </div>
+                            </div>
+
+                            <!-- Manual Plan Info -->
+                            <div v-if="billing.is_manually_managed" class="alert alert-info mb-4">
+                                <strong>Your plan is managed by CallMeLater support.</strong>
+                                <p class="mb-0 mt-1 small">
+                                    If you have questions about your plan, please <router-link to="/contact">contact us</router-link>.
+                                </p>
                             </div>
 
                             <!-- Actions based on subscription state -->
@@ -677,6 +689,8 @@ export default {
                 ends_at: null,
                 on_trial: false,
                 can_manage: false,
+                is_manually_managed: false,
+                manual_plan_expires_at: null,
             },
             openingPortal: false,
             cancelingSubscription: false,
@@ -833,6 +847,8 @@ export default {
                     ends_at: data.ends_at,
                     on_trial: data.on_trial,
                     can_manage: data.can_manage_billing,
+                    is_manually_managed: data.is_manually_managed,
+                    manual_plan_expires_at: data.manual_plan_expires_at,
                 };
             } catch (err) {
                 console.error('Failed to load usage:', err);

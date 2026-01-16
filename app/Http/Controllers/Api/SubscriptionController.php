@@ -31,6 +31,9 @@ class SubscriptionController extends Controller
             ->where('created_at', '>=', $startOfMonth)
             ->count();
 
+        // Check if plan is manually managed
+        $isManuallyManaged = $account->isPlanManuallyManaged();
+
         return response()->json([
             'subscribed' => $account->subscribed('default'),
             'plan' => $account->getPlan(),
@@ -38,6 +41,9 @@ class SubscriptionController extends Controller
             'canceled' => $account->subscription('default')?->canceled() ?? false,
             'ends_at' => $account->subscription('default')?->ends_at,
             'can_manage_billing' => $user->canManageBilling(),
+            // Manual plan override info
+            'is_manually_managed' => $isManuallyManaged,
+            'manual_plan_expires_at' => $isManuallyManaged ? $account->manual_plan_expires_at : null,
             'limits' => [
                 'actions_per_month' => $limits['max_actions_per_month'] ?? null,
                 'active_actions' => $limits['max_pending_actions'] ?? null,

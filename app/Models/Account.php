@@ -13,10 +13,24 @@ class Account extends Model
 {
     use HasUuids, Billable;
 
+    public const PLAN_FREE = 'free';
+    public const PLAN_PRO = 'pro';
+    public const PLAN_BUSINESS = 'business';
+
     protected $fillable = [
         'name',
         'owner_id',
+        'manual_plan',
+        'manual_plan_expires_at',
+        'manual_plan_reason',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'manual_plan_expires_at' => 'datetime',
+        ];
+    }
 
     /**
      * The owner of this account (manages billing).
@@ -53,12 +67,31 @@ class Account extends Model
     }
 
     /**
+     * Audit log of manual plan overrides.
+     */
+    public function planOverrides(): HasMany
+    {
+        return $this->hasMany(AccountPlanOverride::class, 'account_id');
+    }
+
+    /**
      * Get the account's current plan name.
+     *
+     * Priority:
+     * 1. Manual plan override (if set and not expired)
+     * 2. Stripe subscription
+     * 3. Free tier
      */
     public function getPlan(): string
     {
+        // Check manual plan override first
+        if ($this->hasActiveManualPlan()) {
+            return $this->manual_plan;
+        }
+
+        // Fall back to Stripe subscription
         if (! $this->subscribed('default')) {
-            return 'free';
+            return self::PLAN_FREE;
         }
 
         $subscription = $this->subscription('default');
@@ -75,14 +108,81 @@ class Account extends Model
         ];
 
         if (in_array($priceId, $proPrices, true)) {
-            return 'pro';
+            return self::PLAN_PRO;
         }
 
         if (in_array($priceId, $businessPrices, true)) {
-            return 'business';
+            return self::PLAN_BUSINESS;
         }
 
-        return 'free';
+        return self::PLAN_FREE;
+    }
+
+    /**
+     * Check if the account has an active manual plan override.
+     */
+    public function hasActiveManualPlan(): bool
+    {
+        if (empty($this->manual_plan)) {
+            return false;
+        }
+
+        // Check if the plan is valid
+        if (! in_array($this->manual_plan, [self::PLAN_PRO, self::PLAN_BUSINESS], true)) {
+            return false;
+        }
+
+        // Check expiration
+        if ($this->manual_plan_expires_at && $this->manual_plan_expires_at->isPast()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if the plan is manually managed (for UI display).
+     */
+    public function isPlanManuallyManaged(): bool
+    {
+        return $this->hasActiveManualPlan();
+    }
+
+    /**
+     * Set a manual plan override with optional expiration.
+     *
+     * @param string|null $plan 'pro', 'business', or null to revoke
+     * @param \DateTimeInterface|string|null $expiresAt Optional expiration date
+     * @param string|null $reason Reason for the override
+     * @param User|null $setBy Admin user who set the override
+     */
+    public function setManualPlan(?string $plan, $expiresAt = null, ?string $reason = null, ?User $setBy = null): void
+    {
+        $previousPlan = $this->manual_plan;
+
+        $this->update([
+            'manual_plan' => $plan,
+            'manual_plan_expires_at' => $expiresAt,
+            'manual_plan_reason' => $reason,
+        ]);
+
+        // Log the override for audit trail
+        AccountPlanOverride::create([
+            'account_id' => $this->id,
+            'plan' => $plan,
+            'expires_at' => $expiresAt,
+            'reason' => $reason,
+            'set_by_user_id' => $setBy?->id,
+            'action' => $plan ? 'set' : 'revoked',
+        ]);
+    }
+
+    /**
+     * Revoke any manual plan override.
+     */
+    public function revokeManualPlan(?string $reason = null, ?User $revokedBy = null): void
+    {
+        $this->setManualPlan(null, null, $reason, $revokedBy);
     }
 
     /**

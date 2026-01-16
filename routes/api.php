@@ -122,6 +122,10 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/heartbeat', [HeartbeatController::class, 'status']);
         Route::get('/users', [AdminController::class, 'users']);
 
+        // Account Plan Management
+        Route::post('/accounts/{account}/manual-plan', [AdminController::class, 'setManualPlan']);
+        Route::get('/accounts/{account}/plan-overrides', [AdminController::class, 'getPlanOverrides']);
+
         // Status Page Management
         Route::get('/status/components', [StatusController::class, 'components']);
         Route::patch('/status/components/{component}', [StatusController::class, 'updateComponent']);

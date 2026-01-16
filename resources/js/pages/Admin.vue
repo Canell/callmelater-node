@@ -312,6 +312,7 @@
                                         <th class="text-end">Actions</th>
                                         <th>Joined</th>
                                         <th>Status</th>
+                                        <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -334,12 +335,23 @@
                                         </td>
                                         <td>
                                             <span :class="planBadgeClass(user.plan)">{{ user.plan }}</span>
+                                            <span v-if="user.is_manually_managed" class="badge bg-info ms-1" :title="user.account?.manual_plan_reason || 'Manual override'">Manual</span>
                                         </td>
                                         <td class="text-end">{{ user.actions_count }}</td>
                                         <td>{{ formatShortDate(user.created_at) }}</td>
                                         <td>
                                             <span v-if="user.email_verified_at" class="badge bg-success">Verified</span>
                                             <span v-else class="badge bg-warning text-dark">Unverified</span>
+                                        </td>
+                                        <td>
+                                            <button
+                                                v-if="user.account"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                @click="openPlanModal(user)"
+                                                title="Set manual plan"
+                                            >
+                                                Set Plan
+                                            </button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -351,6 +363,74 @@
                         <div v-else class="text-center py-4 text-muted">
                             Click "Load Users" to view the user list
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual Plan Modal -->
+        <div v-if="planModal.show" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Set Manual Plan</h5>
+                        <button type="button" class="btn-close" @click="closePlanModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <strong>Account:</strong> {{ planModal.user?.account?.name }}
+                            <br>
+                            <small class="text-muted">Owner: {{ planModal.user?.name }} ({{ planModal.user?.email }})</small>
+                        </div>
+
+                        <div v-if="planModal.user?.is_manually_managed" class="alert alert-info mb-3">
+                            <strong>Current manual plan:</strong> {{ planModal.user?.account?.manual_plan }}
+                            <span v-if="planModal.user?.account?.manual_plan_expires_at">
+                                (expires {{ formatShortDate(planModal.user?.account?.manual_plan_expires_at) }})
+                            </span>
+                            <br>
+                            <small v-if="planModal.user?.account?.manual_plan_reason">
+                                Reason: {{ planModal.user?.account?.manual_plan_reason }}
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Plan</label>
+                            <select class="form-select" v-model="planModal.plan">
+                                <option value="">Revoke (use Stripe subscription)</option>
+                                <option value="pro">Pro</option>
+                                <option value="business">Business</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" v-if="planModal.plan">
+                            <label class="form-label">Expires At (optional)</label>
+                            <input type="date" class="form-control" v-model="planModal.expiresAt" :min="minDate">
+                            <small class="text-muted">Leave empty for no expiration</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Reason</label>
+                            <input type="text" class="form-control" v-model="planModal.reason" placeholder="e.g. Beta tester, Support comp, Enterprise customer">
+                        </div>
+
+                        <div v-if="planModal.error" class="alert alert-danger">
+                            {{ planModal.error }}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @click="closePlanModal">
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            :class="planModal.plan ? 'btn btn-primary' : 'btn btn-warning'"
+                            @click="savePlan"
+                            :disabled="planModal.saving"
+                        >
+                            <span v-if="planModal.saving" class="spinner-border spinner-border-sm me-1"></span>
+                            {{ planModal.plan ? 'Set Plan' : 'Revoke Manual Plan' }}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -373,6 +453,15 @@ export default {
             health: null,
             queue: null,
             users: null,
+            planModal: {
+                show: false,
+                user: null,
+                plan: '',
+                expiresAt: '',
+                reason: '',
+                saving: false,
+                error: null,
+            },
         };
     },
     computed: {
@@ -405,6 +494,11 @@ export default {
                 users: acc.users + day.users,
                 reminders: acc.reminders + day.reminders_sent,
             }), { actions: 0, failures: 0, users: 0, reminders: 0 });
+        },
+        minDate() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return tomorrow.toISOString().split('T')[0];
         }
     },
     mounted() {
@@ -474,6 +568,48 @@ export default {
                 business: 'badge bg-success',
             };
             return classes[plan] || 'badge bg-secondary';
+        },
+        openPlanModal(user) {
+            this.planModal = {
+                show: true,
+                user: user,
+                plan: user.is_manually_managed ? user.account?.manual_plan : '',
+                expiresAt: '',
+                reason: user.account?.manual_plan_reason || '',
+                saving: false,
+                error: null,
+            };
+        },
+        closePlanModal() {
+            this.planModal.show = false;
+            this.planModal.user = null;
+        },
+        async savePlan() {
+            this.planModal.saving = true;
+            this.planModal.error = null;
+
+            try {
+                const payload = {
+                    plan: this.planModal.plan || null,
+                    reason: this.planModal.reason || null,
+                };
+
+                if (this.planModal.plan && this.planModal.expiresAt) {
+                    payload.expires_at = this.planModal.expiresAt;
+                }
+
+                const accountId = this.planModal.user.account.id;
+                await axios.post(`/api/admin/accounts/${accountId}/manual-plan`, payload);
+
+                // Refresh users list to show updated info
+                await this.loadUsers();
+                this.closePlanModal();
+            } catch (err) {
+                console.error('Failed to set plan:', err);
+                this.planModal.error = err.response?.data?.message || 'Failed to update plan';
+            } finally {
+                this.planModal.saving = false;
+            }
         },
         formatTime,
         formatShortDate,

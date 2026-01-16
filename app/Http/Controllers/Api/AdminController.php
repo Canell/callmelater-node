@@ -8,6 +8,7 @@ use App\Models\ReminderEvent;
 use App\Models\ScheduledAction;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 
@@ -313,9 +314,6 @@ class AdminController extends Controller
             ->get()
             ->map(function ($user) {
                 $account = $user->account;
-                $subscription = $account?->subscriptions()
-                    ->where('stripe_status', 'active')
-                    ->first();
 
                 return [
                     'id' => $user->id,
@@ -328,8 +326,12 @@ class AdminController extends Controller
                         'id' => $account->id,
                         'name' => $account->name,
                         'is_owner' => $account->owner_id === $user->id,
+                        'manual_plan' => $account->manual_plan,
+                        'manual_plan_expires_at' => $account->manual_plan_expires_at,
+                        'manual_plan_reason' => $account->manual_plan_reason,
                     ] : null,
-                    'plan' => $this->getUserPlan($subscription),
+                    'plan' => $account?->getPlan() ?? 'free',
+                    'is_manually_managed' => $account?->isPlanManuallyManaged() ?? false,
                     'actions_count' => $account ? ScheduledAction::where('account_id', $account->id)->count() : 0,
                 ];
             });
@@ -337,6 +339,76 @@ class AdminController extends Controller
         return response()->json([
             'users' => $users,
             'total' => $users->count(),
+        ]);
+    }
+
+    /**
+     * Set manual plan for an account.
+     */
+    public function setManualPlan(Request $request, Account $account): JsonResponse
+    {
+        $validated = $request->validate([
+            'plan' => 'nullable|in:pro,business',
+            'expires_at' => 'nullable|date|after:now',
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        $admin = $request->user();
+
+        if ($validated['plan']) {
+            // Set manual plan
+            $account->setManualPlan(
+                $validated['plan'],
+                $validated['expires_at'] ?? null,
+                $validated['reason'] ?? null,
+                $admin
+            );
+
+            return response()->json([
+                'message' => "Manual plan set to {$validated['plan']}",
+                'account' => [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'plan' => $account->getPlan(),
+                    'manual_plan' => $account->manual_plan,
+                    'manual_plan_expires_at' => $account->manual_plan_expires_at,
+                    'manual_plan_reason' => $account->manual_plan_reason,
+                    'is_manually_managed' => $account->isPlanManuallyManaged(),
+                ],
+            ]);
+        } else {
+            // Revoke manual plan
+            $account->revokeManualPlan($validated['reason'] ?? null, $admin);
+
+            return response()->json([
+                'message' => 'Manual plan revoked',
+                'account' => [
+                    'id' => $account->id,
+                    'name' => $account->name,
+                    'plan' => $account->getPlan(),
+                    'manual_plan' => null,
+                    'manual_plan_expires_at' => null,
+                    'manual_plan_reason' => null,
+                    'is_manually_managed' => false,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Get plan override history for an account.
+     */
+    public function getPlanOverrides(Account $account): JsonResponse
+    {
+        $overrides = $account->planOverrides()
+            ->with('setBy:id,name,email')
+            ->orderBy('created_at', 'desc')
+            ->limit(20)
+            ->get();
+
+        return response()->json([
+            'account_id' => $account->id,
+            'overrides' => $overrides,
         ]);
     }
 
