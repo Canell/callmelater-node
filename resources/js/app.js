@@ -24,6 +24,7 @@ import Terms from './pages/Terms.vue';
 import Privacy from './pages/Privacy.vue';
 import Cookies from './pages/Cookies.vue';
 import SubscriptionResult from './pages/SubscriptionResult.vue';
+import AcceptInvitation from './pages/AcceptInvitation.vue';
 
 // Define routes
 const routes = [
@@ -45,6 +46,9 @@ const routes = [
 
     // Subscription result pages
     { path: '/subscription/result', name: 'subscription-result', component: SubscriptionResult, meta: { hideNavFooter: true } },
+
+    // Team invitation
+    { path: '/invitations/:token', name: 'accept-invitation', component: AcceptInvitation },
 
     // Auth pages
     { path: '/login', name: 'login', component: Login, meta: { guest: true } },
@@ -80,6 +84,15 @@ router.beforeEach((to, from, next) => {
     // Check for magic link auth signal
     if (to.query.auth === 'magic') {
         localStorage.setItem('token', 'authenticated');
+
+        // Check for stored redirect from before magic link was sent
+        const storedRedirect = localStorage.getItem('auth_redirect');
+        if (storedRedirect) {
+            localStorage.removeItem('auth_redirect');
+            next({ path: storedRedirect, replace: true });
+            return;
+        }
+
         // Remove the query param and continue
         const { auth, ...query } = to.query;
         next({ path: to.path, query, replace: true });

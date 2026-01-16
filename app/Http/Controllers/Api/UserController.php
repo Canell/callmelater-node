@@ -183,17 +183,20 @@ class UserController extends Controller
     public function destroy(Request $request): JsonResponse
     {
         $user = $request->user();
+        $account = $user->account;
 
-        // Cancel any active subscriptions
-        if ($user->subscribed('default')) {
-            $user->subscription('default')->cancelNow();
+        // Cancel any active subscriptions on the account
+        if ($account && $account->subscribed('default')) {
+            $account->subscription('default')->cancelNow();
         }
 
         // Delete all API tokens
         $user->tokens()->delete();
 
-        // Delete all actions (cascade will handle related records)
-        $user->actions()->delete();
+        // Delete all actions from the account (cascade will handle related records)
+        if ($account) {
+            $account->actions()->delete();
+        }
 
         // Delete the user
         $user->delete();

@@ -29,8 +29,8 @@ class AccountResource extends JsonResource
                     'id' => $member->id,
                     'name' => $member->name,
                     'email' => $member->email,
-                    'role' => $member->pivot->role,
-                    'joined_at' => $member->pivot->created_at?->toIso8601String(),
+                    'role' => $member->pivot->role, // @phpstan-ignore-line
+                    'joined_at' => $member->pivot->created_at?->toIso8601String(), // @phpstan-ignore-line
                 ]);
             }),
             'member_count' => $this->members->count(),

@@ -414,6 +414,8 @@ class AdminController extends Controller
 
     /**
      * Get user's plan based on subscription.
+     *
+     * @phpstan-ignore method.unused
      */
     private function getUserPlan($subscription): string
     {

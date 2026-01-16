@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Team Invitation</title>
+    <title>Workspace Invitation</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -71,11 +71,11 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>You're invited to join a team</h1>
+            <h1>You've been invited to join a workspace</h1>
 
-            <p><span class="highlight">{{ $inviterName }}</span> has invited you to join <span class="highlight">{{ $teamName }}</span> on CallMeLater.</p>
+            <p><span class="highlight">{{ $inviterName }}</span> has invited you to join the <span class="highlight">{{ $workspaceName }}</span> workspace on CallMeLater.</p>
 
-            <p>Team members can collaborate on scheduled actions and share access to the team's resources.</p>
+            <p>As a workspace member, you'll share the same plan and usage limits with your team.</p>
 
             <div class="button-group">
                 <a href="{{ $acceptUrl }}" class="button button-primary">Accept Invitation</a>

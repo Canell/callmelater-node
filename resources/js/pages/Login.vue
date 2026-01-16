@@ -194,6 +194,13 @@ export default {
         // Check for error in URL params
         const params = new URLSearchParams(window.location.search);
         this.urlError = params.get('error');
+
+        // Pre-fill email from URL params (e.g., from invitation redirect)
+        const email = params.get('email');
+        if (email) {
+            this.form.email = email;
+            this.magicLinkForm.email = email;
+        }
     },
     methods: {
         async login() {
@@ -213,8 +220,13 @@ export default {
                 // Store a flag that user is authenticated
                 localStorage.setItem('token', 'authenticated');
 
-                // Redirect to dashboard
-                this.$router.push({ name: 'dashboard' });
+                // Redirect to original destination or dashboard
+                const redirect = this.$route.query.redirect;
+                if (redirect && redirect.startsWith('/')) {
+                    this.$router.push(redirect);
+                } else {
+                    this.$router.push({ name: 'dashboard' });
+                }
             } catch (err) {
                 if (err.response?.status === 422) {
                     this.error = err.response.data.message || 'Invalid credentials';
@@ -233,6 +245,12 @@ export default {
             try {
                 // Get CSRF cookie first
                 await axios.get('/sanctum/csrf-cookie');
+
+                // Store redirect URL for after magic link verification
+                const redirect = this.$route.query.redirect;
+                if (redirect) {
+                    localStorage.setItem('auth_redirect', redirect);
+                }
 
                 // Request magic link
                 await axios.post('/auth/magic-link/send', {

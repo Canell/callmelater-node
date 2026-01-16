@@ -2,11 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+/**
+ * @property string $id
+ * @property string $name
+ * @property string $account_id
+ * @property int $owner_id
+ * @property-read Account $account
+ * @property-read User $owner
+ * @property-read Collection<int, User> $members
+ */
 class Team extends Model
 {
     use HasUuids;
@@ -70,6 +80,6 @@ class Team extends Model
 
         $membership = $this->members()->where('user_id', $user->id)->first();
 
-        return $membership && in_array($membership->pivot->role, ['owner', 'admin']);
+        return $membership && in_array($membership->pivot->role, ['owner', 'admin']); // @phpstan-ignore-line
     }
 }

@@ -35,7 +35,7 @@ class ContactController extends Controller
 
         // Send email to support
         Mail::raw($this->formatMessage($validated, $userInfo), function ($message) use ($validated) {
-            $message->to(env('MAIL_SUPPORT_ADDRESS', 'support@callmelater.io'))
+            $message->to(config('mail.support_address', 'support@callmelater.io'))
                 ->replyTo($validated['email'], $validated['name'])
                 ->subject('[CallMeLater Contact] ' . $this->getSubjectLabel($validated['subject']));
         });
@@ -145,9 +145,9 @@ class ContactController extends Controller
             } elseif ($subscription->active()) {
                 $subscriptionStatus = 'Active';
                 // Get current period end from Stripe
-                if ($subscription->asStripeSubscription()) {
-                    $stripeSubscription = $subscription->asStripeSubscription();
-                    $subscriptionEndsAt = date('M j, Y', $stripeSubscription->current_period_end);
+                $stripeSubscription = $subscription->asStripeSubscription();
+                if ($stripeSubscription) { // @phpstan-ignore if.alwaysTrue
+                    $subscriptionEndsAt = date('M j, Y', $stripeSubscription->current_period_end); // @phpstan-ignore property.notFound
                 }
             }
         }

@@ -97,39 +97,40 @@
                         </div>
                     </div>
 
-                    <!-- Teams -->
+                    <!-- Members (Workspace) -->
                     <div v-show="activeTab === 'teams'" class="card card-cml">
                         <div class="card-header bg-transparent">
-                            <h5 class="mb-0">Team Workspaces</h5>
+                            <h5 class="mb-0">Workspace Members</h5>
                         </div>
                         <div class="card-body">
-                            <p class="text-muted mb-4">
-                                Create team workspaces to share actions with colleagues. Team members can view and manage shared actions.
-                            </p>
+                            <div class="alert alert-info mb-4">
+                                <strong>All members share the same plan and usage limits.</strong>
+                                Invite team members to collaborate on scheduled actions within your workspace.
+                            </div>
 
-                            <!-- Create new team -->
+                            <!-- Create new workspace/team -->
                             <div class="bg-light p-3 rounded mb-4">
-                                <h6 class="mb-3">Create New Team</h6>
+                                <h6 class="mb-3">Create New Workspace</h6>
                                 <div class="row g-3 align-items-end">
                                     <div class="col-md-6">
-                                        <label class="form-label">Team Name</label>
-                                        <input type="text" class="form-control" v-model="newTeamName" placeholder="e.g. Engineering, Ops Team">
+                                        <label class="form-label">Workspace Name</label>
+                                        <input type="text" class="form-control" v-model="newTeamName" placeholder="e.g. Engineering, Operations">
                                     </div>
                                     <div class="col-md-3">
                                         <button class="btn btn-cml-primary" @click="createTeam" :disabled="!newTeamName || creatingTeam">
-                                            {{ creatingTeam ? 'Creating...' : 'Create Team' }}
+                                            {{ creatingTeam ? 'Creating...' : 'Create Workspace' }}
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Teams list -->
+                            <!-- Workspaces list -->
                             <div v-if="loadingTeams" class="text-center py-4">
                                 <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
                             </div>
 
                             <div v-else-if="teams.length === 0" class="text-center py-4 text-muted">
-                                <p>No teams yet. Create your first team above.</p>
+                                <p>No workspaces yet. Create your first workspace above.</p>
                             </div>
 
                             <div v-else>
@@ -195,7 +196,7 @@
                                                     @click="addMember(team)"
                                                     :disabled="!team._addEmail || addingMember"
                                                 >
-                                                    Add Member
+                                                    Invite Member
                                                 </button>
                                             </div>
                                         </div>
@@ -621,7 +622,7 @@ export default {
             activeTab: 'profile',
             tabs: [
                 { id: 'profile', label: 'Profile' },
-                { id: 'teams', label: 'Teams', businessOnly: true },
+                { id: 'teams', label: 'Members', businessOnly: true },
                 { id: 'api', label: 'API & Security' },
                 { id: 'usage', label: 'Usage & Limits' },
                 { id: 'billing', label: 'Billing' },
@@ -1075,19 +1076,19 @@ export default {
                     name: this.newTeamName,
                 });
                 this.teams.push({ ...response.data.data, _addEmail: '' });
-                this.toast.success(`Team "${this.newTeamName}" created.`);
+                this.toast.success(`Workspace "${this.newTeamName}" created.`);
                 this.newTeamName = '';
             } catch (err) {
-                this.toast.error(err.response?.data?.error || 'Failed to create team');
+                this.toast.error(err.response?.data?.error || 'Failed to create workspace');
             } finally {
                 this.creatingTeam = false;
             }
         },
         confirmDeleteTeam(team) {
             this.showConfirm({
-                title: 'Delete Team',
-                message: `Delete "${team.name}"? All team members will lose access to shared actions.`,
-                confirmText: 'Delete Team',
+                title: 'Delete Workspace',
+                message: `Delete "${team.name}"? All members will lose access to shared actions.`,
+                confirmText: 'Delete Workspace',
                 variant: 'danger',
                 action: 'doDeleteTeam',
                 data: team,
@@ -1097,9 +1098,9 @@ export default {
             try {
                 await axios.delete(`/api/teams/${team.id}`);
                 this.teams = this.teams.filter(t => t.id !== team.id);
-                this.toast.success('Team deleted.');
+                this.toast.success('Workspace deleted.');
             } catch (err) {
-                this.toast.error(err.response?.data?.error || 'Failed to delete team');
+                this.toast.error(err.response?.data?.error || 'Failed to delete workspace');
             }
         },
         async addMember(team) {
@@ -1117,17 +1118,17 @@ export default {
                 if (response.data.invitation_sent) {
                     this.toast.success(response.data.message);
                 } else {
-                    this.toast.success('Member added to team.');
+                    this.toast.success('Member added to workspace.');
                 }
             } catch (err) {
-                this.toast.error(err.response?.data?.error || 'Failed to add member');
+                this.toast.error(err.response?.data?.error || 'Failed to invite member');
             } finally {
                 this.addingMember = false;
             }
         },
         confirmRemoveMember(team, member) {
             this.showConfirm({
-                title: 'Remove Team Member',
+                title: 'Remove Member',
                 message: `Remove ${member.name} from ${team.name}?`,
                 confirmText: 'Remove',
                 variant: 'warning',
@@ -1144,7 +1145,7 @@ export default {
                     this.teams[teamIdx].members = this.teams[teamIdx].members.filter(m => m.id !== member.id);
                     this.teams[teamIdx].member_count--;
                 }
-                this.toast.success('Member removed from team.');
+                this.toast.success('Member removed.');
             } catch (err) {
                 this.toast.error(err.response?.data?.error || 'Failed to remove member');
             }

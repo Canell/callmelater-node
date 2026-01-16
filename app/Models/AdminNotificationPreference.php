@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property bool $health_alerts
+ * @property bool $incident_alerts
+ * @property array $channels
+ * @property-read User $user
+ */
 class AdminNotificationPreference extends Model
 {
     use HasFactory;

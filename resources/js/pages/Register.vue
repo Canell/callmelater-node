@@ -92,6 +92,14 @@ export default {
             cooldownTimer: null,
         };
     },
+    mounted() {
+        // Pre-fill email from URL params (e.g., from invitation redirect)
+        const params = new URLSearchParams(window.location.search);
+        const email = params.get('email');
+        if (email) {
+            this.form.email = email;
+        }
+    },
     beforeUnmount() {
         if (this.cooldownTimer) {
             clearInterval(this.cooldownTimer);
@@ -105,6 +113,12 @@ export default {
             try {
                 // Get CSRF cookie first
                 await axios.get('/sanctum/csrf-cookie');
+
+                // Store redirect URL for after magic link verification
+                const redirect = this.$route.query.redirect;
+                if (redirect) {
+                    localStorage.setItem('auth_redirect', redirect);
+                }
 
                 // Request magic signup link
                 await axios.post('/auth/magic-link/signup', {

@@ -333,6 +333,7 @@ class HealthMonitorService
             return;
         }
 
+        /** @var SystemComponent $component */
         $component = $tracking->component;
         $systemUser = $this->getSystemUser();
 

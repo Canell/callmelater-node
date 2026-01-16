@@ -11,6 +11,19 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property string|null $password
+ * @property \Carbon\Carbon|null $email_verified_at
+ * @property bool $is_admin
+ * @property string|null $timezone
+ * @property string $webhook_secret
+ * @property array|null $notification_preferences
+ * @property string|null $account_id
+ * @property-read Account|null $account
+ */
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */

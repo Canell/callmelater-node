@@ -115,4 +115,15 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Support Address
+    |--------------------------------------------------------------------------
+    |
+    | This address is used for contact form submissions.
+    |
+    */
+
+    'support_address' => env('MAIL_SUPPORT_ADDRESS', 'support@callmelater.io'),
+
 ];

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,6 +10,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Cashier\Billable;
 
+/**
+ * @property string $id
+ * @property string $name
+ * @property int $owner_id
+ * @property string|null $manual_plan
+ * @property \Carbon\Carbon|null $manual_plan_expires_at
+ * @property string|null $manual_plan_reason
+ * @property-read User $owner
+ * @property-read Collection<int, User> $members
+ */
 class Account extends Model
 {
     use HasUuids, Billable;
@@ -218,7 +229,7 @@ class Account extends Model
 
         $membership = $this->members()->where('user_id', $user->id)->first();
 
-        return $membership && in_array($membership->pivot->role, ['owner', 'admin']);
+        return $membership && in_array($membership->pivot->role, ['owner', 'admin']); // @phpstan-ignore-line
     }
 
     /**

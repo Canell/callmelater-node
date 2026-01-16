@@ -19,19 +19,22 @@ class TeamInvitationMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $workspaceName = $this->invitation->team->account->name ?? $this->invitation->team->name;
+
         return new Envelope(
-            subject: "You've been invited to join {$this->invitation->team->name} on CallMeLater",
+            subject: "You've been invited to join {$workspaceName} on CallMeLater",
         );
     }
 
     public function content(): Content
     {
         $baseUrl = config('app.url');
+        $workspaceName = $this->invitation->team->account->name ?? $this->invitation->team->name;
 
         return new Content(
             view: 'emails.team-invitation',
             with: [
-                'teamName' => $this->invitation->team->name,
+                'workspaceName' => $workspaceName,
                 'inviterName' => $this->invitation->inviter->name,
                 'acceptUrl' => "{$baseUrl}/invitations/{$this->invitation->token}",
                 'expiresIn' => '7 days',

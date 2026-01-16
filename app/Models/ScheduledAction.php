@@ -151,7 +151,7 @@ class ScheduledAction extends Model
      */
     public function getOwnerAttribute(): ?User
     {
-        return $this->creator ?? $this->account?->owner;
+        return $this->creator ?? $this->account?->owner; // @phpstan-ignore-line
     }
 
     public function deliveryAttempts(): HasMany

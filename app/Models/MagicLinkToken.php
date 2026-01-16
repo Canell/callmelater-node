@@ -2,9 +2,18 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
+/**
+ * @property int $id
+ * @property string $email
+ * @property string $token
+ * @property string $purpose
+ * @property Carbon $expires_at
+ * @property Carbon|null $used_at
+ */
 class MagicLinkToken extends Model
 {
     public const PURPOSE_LOGIN = 'login';

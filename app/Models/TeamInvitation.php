@@ -2,11 +2,24 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+/**
+ * @property string $id
+ * @property string $team_id
+ * @property string $email
+ * @property string $role
+ * @property string $token
+ * @property string $invited_by
+ * @property Carbon $expires_at
+ * @property Carbon|null $accepted_at
+ * @property-read Team $team
+ * @property-read User $inviter
+ */
 class TeamInvitation extends Model
 {
     use HasUuids;
@@ -99,6 +112,15 @@ class TeamInvitation extends Model
     {
         if (! $this->isValid()) {
             return false;
+        }
+
+        // Load the team with its account if not already loaded
+        $this->loadMissing('team');
+
+        // Update user's account to match the team's account
+        // This allows them to access the team and its resources
+        if ($user->account_id !== $this->team->account_id) {
+            $user->update(['account_id' => $this->team->account_id]);
         }
 
         // Add user to the team

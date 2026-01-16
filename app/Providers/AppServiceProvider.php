@@ -82,7 +82,7 @@ class AppServiceProvider extends ServiceProvider
         // Test webhook rate limit - per URL (3 per minute)
         RateLimiter::for('test-action-url', function (Request $request) {
             $url = $request->input('url', '');
-            $userId = $request->user()?->id ?? $request->ip();
+            $userId = $request->user()?->id ?? $request->ip(); // @phpstan-ignore nullsafe.neverNull
 
             return Limit::perMinute(3)
                 ->by($userId . '|' . md5($url))
@@ -102,7 +102,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Test webhook rate limit - per user (20 per hour)
         RateLimiter::for('test-action-user', function (Request $request) {
-            $userId = $request->user()?->id ?? $request->ip();
+            $userId = $request->user()?->id ?? $request->ip(); // @phpstan-ignore nullsafe.neverNull
 
             return Limit::perHour(20)
                 ->by($userId)
