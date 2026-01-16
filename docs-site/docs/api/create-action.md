@@ -16,9 +16,12 @@ POST /api/v1/actions
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | Yes | `http` or `reminder` |
+| `type` | string | No | `http` (default) or `reminder` |
+| `name` | string | No | Display name (auto-generated if omitted) |
 | `idempotency_key` | string | No | Unique key to prevent duplicates (max 255 chars) |
-| `intent` | object | Yes | When to execute (see below) |
+| `intent` | object | Yes* | When to execute (see below) |
+
+*Either `intent` or top-level `execute_at` must be provided.
 
 ### Intent Object
 
@@ -52,12 +55,14 @@ One of these is required:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `reminder_message` | string | Yes | Message to send |
-| `recipients` | array | Yes | Email addresses or phone numbers |
-| `confirmation_mode` | string | No | `any` (default) or `all` |
-| `max_snoozes` | integer | No | Max snooze count (default: 3) |
-| `snooze_duration` | string | No | Snooze delay (default: `1h`) |
-| `expires_after` | string | No | Time until expiry (default: `24h`) |
+| `message` | string | Yes | Message to send |
+| `escalation_rules` | object | Yes | Recipients and delivery options |
+| `escalation_rules.recipients` | array | Yes | Email addresses or phone numbers (E.164 format) |
+| `escalation_rules.channels` | array | No | `["email"]` (default) or `["email", "sms"]` |
+| `escalation_rules.token_expiry_days` | integer | No | Days until response link expires (default: 7) |
+| `confirmation_mode` | string | No | `first_response` (default) or `all_required` |
+| `max_snoozes` | integer | No | Max snooze count (default: 5) |
+| `callback_url` | string | No | URL to receive response webhooks |
 
 ## Examples
 

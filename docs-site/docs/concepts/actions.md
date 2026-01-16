@@ -10,11 +10,10 @@ Everything in CallMeLater is an **action** — something scheduled to happen in 
 
 ### HTTP Actions
 
-An HTTP action triggers a webhook at a scheduled time.
+An HTTP action triggers a webhook at a scheduled time. The `type` defaults to `http`, so you can omit it.
 
 ```json
 {
-  "type": "http",
   "intent": {
     "preset": "tomorrow"
   },
@@ -49,12 +48,12 @@ A reminder action sends a message to one or more recipients, asking them to resp
   "intent": {
     "delay": "2h"
   },
-  "reminder_message": "Please confirm the deployment",
-  "recipients": [
-    "ops@example.com",
-    "+1234567890"
-  ],
-  "confirmation_mode": "any"
+  "message": "Please confirm the deployment",
+  "escalation_rules": {
+    "recipients": ["ops@example.com", "+1234567890"],
+    "channels": ["email", "sms"]
+  },
+  "confirmation_mode": "first_response"
 }
 ```
 

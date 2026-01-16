@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'stripe/*',
         ]);
 
+        // Force JSON responses for all API requests (no Accept header required)
+        $middleware->prependToGroup('api', \App\Http\Middleware\ForceJsonResponse::class);
+
         // Add API request logging
         $middleware->appendToGroup('api', \App\Http\Middleware\LogApiRequests::class);
 

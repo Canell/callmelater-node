@@ -15,14 +15,31 @@ class CreateActionRequest extends FormRequest
     }
 
     /**
+     * Prepare the data for validation.
+     */
+    protected function prepareForValidation(): void
+    {
+        // Default type to 'http' if not provided
+        if (! $this->has('type')) {
+            $this->merge(['type' => ScheduledAction::TYPE_HTTP]);
+        }
+
+        // Auto-generate name if not provided
+        if (! $this->filled('name')) {
+            $type = $this->input('type', ScheduledAction::TYPE_HTTP);
+            $this->merge(['name' => $type === ScheduledAction::TYPE_HTTP ? 'HTTP Action' : 'Reminder']);
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'type' => ['required', 'string', Rule::in([ScheduledAction::TYPE_HTTP, ScheduledAction::TYPE_REMINDER])],
+            'type' => ['nullable', 'string', Rule::in([ScheduledAction::TYPE_HTTP, ScheduledAction::TYPE_REMINDER])],
             'timezone' => ['nullable', 'string', 'timezone:all'],
             'idempotency_key' => ['nullable', 'string', 'max:255'],
 

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -44,10 +45,17 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Auto-create an account when a new user registers.
+     * Auto-create an account and webhook secret when a new user registers.
      */
     protected static function booted(): void
     {
+        static::creating(function (User $user) {
+            // Generate webhook secret if not provided
+            if (empty($user->webhook_secret)) {
+                $user->webhook_secret = 'whsec_' . Str::random(32);
+            }
+        });
+
         static::created(function (User $user) {
             // Skip if user already has an account (e.g., invited to existing account)
             if ($user->account_id) {

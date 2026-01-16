@@ -54,7 +54,8 @@ class ActionService
             $action->http_request = $data['http_request'] ?? [];
             $action->max_attempts = $data['max_attempts'] ?? 5;
             $action->retry_strategy = $data['retry_strategy'] ?? 'exponential';
-            $action->webhook_secret = $data['webhook_secret'] ?? Str::random(32);
+            // Use provided secret, fall back to user's default secret, or generate random
+            $action->webhook_secret = $data['webhook_secret'] ?? $user->webhook_secret ?? Str::random(32);
         } elseif ($action->isReminder()) {
             $action->message = $data['message'] ?? null;
             $action->confirmation_mode = $data['confirmation_mode'] ?? ScheduledAction::CONFIRMATION_FIRST_RESPONSE;
