@@ -185,7 +185,7 @@
               <pre><code>{
   "type": "reminder",
   "name": "Approve production deploy",
-  "intent": { "preset": "in_1_hour" },
+  "intent": { "delay": "1h" },
   "message": "Ready to deploy v2.1 to production?",
   "escalation_rules": {
     "recipients": ["ops@example.com", "+1234567890"],
