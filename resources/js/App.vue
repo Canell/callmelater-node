@@ -6,8 +6,8 @@
         <!-- Top Navigation -->
         <nav v-if="!hideNavFooter" class="navbar navbar-expand-lg navbar-cml">
             <div class="container">
-                <!-- Logo -->
-                <router-link class="navbar-brand d-flex align-items-center" to="/">
+                <!-- Logo (regular link - home page served by Blade) -->
+                <a class="navbar-brand d-flex align-items-center" href="/">
                     <span class="logo-icon me-2">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <circle cx="12" cy="12" r="10" stroke="#22C55E" stroke-width="2"/>
@@ -15,7 +15,7 @@
                         </svg>
                     </span>
                     <span class="fw-semibold">CallMeLater</span>
-                </router-link>
+                </a>
 
                 <!-- Mobile toggle -->
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -24,13 +24,13 @@
 
                 <!-- Nav links -->
                 <div class="collapse navbar-collapse" id="navbarNav">
-                    <!-- Left side links -->
+                    <!-- Left side links (regular links for SEO - pages served by Blade) -->
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <router-link class="nav-link" to="/use-cases">Use Cases</router-link>
+                            <a class="nav-link" href="/use-cases">Use Cases</a>
                         </li>
                         <li class="nav-item">
-                            <router-link class="nav-link" to="/pricing">Pricing</router-link>
+                            <a class="nav-link" href="/pricing">Pricing</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" :href="docsUrl">Docs</a>
@@ -108,8 +108,8 @@
                     <div class="col-6 col-md-2">
                         <h6 class="footer-heading">Product</h6>
                         <ul class="list-unstyled footer-links">
-                            <li><router-link to="/use-cases">Use Cases</router-link></li>
-                            <li><router-link to="/pricing">Pricing</router-link></li>
+                            <li><a href="/use-cases">Use Cases</a></li>
+                            <li><a href="/pricing">Pricing</a></li>
                             <li><a :href="docsUrl">Docs</a></li>
                         </ul>
                     </div>
@@ -117,15 +117,15 @@
                         <h6 class="footer-heading">Resources</h6>
                         <ul class="list-unstyled footer-links">
                             <li><a :href="statusUrl">Status</a></li>
-                            <li><router-link to="/contact">Contact</router-link></li>
+                            <li><a href="/contact">Contact</a></li>
                         </ul>
                     </div>
                     <div class="col-6 col-md-2">
                         <h6 class="footer-heading">Legal</h6>
                         <ul class="list-unstyled footer-links">
-                            <li><router-link to="/terms">Terms</router-link></li>
-                            <li><router-link to="/privacy">Privacy</router-link></li>
-                            <li><router-link to="/cookies">Cookies</router-link></li>
+                            <li><a href="/terms">Terms</a></li>
+                            <li><a href="/privacy">Privacy</a></li>
+                            <li><a href="/cookies">Cookies</a></li>
                         </ul>
                     </div>
                 </div>
@@ -186,8 +186,9 @@ export default {
             return this.user?.is_admin === true;
         },
         showFooter() {
-            // Show footer on public pages (home, use-cases, pricing, login, register, contact, legal)
-            const publicRoutes = ['home', 'use-cases', 'pricing', 'login', 'register', 'contact', 'terms', 'privacy', 'cookies'];
+            // Show footer on auth pages (login, register)
+            // Note: Marketing pages are now served by Blade with their own footer
+            const publicRoutes = ['login', 'register'];
             return publicRoutes.includes(this.$route.name);
         },
         hideNavFooter() {
@@ -232,7 +233,8 @@ export default {
             localStorage.removeItem('token');
             this.authToken = null;
             this.user = null;
-            this.$router.push({ name: 'home' });
+            // Redirect to home page (served by Blade)
+            window.location.href = '/';
         },
         async resendVerification() {
             this.resending = true;

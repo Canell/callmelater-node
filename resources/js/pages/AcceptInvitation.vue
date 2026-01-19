@@ -20,7 +20,7 @@
                         </div>
                         <h4>{{ errorTitle }}</h4>
                         <p class="text-muted mb-4">{{ error }}</p>
-                        <router-link to="/" class="btn btn-cml-primary">Go to Homepage</router-link>
+                        <a href="/" class="btn btn-cml-primary">Go to Homepage</a>
                     </div>
                 </div>
 

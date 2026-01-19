@@ -25,7 +25,16 @@ Route::prefix('auth/magic-link')->group(function () {
 Route::post('/stripe/webhook', [\Laravel\Cashier\Http\Controllers\WebhookController::class, 'handleWebhook'])
     ->name('cashier.webhook');
 
-// SPA catch-all route - Vue Router handles frontend routing
+// Marketing pages - server-rendered Blade for SEO
+Route::get('/', fn () => view('pages.home'))->name('home');
+Route::get('/pricing', fn () => view('pages.pricing'))->name('pricing');
+Route::get('/use-cases', fn () => view('pages.use-cases'))->name('use-cases');
+Route::get('/contact', fn () => view('pages.contact'))->name('contact');
+Route::get('/terms', fn () => view('pages.terms'))->name('terms');
+Route::get('/privacy', fn () => view('pages.privacy'))->name('privacy');
+Route::get('/cookies', fn () => view('pages.cookies'))->name('cookies');
+
+// SPA catch-all route - Vue Router handles authenticated routes
 Route::get('/{any?}', function () {
     return view('app');
 })->where('any', '^(?!api|sanctum|respond|stripe|auth).*$');

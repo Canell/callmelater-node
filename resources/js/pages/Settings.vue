@@ -327,7 +327,7 @@
                                         <label class="form-label text-muted">Current Plan</label>
                                         <div>
                                             <strong class="text-capitalize">{{ usage.plan || 'Free' }}</strong>
-                                            <router-link to="/pricing" class="ms-2 small">Upgrade</router-link>
+                                            <a href="/pricing" class="ms-2 small">Upgrade</a>
                                         </div>
                                     </div>
                                     <div class="mb-3">
@@ -424,16 +424,16 @@
                             <div v-if="billing.is_manually_managed" class="alert alert-info mb-4">
                                 <strong>Your plan is managed by CallMeLater support.</strong>
                                 <p class="mb-0 mt-1 small">
-                                    If you have questions about your plan, please <router-link to="/contact">contact us</router-link>.
+                                    If you have questions about your plan, please <a href="/contact">contact us</a>.
                                 </p>
                             </div>
 
                             <!-- Actions based on subscription state -->
                             <div v-if="billing.plan === 'free'" class="mb-4">
                                 <p class="text-muted">Upgrade to Pro or Business for more actions, retries, and features.</p>
-                                <router-link to="/pricing" class="btn btn-cml-primary">
+                                <a href="/pricing" class="btn btn-cml-primary">
                                     View Plans & Upgrade
-                                </router-link>
+                                </a>
                             </div>
 
                             <div v-else-if="billing.can_manage" class="mb-4">
@@ -444,9 +444,9 @@
                                 <button class="btn btn-cml-primary me-2" @click="openBillingPortal" :disabled="openingPortal">
                                     {{ openingPortal ? 'Opening...' : 'Manage Subscription' }}
                                 </button>
-                                <router-link to="/pricing" class="btn btn-outline-secondary">
+                                <a href="/pricing" class="btn btn-outline-secondary">
                                     Change Plan
-                                </router-link>
+                                </a>
 
                                 <hr class="my-4">
 

@@ -35,7 +35,8 @@
       "Bash(xargs ls:*)",
       "Bash(cat:*)",
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan migrate:fresh --force)",
-      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan make:migration create_magic_link_tokens_table)"
+      "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan make:migration create_magic_link_tokens_table)",
+      "Bash(npm install:*)"
     ]
   }
 }

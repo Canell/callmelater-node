@@ -343,7 +343,7 @@
                                     </div>
                                 </div>
                                 <div v-if="userPlan === 'free'" class="form-text">
-                                    <router-link to="/pricing">Upgrade to Pro</router-link> to send SMS reminders.
+                                    <a href="/pricing">Upgrade to Pro</a> to send SMS reminders.
                                 </div>
                             </div>
                             <div class="mb-3">

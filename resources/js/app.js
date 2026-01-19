@@ -6,8 +6,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 
 // Import pages
-import Home from './pages/Home.vue';
-import Pricing from './pages/Pricing.vue';
+// Note: Marketing pages (Home, Pricing, UseCases, Contact, Terms, Privacy, Cookies)
+// are now served by Blade templates for SEO
 import Dashboard from './pages/Dashboard.vue';
 import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
@@ -15,27 +15,17 @@ import CreateAction from './pages/CreateAction.vue';
 import ActionDetail from './pages/ActionDetail.vue';
 import Admin from './pages/Admin.vue';
 import AdminStatus from './pages/AdminStatus.vue';
-import UseCases from './pages/UseCases.vue';
 import Status from './pages/Status.vue';
 import ConsentResult from './pages/ConsentResult.vue';
 import Settings from './pages/Settings.vue';
-import Contact from './pages/Contact.vue';
-import Terms from './pages/Terms.vue';
-import Privacy from './pages/Privacy.vue';
-import Cookies from './pages/Cookies.vue';
 import SubscriptionResult from './pages/SubscriptionResult.vue';
 import AcceptInvitation from './pages/AcceptInvitation.vue';
 
 // Define routes
+// Marketing pages (/, /pricing, /use-cases, /contact, /terms, /privacy, /cookies)
+// are handled by Laravel and served as Blade templates for SEO
 const routes = [
-    // Public marketing pages
-    { path: '/', name: 'home', component: Home },
-    { path: '/pricing', name: 'pricing', component: Pricing },
-    { path: '/use-cases', name: 'use-cases', component: UseCases },
-    { path: '/contact', name: 'contact', component: Contact },
-    { path: '/terms', name: 'terms', component: Terms },
-    { path: '/privacy', name: 'privacy', component: Privacy },
-    { path: '/cookies', name: 'cookies', component: Cookies },
+    // Status page (Vue-rendered for real-time updates)
     { path: '/status', name: 'status', component: Status, meta: { hideNavFooter: true } },
 
     // Consent result pages (public, no auth required)
