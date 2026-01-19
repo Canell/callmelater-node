@@ -449,6 +449,12 @@
             });
         });
 
+        // Helper to get CSRF token from cookie
+        function getCsrfToken() {
+            const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+            return match ? decodeURIComponent(match[1]) : null;
+        }
+
         // Subscribe button handlers
         subscribeBtns.forEach(function(btn) {
             btn.addEventListener('click', async function() {
@@ -467,12 +473,20 @@
                 this.textContent = 'Loading...';
 
                 try {
+                    // Ensure we have a CSRF token
+                    let csrfToken = getCsrfToken();
+                    if (!csrfToken) {
+                        await fetch('/sanctum/csrf-cookie', { credentials: 'same-origin' });
+                        csrfToken = getCsrfToken();
+                    }
+
                     const response = await fetch('/api/subscription/checkout', {
                         method: 'POST',
+                        credentials: 'same-origin',
                         headers: {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json',
-                            'Authorization': 'Bearer ' + token
+                            'X-XSRF-TOKEN': csrfToken || ''
                         },
                         body: JSON.stringify({
                             plan: plan,
@@ -505,7 +519,7 @@
                     if (!response.ok) {
                         // Error - redirect to subscription result page with actual error
                         const errorMsg = data.error || data.message || 'Subscription failed';
-                        window.location.href = '/subscription-result?status=error&message=' + encodeURIComponent(errorMsg);
+                        window.location.href = '/subscription/result?status=error&message=' + encodeURIComponent(errorMsg);
                         return;
                     }
 
@@ -515,7 +529,7 @@
                     }
                     // Plan swap completed immediately
                     else if (data.message) {
-                        window.location.href = '/subscription-result?status=changed&plan=' + plan;
+                        window.location.href = '/subscription/result?status=changed&plan=' + plan;
                     }
                 } catch (error) {
                     console.error('Subscription error:', error);

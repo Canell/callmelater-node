@@ -30,6 +30,9 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
+echo "==> Setting file permissions..."
+sudo chown -R www-data:www-data storage bootstrap/cache
+
 echo "==> Restarting queue workers..."
 sudo supervisorctl restart callmelater-worker:*
 

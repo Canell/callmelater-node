@@ -3,13 +3,33 @@
  */
 
 /**
+ * Get the user's preferred timezone from localStorage, falling back to browser timezone.
+ * @returns {string} IANA timezone identifier
+ */
+export function getUserTimezone() {
+    return localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+/**
  * Format a date string to locale string (date + time).
+ * Displays in user's preferred timezone (from profile settings).
  * @param {string|null} dateStr - ISO date string
  * @returns {string} Formatted date or '-' if null
  */
 export function formatDate(dateStr) {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleString();
+    return new Date(dateStr).toLocaleString(undefined, { timeZone: getUserTimezone() });
+}
+
+/**
+ * Format a date string in a specific timezone.
+ * @param {string|null} dateStr - ISO date string
+ * @param {string} timezone - IANA timezone (e.g., 'UTC', 'America/New_York')
+ * @returns {string} Formatted date or '-' if null
+ */
+export function formatDateInTimezone(dateStr, timezone = 'UTC') {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleString(undefined, { timeZone: timezone });
 }
 
 /**
@@ -19,7 +39,7 @@ export function formatDate(dateStr) {
  */
 export function formatTime(dateStr) {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleTimeString();
+    return new Date(dateStr).toLocaleTimeString(undefined, { timeZone: getUserTimezone() });
 }
 
 /**
@@ -32,6 +52,7 @@ export function formatShortDate(dateStr) {
     return new Date(dateStr).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
+        timeZone: getUserTimezone(),
     });
 }
 
@@ -59,6 +80,7 @@ export function formatRelativeTime(dateStr) {
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: getUserTimezone(),
     });
 }
 
@@ -70,5 +92,8 @@ export function formatRelativeTime(dateStr) {
  */
 export function formatDateCustom(dateStr, options) {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-US', options);
+    return new Date(dateStr).toLocaleDateString('en-US', {
+        ...options,
+        timeZone: getUserTimezone(),
+    });
 }

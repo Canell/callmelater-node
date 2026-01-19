@@ -150,6 +150,11 @@
             flex: 1;
         }
 
+        /* Add top padding to all pages except home */
+        main.with-padding {
+            padding-top: 3rem;
+        }
+
         /* Card styles */
         .card-cml {
             border: 1px solid #e5e7eb;
@@ -350,8 +355,8 @@
                     </li>
                 </ul>
 
-                <!-- Right side links -->
-                <ul class="navbar-nav">
+                <!-- Right side links - Guest (shown by default, hidden when authenticated) -->
+                <ul class="navbar-nav" id="nav-guest">
                     <li class="nav-item">
                         <a class="nav-link" href="/login">Log In</a>
                     </li>
@@ -359,12 +364,29 @@
                         <a class="btn btn-cml-primary btn-sm ms-2" href="/register">Sign Up</a>
                     </li>
                 </ul>
+
+                <!-- Right side links - Authenticated (hidden by default, shown when authenticated) -->
+                <ul class="navbar-nav" id="nav-auth" style="display: none;">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            Account
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="/settings">Settings</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="nav-logout">Log out</a></li>
+                        </ul>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
 
     <!-- Main content -->
-    <main>
+    <main @unless(request()->is('/')) class="with-padding" @endunless>
         @yield('content')
     </main>
 
@@ -425,6 +447,53 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Auth-aware Navigation -->
+    <script>
+        (function() {
+            // Check if user is authenticated via localStorage token
+            const isAuthenticated = localStorage.getItem('token');
+            const navGuest = document.getElementById('nav-guest');
+            const navAuth = document.getElementById('nav-auth');
+
+            if (isAuthenticated) {
+                // Show authenticated nav, hide guest nav
+                if (navGuest) navGuest.style.display = 'none';
+                if (navAuth) navAuth.style.display = 'flex';
+            }
+
+            // Handle logout
+            const logoutBtn = document.getElementById('nav-logout');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async function(e) {
+                    e.preventDefault();
+
+                    try {
+                        // Call logout API
+                        await fetch('/api/logout', {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-XSRF-TOKEN': decodeURIComponent(
+                                    document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''
+                                )
+                            }
+                        });
+                    } catch (err) {
+                        // Ignore errors - we'll clear local state anyway
+                    }
+
+                    // Clear local auth state
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('userTimezone');
+
+                    // Redirect to home
+                    window.location.href = '/';
+                });
+            }
+        })();
+    </script>
 
     <!-- Code Tabs JavaScript -->
     <script>

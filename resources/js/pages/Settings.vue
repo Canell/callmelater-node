@@ -60,7 +60,7 @@
                                 <select class="form-select" v-model="profile.timezone" style="max-width: 300px;">
                                     <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
                                 </select>
-                                <small class="text-muted">Used for displaying dates and scheduling actions</small>
+                                <small class="text-muted">Used to display dates and as the default when scheduling actions</small>
                             </div>
 
                             <div class="mb-4">
@@ -645,16 +645,30 @@ export default {
             profileSaved: false,
             timezones: [
                 'UTC',
+                'Europe/London',
+                'Europe/Paris',
+                'Europe/Berlin',
+                'Europe/Brussels',
+                'Europe/Amsterdam',
+                'Europe/Rome',
+                'Europe/Madrid',
+                'Europe/Zurich',
                 'America/New_York',
                 'America/Chicago',
                 'America/Denver',
                 'America/Los_Angeles',
-                'Europe/London',
-                'Europe/Paris',
-                'Europe/Berlin',
+                'America/Toronto',
+                'America/Vancouver',
+                'America/Sao_Paulo',
                 'Asia/Tokyo',
                 'Asia/Shanghai',
+                'Asia/Hong_Kong',
+                'Asia/Singapore',
+                'Asia/Dubai',
+                'Asia/Kolkata',
                 'Australia/Sydney',
+                'Australia/Melbourne',
+                'Pacific/Auckland',
             ],
 
             // Password
@@ -864,6 +878,9 @@ export default {
                     timezone: this.profile.timezone,
                 });
                 this.profileSaved = true;
+                // Update local user object and localStorage
+                this.user.timezone = this.profile.timezone;
+                localStorage.setItem('userTimezone', this.profile.timezone);
                 setTimeout(() => { this.profileSaved = false; }, 3000);
             } catch (err) {
                 this.toast.error(err.response?.data?.message || 'Failed to save profile');

@@ -69,11 +69,32 @@ const router = createRouter({
     },
 });
 
+// Handle timezone setup after signup
+async function handleSignupTimezone() {
+    const signupTimezone = localStorage.getItem('signupTimezone');
+    if (!signupTimezone) return;
+
+    try {
+        // Update user's timezone in their profile
+        await axios.put('/api/user/profile', { timezone: signupTimezone });
+        // Store for use in date formatting
+        localStorage.setItem('userTimezone', signupTimezone);
+    } catch (err) {
+        console.error('Failed to set signup timezone:', err);
+    } finally {
+        // Always clean up
+        localStorage.removeItem('signupTimezone');
+    }
+}
+
 // Navigation guard for auth
 router.beforeEach((to, from, next) => {
     // Check for magic link auth signal
     if (to.query.auth === 'magic') {
         localStorage.setItem('token', 'authenticated');
+
+        // Set up timezone for new signups (async, non-blocking)
+        handleSignupTimezone();
 
         // Check for stored redirect from before magic link was sent
         const storedRedirect = localStorage.getItem('auth_redirect');

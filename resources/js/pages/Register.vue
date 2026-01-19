@@ -120,6 +120,9 @@ export default {
                     localStorage.setItem('auth_redirect', redirect);
                 }
 
+                // Store browser timezone for after signup completes
+                localStorage.setItem('signupTimezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+
                 // Request magic signup link
                 await axios.post('/auth/magic-link/signup', {
                     email: this.form.email,

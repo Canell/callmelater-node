@@ -214,11 +214,16 @@ export default {
             try {
                 const response = await axios.get('/api/user');
                 this.user = response.data;
+                // Store user's timezone for use in date formatting
+                if (this.user.timezone) {
+                    localStorage.setItem('userTimezone', this.user.timezone);
+                }
             } catch (err) {
                 // Only logout on 401 Unauthorized (session expired)
                 // 419 CSRF errors are handled by axios interceptor
                 if (err.response?.status === 401) {
                     localStorage.removeItem('token');
+                    localStorage.removeItem('userTimezone');
                     this.authToken = null;
                     this.user = null;
                 }
@@ -231,6 +236,7 @@ export default {
                 // Ignore logout errors
             }
             localStorage.removeItem('token');
+            localStorage.removeItem('userTimezone');
             this.authToken = null;
             this.user = null;
             // Redirect to home page (served by Blade)

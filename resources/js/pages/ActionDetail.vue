@@ -59,8 +59,8 @@
                                 <strong>{{ formatDate(action.executed_at) }}</strong>
                             </div>
                             <div class="mb-3">
-                                <small class="text-muted d-block">Timezone</small>
-                                <strong>{{ action.timezone || 'UTC' }}</strong>
+                                <small class="text-muted d-block">Displayed In</small>
+                                <strong>{{ displayTimezone }}</strong>
                             </div>
                             <div v-if="action.failure_reason" class="alert alert-danger mb-0">
                                 <small class="d-block">Failure Reason</small>
@@ -310,6 +310,9 @@ export default {
             return [...attempts, ...reminders].sort((a, b) =>
                 new Date(b.created_at) - new Date(a.created_at)
             );
+        },
+        displayTimezone() {
+            return localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
         }
     },
     mounted() {

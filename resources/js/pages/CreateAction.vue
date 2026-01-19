@@ -421,7 +421,7 @@ export default {
                 name: '',
                 description: '',
                 execute_at: '',
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                timezone: localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone,
                 max_attempts: 3,
                 retry_strategy: 'exponential',
                 message: '',
@@ -450,16 +450,30 @@ export default {
             },
             timezones: [
                 'UTC',
+                'Europe/London',
+                'Europe/Paris',
+                'Europe/Berlin',
+                'Europe/Brussels',
+                'Europe/Amsterdam',
+                'Europe/Rome',
+                'Europe/Madrid',
+                'Europe/Zurich',
                 'America/New_York',
                 'America/Chicago',
                 'America/Denver',
                 'America/Los_Angeles',
-                'Europe/London',
-                'Europe/Paris',
-                'Europe/Berlin',
+                'America/Toronto',
+                'America/Vancouver',
+                'America/Sao_Paulo',
                 'Asia/Tokyo',
                 'Asia/Shanghai',
+                'Asia/Hong_Kong',
+                'Asia/Singapore',
+                'Asia/Dubai',
+                'Asia/Kolkata',
                 'Australia/Sydney',
+                'Australia/Melbourne',
+                'Pacific/Auckland',
             ],
             submitting: false,
             error: null,
@@ -564,7 +578,7 @@ export default {
                 this.form.type = action.type;
                 this.form.name = `${action.name} (copy)`;
                 this.form.description = action.description || '';
-                this.form.timezone = action.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+                this.form.timezone = action.timezone || localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                 // Default to delay scheduling for clones (1 hour from now)
                 this.scheduleType = 'delay';

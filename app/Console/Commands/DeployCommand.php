@@ -34,15 +34,18 @@ class DeployCommand extends Command
             $this->rebuildCaches();
         }
 
-        // 4. Restart queue workers
+        // 4. Fix file permissions
+        $this->fixPermissions();
+
+        // 5. Restart queue workers
         if (! $this->option('skip-queue')) {
             $this->restartQueue();
         }
 
-        // 5. Clear expired tokens and sessions
+        // 6. Clear expired tokens and sessions
         $this->cleanup();
 
-        // 6. Back online (if maintenance mode was enabled)
+        // 7. Back online (if maintenance mode was enabled)
         // $this->call('up');
 
         $this->info('');
@@ -97,6 +100,27 @@ class DeployCommand extends Command
         $this->call('route:cache');
         $this->call('view:cache');
         $this->call('event:cache');
+    }
+
+    private function fixPermissions(): void
+    {
+        $this->info('🔐 Fixing file permissions...');
+
+        $basePath = base_path();
+        $directories = [
+            'storage',
+            'bootstrap/cache',
+        ];
+
+        foreach ($directories as $dir) {
+            $path = $basePath.'/'.$dir;
+            if (is_dir($path)) {
+                exec("chown -R www-data:www-data {$path} 2>&1", $output, $exitCode);
+                if ($exitCode !== 0) {
+                    $this->warn("  Could not chown {$dir} (may need sudo)");
+                }
+            }
+        }
     }
 
     private function restartQueue(): void
