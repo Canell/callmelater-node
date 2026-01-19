@@ -14,6 +14,7 @@ const sidebars = {
         'concepts/retries',
         'concepts/reminders',
         'concepts/idempotency',
+        'concepts/limitations',
       ],
     },
     {
@@ -34,6 +35,7 @@ const sidebars = {
       label: 'Guides',
       collapsed: true,
       items: [
+        'guides/common-patterns',
         'guides/trial-expiration',
         'guides/approval-workflows',
         'guides/scheduled-reports',

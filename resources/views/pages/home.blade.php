@@ -359,17 +359,8 @@
     }
 
     @media (max-width: 768px) {
-        .animation-wrapper {
-            padding: 0.5rem 0;
-        }
-
-        .step-sublabel,
-        .branch-sublabel {
+        .animation-section {
             display: none;
-        }
-
-        .branch-label {
-            font-size: 10px;
         }
     }
 

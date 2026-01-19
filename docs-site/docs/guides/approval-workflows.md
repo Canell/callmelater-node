@@ -6,6 +6,12 @@ sidebar_position: 2
 
 Use reminders to get human confirmation before proceeding with an action.
 
+:::info How Approval Works in v1
+In v1, approval workflows are implemented by creating a **reminder** action. The reminder *is* the approval request.
+
+Your system is responsible for executing the follow-up logic (e.g., deploying, calling an API) once approval is confirmed. CallMeLater notifies you of the response — it does not automatically chain actions together.
+:::
+
 ## The Problem
 
 Some actions need human approval:

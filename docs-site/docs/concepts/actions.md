@@ -6,6 +6,18 @@ sidebar_position: 1
 
 Everything in CallMeLater is an **action** — something scheduled to happen in the future.
 
+## Lifecycle at a Glance
+
+Every action moves through these states:
+
+```
+pending_resolution → resolved → executed
+                           ↘ awaiting_response → executed | failed
+                           ↘ cancelled
+```
+
+For full details, see [Action States](./states).
+
 ## Types of Actions
 
 ### HTTP Actions
@@ -114,6 +126,10 @@ A specific UTC timestamp:
   }
 }
 ```
+
+:::note Timezone Handling
+If no `timezone` is provided in the intent, **UTC is assumed**. Always specify a timezone for presets like `tomorrow` or `next_monday` if your users expect local time.
+:::
 
 ## Idempotency
 

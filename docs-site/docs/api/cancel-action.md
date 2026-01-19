@@ -102,6 +102,15 @@ curl -X DELETE https://api.callmelater.io/v1/actions \
 }
 ```
 
+:::info Why Different Status Codes?
+You may notice that "already executed" returns **422** when cancelling by ID, but **409** when cancelling by idempotency key.
+
+- **422 (Unprocessable Entity)** — Used for ID-based cancellation because the resource exists but can't be modified in the requested way.
+- **409 (Conflict)** — Used for idempotency key cancellation because there's a conflict between the requested action (cancel) and the current state (already executed).
+
+Both indicate the same outcome: the action has already run and cannot be cancelled.
+:::
+
 ## Cancellation Rules
 
 | Current Status | Can Cancel? |

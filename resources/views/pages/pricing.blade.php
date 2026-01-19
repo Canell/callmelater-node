@@ -257,7 +257,7 @@
                                 <li class="included">Webhook signatures</li>
                                 <li class="included">Callback webhooks</li>
                             </ul>
-                            <a href="/register?plan=pro" class="btn btn-cml-primary w-100">Subscribe</a>
+                            <button type="button" class="btn btn-cml-primary w-100 subscribe-btn" data-plan="pro">Subscribe</button>
                         </div>
                     </div>
                 </div>
@@ -287,7 +287,7 @@
                                 <li class="included">Team workspaces</li>
                                 <li class="included">Priority email support</li>
                             </ul>
-                            <a href="/register?plan=business" class="btn btn-outline-cml w-100">Subscribe</a>
+                            <button type="button" class="btn btn-outline-cml w-100 subscribe-btn" data-plan="business">Subscribe</button>
                         </div>
                     </div>
                 </div>
@@ -414,8 +414,10 @@
         const priceAmounts = document.querySelectorAll('.price-amount');
         const annualNotes = document.querySelectorAll('.annual-note');
         const monthlySpacers = document.querySelectorAll('.monthly-spacer');
+        const subscribeBtns = document.querySelectorAll('.subscribe-btn');
         let currentBilling = 'monthly';
 
+        // Billing toggle
         toggleBtns.forEach(function(btn) {
             btn.addEventListener('click', function() {
                 const billing = this.dataset.billing;
@@ -444,13 +446,83 @@
                 monthlySpacers.forEach(function(spacer) {
                     spacer.style.display = billing === 'annual' ? 'none' : 'block';
                 });
+            });
+        });
 
-                // Update subscribe links to include billing
-                document.querySelectorAll('a[href*="plan="]').forEach(function(link) {
-                    const url = new URL(link.href, window.location.origin);
-                    url.searchParams.set('billing', billing);
-                    link.href = url.pathname + url.search;
-                });
+        // Subscribe button handlers
+        subscribeBtns.forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                const plan = this.dataset.plan;
+                const token = localStorage.getItem('token');
+
+                // Not authenticated - redirect to register
+                if (!token) {
+                    window.location.href = '/register?plan=' + plan + '&billing=' + currentBilling;
+                    return;
+                }
+
+                // Authenticated - call checkout API
+                const originalText = this.textContent;
+                this.disabled = true;
+                this.textContent = 'Loading...';
+
+                try {
+                    const response = await fetch('/api/subscription/checkout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({
+                            plan: plan,
+                            billing: currentBilling
+                        })
+                    });
+
+                    // Handle 401 - token expired
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = '/register?plan=' + plan + '&billing=' + currentBilling;
+                        return;
+                    }
+
+                    // Try to parse JSON response
+                    let data;
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        data = await response.json();
+                    } else {
+                        // Non-JSON response (likely a server error page)
+                        const text = await response.text();
+                        console.error('Non-JSON response:', text);
+                        this.disabled = false;
+                        this.textContent = originalText;
+                        alert('Server error. Please check your Stripe configuration.');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        // Error - redirect to subscription result page with actual error
+                        const errorMsg = data.error || data.message || 'Subscription failed';
+                        window.location.href = '/subscription-result?status=error&message=' + encodeURIComponent(errorMsg);
+                        return;
+                    }
+
+                    // Redirect to Stripe Checkout for new subscriptions
+                    if (data.checkout_url) {
+                        window.location.href = data.checkout_url;
+                    }
+                    // Plan swap completed immediately
+                    else if (data.message) {
+                        window.location.href = '/subscription-result?status=changed&plan=' + plan;
+                    }
+                } catch (error) {
+                    console.error('Subscription error:', error);
+                    this.disabled = false;
+                    this.textContent = originalText;
+                    alert('Failed to start checkout: ' + error.message);
+                }
             });
         });
     });

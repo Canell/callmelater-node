@@ -8,6 +8,8 @@ All notable changes to the CallMeLater API.
 
 ## 2025-01-04
 
+**Breaking changes:** None (initial release)
+
 ### Added
 - Initial public release
 - HTTP action scheduling with retry strategies

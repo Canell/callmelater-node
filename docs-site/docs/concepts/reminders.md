@@ -116,6 +116,15 @@ Configure escalation for critical reminders:
 
 If no response within 4 hours, escalation contacts receive the reminder.
 
+:::tip Escalation vs. Retry
+**Escalation** and **retry** are different concepts:
+
+- **Retry** = resend to the *same* recipient after a delivery failure
+- **Escalation** = notify *additional* humans when there's no response
+
+Escalation is about getting human attention, not handling technical failures.
+:::
+
 ## One-Click Responses
 
 Recipients don't need to log in. Each reminder email/SMS includes unique response links:
