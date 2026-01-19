@@ -62,6 +62,9 @@ class ActionTestEndpointTest extends TestCase
 
     public function test_test_endpoint_returns_success_result(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response(['received' => true], 200),
         ]);
@@ -89,6 +92,9 @@ class ActionTestEndpointTest extends TestCase
 
     public function test_test_endpoint_returns_failure_result(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response('Not Found', 404),
         ]);
@@ -122,6 +128,9 @@ class ActionTestEndpointTest extends TestCase
 
     public function test_test_endpoint_accepts_headers(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response(['ok' => true], 200),
         ]);

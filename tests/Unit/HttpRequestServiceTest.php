@@ -19,6 +19,9 @@ class HttpRequestServiceTest extends TestCase
 
     public function test_successful_request(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response(['status' => 'ok'], 200),
         ]);
@@ -37,6 +40,9 @@ class HttpRequestServiceTest extends TestCase
 
     public function test_server_error_response(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response('Server Error', 500),
         ]);
@@ -53,6 +59,9 @@ class HttpRequestServiceTest extends TestCase
 
     public function test_client_error_response(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response('Not Found', 404),
         ]);

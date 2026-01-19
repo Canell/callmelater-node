@@ -90,6 +90,9 @@ class ReminderCallbackTest extends TestCase
 
     public function test_callback_delivery_success(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response(['received' => true], 200),
         ]);
@@ -118,6 +121,9 @@ class ReminderCallbackTest extends TestCase
 
     public function test_callback_4xx_does_not_retry(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Queue::fake();
         Http::fake([
             'https://example.com/webhook' => Http::response('Bad Request', 400),
@@ -149,6 +155,9 @@ class ReminderCallbackTest extends TestCase
 
     public function test_callback_5xx_schedules_retry(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Queue::fake();
         Http::fake([
             'https://example.com/webhook' => Http::response('Server Error', 500),
@@ -175,6 +184,9 @@ class ReminderCallbackTest extends TestCase
 
     public function test_callback_respects_max_attempts(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Queue::fake();
         Http::fake([
             'https://example.com/webhook' => Http::response('Server Error', 500),
@@ -200,6 +212,9 @@ class ReminderCallbackTest extends TestCase
 
     public function test_callback_payload_includes_required_fields(): void
     {
+        // Disable IP blocking since Http::fake() doesn't make real network calls
+        config(['callmelater.http.block_private_ips' => false]);
+
         Http::fake([
             'https://example.com/webhook' => Http::response(['ok' => true], 200),
         ]);
