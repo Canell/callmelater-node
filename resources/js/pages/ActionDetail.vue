@@ -397,7 +397,8 @@ export default {
             this.cancelling = true;
             try {
                 await axios.delete(`/api/v1/actions/${this.action.id}`);
-                this.$router.push('/');
+                this.toast.success('Action cancelled');
+                this.$router.push('/dashboard');
             } catch (err) {
                 this.toast.error(err.response?.data?.message || 'Failed to cancel action');
             } finally {

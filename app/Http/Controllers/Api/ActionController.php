@@ -40,6 +40,15 @@ class ActionController extends Controller
             })
             ->orderBy('created_at', 'desc');
 
+        // Search by name or description
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
         // Filter by status
         if ($request->has('status')) {
             $query->where('resolution_status', $request->input('status'));

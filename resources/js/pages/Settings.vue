@@ -1066,7 +1066,9 @@ export default {
             try {
                 await axios.delete('/api/user');
                 localStorage.removeItem('token');
-                this.$router.push('/');
+                localStorage.removeItem('userTimezone');
+                // Navigate to Blade home page (not a Vue route)
+                window.location.href = '/';
             } catch (err) {
                 this.toast.error(err.response?.data?.message || 'Failed to delete account');
             } finally {

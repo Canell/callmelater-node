@@ -55,11 +55,20 @@
 
         <!-- Empty state -->
         <div v-else-if="actions.length === 0" class="text-center py-5">
-            <h5 class="text-muted mb-2">No actions yet</h5>
-            <p class="text-muted mb-4">Actions are scheduled HTTP calls or reminders that run in the future.</p>
-            <router-link to="/actions/create" class="btn btn-cml-primary">
-                Create your first action
-            </router-link>
+            <template v-if="searchQuery || statusFilter || typeFilter">
+                <h5 class="text-muted mb-2">No actions found</h5>
+                <p class="text-muted mb-4">Try adjusting your search or filters.</p>
+                <button class="btn btn-outline-secondary" @click="clearFilters">
+                    Clear filters
+                </button>
+            </template>
+            <template v-else>
+                <h5 class="text-muted mb-2">No actions yet</h5>
+                <p class="text-muted mb-4">Actions are scheduled HTTP calls or reminders that run in the future.</p>
+                <router-link to="/actions/create" class="btn btn-cml-primary">
+                    Create your first action
+                </router-link>
+            </template>
         </div>
 
         <!-- Actions table -->
@@ -77,7 +86,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="action in filteredActions" :key="action.id">
+                        <tr v-for="action in actions" :key="action.id">
                             <td>
                                 <router-link :to="`/actions/${action.id}`" class="text-decoration-none">
                                     {{ action.name }}
@@ -132,10 +141,24 @@
             <nav>
                 <ul class="pagination">
                     <li class="page-item" :class="{ disabled: meta.current_page === 1 }">
-                        <button class="page-link" @click="loadActions(meta.current_page - 1)">Previous</button>
+                        <button class="page-link" @click="loadActions(meta.current_page - 1)">&laquo;</button>
+                    </li>
+                    <li
+                        v-for="page in paginationPages"
+                        :key="page"
+                        class="page-item"
+                        :class="{ active: page === meta.current_page, disabled: page === '...' }"
+                    >
+                        <button
+                            class="page-link"
+                            @click="page !== '...' && loadActions(page)"
+                            :disabled="page === '...'"
+                        >
+                            {{ page }}
+                        </button>
                     </li>
                     <li class="page-item" :class="{ disabled: meta.current_page === meta.last_page }">
-                        <button class="page-link" @click="loadActions(meta.current_page + 1)">Next</button>
+                        <button class="page-link" @click="loadActions(meta.current_page + 1)">&raquo;</button>
                     </li>
                 </ul>
             </nav>
@@ -168,6 +191,8 @@ export default {
             // Auto-refresh (runs silently in background)
             refreshInterval: null,
             refreshSeconds: 30,
+            // Search debounce
+            searchDebounce: null,
             // Confirm modal
             confirmModal: {
                 show: false,
@@ -181,15 +206,38 @@ export default {
         };
     },
     computed: {
-        filteredActions() {
-            let filtered = this.actions;
+        paginationPages() {
+            const current = this.meta.current_page;
+            const last = this.meta.last_page;
+            const pages = [];
 
-            if (this.searchQuery) {
-                const query = this.searchQuery.toLowerCase();
-                filtered = filtered.filter(a => a.name.toLowerCase().includes(query));
+            if (last <= 7) {
+                // Show all pages if 7 or fewer
+                for (let i = 1; i <= last; i++) pages.push(i);
+            } else {
+                // Always show first page
+                pages.push(1);
+
+                if (current > 3) {
+                    pages.push('...');
+                }
+
+                // Pages around current
+                const start = Math.max(2, current - 1);
+                const end = Math.min(last - 1, current + 1);
+                for (let i = start; i <= end; i++) {
+                    pages.push(i);
+                }
+
+                if (current < last - 2) {
+                    pages.push('...');
+                }
+
+                // Always show last page
+                pages.push(last);
             }
 
-            return filtered;
+            return pages;
         }
     },
     mounted() {
@@ -200,6 +248,13 @@ export default {
         this.stopAutoRefresh();
     },
     watch: {
+        searchQuery() {
+            // Debounce search to avoid too many API calls
+            clearTimeout(this.searchDebounce);
+            this.searchDebounce = setTimeout(() => {
+                this.loadActions();
+            }, 300);
+        },
         statusFilter() {
             this.loadActions();
         },
@@ -216,6 +271,7 @@ export default {
             if (!silent) this.loading = true;
             try {
                 const params = { page };
+                if (this.searchQuery) params.search = this.searchQuery;
                 if (this.statusFilter) params.status = this.statusFilter;
                 if (this.typeFilter) params.type = this.typeFilter;
 
@@ -267,6 +323,12 @@ export default {
             } catch (err) {
                 this.toast.error(err.response?.data?.message || 'Failed to cancel action');
             }
+        },
+        clearFilters() {
+            this.searchQuery = '';
+            this.statusFilter = '';
+            this.typeFilter = '';
+            this.loadActions();
         }
     }
 };
