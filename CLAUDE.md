@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Phase 3**: Complete - Fortify auth (login/register/password reset), Sanctum API tokens (`sk_live_` prefix)
 - **Phase 4**: Complete - Core engine (ActionService, IntentResolver, ResolveIntentJob, DispatcherJob)
 - **Phase 5**: Complete - HTTP Call Execution (DeliverHttpAction with retry logic, webhook signing)
-- **Phase 6**: Complete - Postmark email, Twilio SMS, response handling
+- **Phase 6**: Complete - Postmark email, Brevo SMS, response handling
 - **Phase 7**: Complete - Public API (ActionController, ResponseController, Form Requests, Resources)
 - **Phase 8**: Complete (Basic) - Dashboard, CreateAction, ActionDetail pages
 - **Phase 9-10**: Next - Security hardening, production deployment
@@ -24,7 +24,7 @@ CallMeLater is a developer-first SaaS for scheduling durable, long-term actions.
 - **Backend**: Laravel 12, MySQL, Redis
 - **Frontend**: Vue 3, Vue Router, Bootstrap 5
 - **Auth**: Laravel Fortify (web), Laravel Sanctum (API tokens)
-- **Notifications**: Email (SES/Mailgun/Postmark), SMS (Twilio for paid tiers)
+- **Notifications**: Email (SES/Mailgun/Postmark), SMS (Brevo for paid tiers)
 
 ## Commands
 

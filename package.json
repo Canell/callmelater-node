@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "push-docs": "git subtree push --prefix=docs-site docs-public main"
     },
     "devDependencies": {
         "axios": "^1.13.2",

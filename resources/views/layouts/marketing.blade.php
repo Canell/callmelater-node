@@ -326,13 +326,8 @@
         <div class="container">
             <!-- Logo -->
             <a class="navbar-brand d-flex align-items-center" href="/">
-                <span class="logo-icon me-2">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10" stroke="#22C55E" stroke-width="2"/>
-                        <path d="M12 6v6l4 2" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
-                    </svg>
-                </span>
-                <span class="fw-semibold">CallMeLater</span>
+                <img src="/images/callmelater-logo.svg" alt="CallMeLater" width="32" height="32" class="me-2">
+                <span class="fw-semibold">CallMe<span style="color: #22C55E;">Later</span></span>
             </a>
 
             <!-- Mobile toggle -->
@@ -396,13 +391,8 @@
             <div class="row">
                 <div class="col-12 col-md-4 mb-4 mb-md-0">
                     <div class="d-flex align-items-center mb-3">
-                        <span class="logo-icon me-2">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="12" cy="12" r="10" stroke="#22C55E" stroke-width="2"/>
-                                <path d="M12 6v6l4 2" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                        </span>
-                        <span class="fw-semibold">CallMeLater</span>
+                        <img src="/images/callmelater-logo.svg" alt="CallMeLater" width="24" height="24" class="me-2">
+                        <span class="fw-semibold">CallMe<span style="color: #22C55E;">Later</span></span>
                     </div>
                     <p class="text-muted small mb-0">
                         Reliable scheduled actions for developers.<br>

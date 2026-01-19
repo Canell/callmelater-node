@@ -171,10 +171,32 @@ class CreateActionRequest extends FormRequest
                 $validator->errors()->add('escalation_rules.recipients', "Your plan allows up to {$maxRecipients} recipients per reminder.");
             }
 
-            // Check SMS channel requires paid plan
+            // Check SMS channel requires paid plan and has remaining quota
             $channels = $this->input('escalation_rules.channels', []);
-            if (in_array('sms', $channels) && $user->getPlan() === 'free') {
-                $validator->errors()->add('escalation_rules.channels', 'SMS reminders require a Pro or Business plan.');
+            if (in_array('sms', $channels)) {
+                if ($user->getPlan() === 'free') {
+                    $validator->errors()->add('escalation_rules.channels', 'SMS reminders require a Pro or Business plan.');
+                } else {
+                    // Check SMS monthly quota
+                    $smsLimit = $user->getPlanLimit('sms_per_month');
+                    $currentUsage = $user->account?->getSmsUsageThisMonth() ?? 0;
+
+                    // Count phone numbers in the new recipients
+                    $newSmsCount = 0;
+                    foreach ($recipients as $recipient) {
+                        if ($this->isPhoneNumber($recipient)) {
+                            $newSmsCount++;
+                        }
+                    }
+
+                    if ($currentUsage + $newSmsCount > $smsLimit) {
+                        $remaining = max(0, $smsLimit - $currentUsage);
+                        $validator->errors()->add(
+                            'escalation_rules.channels',
+                            "You have {$remaining} SMS remaining this month (limit: {$smsLimit}). This action requires {$newSmsCount} SMS."
+                        );
+                    }
+                }
             }
         }
 
@@ -187,5 +209,14 @@ class CreateActionRequest extends FormRequest
                 $validator->errors()->add('max_attempts', "Your plan allows up to {$maxRetries} retry attempts.");
             }
         }
+    }
+
+    /**
+     * Check if a value is a phone number.
+     */
+    private function isPhoneNumber(string $value): bool
+    {
+        // Simple check for phone numbers (starts with + or contains only digits, spaces, dashes)
+        return preg_match('/^\+?[\d\s\-\(\)]+$/', $value) === 1 && strlen(preg_replace('/\D/', '', $value)) >= 10;
     }
 }

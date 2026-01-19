@@ -22,10 +22,12 @@ use Laravel\Cashier\Billable;
  */
 class Account extends Model
 {
-    use HasUuids, Billable;
+    use Billable, HasUuids;
 
     public const PLAN_FREE = 'free';
+
     public const PLAN_PRO = 'pro';
+
     public const PLAN_BUSINESS = 'business';
 
     protected $fillable = [
@@ -162,10 +164,10 @@ class Account extends Model
     /**
      * Set a manual plan override with optional expiration.
      *
-     * @param string|null $plan 'pro', 'business', or null to revoke
-     * @param \DateTimeInterface|string|null $expiresAt Optional expiration date
-     * @param string|null $reason Reason for the override
-     * @param User|null $setBy Admin user who set the override
+     * @param  string|null  $plan  'pro', 'business', or null to revoke
+     * @param  \DateTimeInterface|string|null  $expiresAt  Optional expiration date
+     * @param  string|null  $reason  Reason for the override
+     * @param  User|null  $setBy  Admin user who set the override
      */
     public function setManualPlan(?string $plan, $expiresAt = null, ?string $reason = null, ?User $setBy = null): void
     {
@@ -238,5 +240,44 @@ class Account extends Model
     public function userIsMember(User $user): bool
     {
         return $this->members()->where('user_id', $user->id)->exists();
+    }
+
+    /**
+     * Get the number of SMS recipients used this month.
+     *
+     * Counts phone number recipients from reminders that include SMS channel.
+     */
+    public function getSmsUsageThisMonth(): int
+    {
+        $startOfMonth = now()->startOfMonth();
+
+        // Get all reminder actions with SMS channel created this month
+        $actions = $this->actions()
+            ->where('type', ScheduledAction::TYPE_REMINDER)
+            ->where('created_at', '>=', $startOfMonth)
+            ->whereRaw("JSON_CONTAINS(escalation_rules->'$.channels', '\"sms\"')")
+            ->get();
+
+        $smsCount = 0;
+
+        foreach ($actions as $action) {
+            $recipients = $action->escalation_rules['recipients'] ?? [];
+            foreach ($recipients as $recipient) {
+                if ($this->isPhoneNumber($recipient)) {
+                    $smsCount++;
+                }
+            }
+        }
+
+        return $smsCount;
+    }
+
+    /**
+     * Check if a value is a phone number.
+     */
+    private function isPhoneNumber(string $value): bool
+    {
+        // Simple check for phone numbers (starts with + or contains only digits, spaces, dashes)
+        return preg_match('/^\+?[\d\s\-\(\)]+$/', $value) === 1 && strlen(preg_replace('/\D/', '', $value)) >= 10;
     }
 }

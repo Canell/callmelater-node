@@ -102,6 +102,7 @@ return [
             'max_retries' => 3,
             'new_recipients_per_day' => 5,
             'optin_emails_per_day' => 10,
+            'sms_per_month' => 0, // No SMS for free plan
             'history_days' => 7,
         ],
         'pro' => [
@@ -112,6 +113,7 @@ return [
             'max_retries' => 5,
             'new_recipients_per_day' => 50,
             'optin_emails_per_day' => 100,
+            'sms_per_month' => 15, // Critical approvals & escalations
             'history_days' => 30,
         ],
         'business' => [
@@ -122,6 +124,7 @@ return [
             'max_retries' => 10,
             'new_recipients_per_day' => 200,
             'optin_emails_per_day' => 500,
+            'sms_per_month' => 50, // On-call & team escalations
             'history_days' => 365,
         ],
     ],

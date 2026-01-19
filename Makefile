@@ -91,3 +91,6 @@ clear:
 ide:
 	@if [ -f ./vendor/bin/phpstan ]; then php artisan ide-helper:generate; fi
 	@if [ -f ./vendor/bin/phpstan ]; then php artisan ide-helper:models -N; fi
+
+push-docs:
+	git subtree push --prefix=docs-site docs-public main

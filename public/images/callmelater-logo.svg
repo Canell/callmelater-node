@@ -1,23 +1,44 @@
-<svg width="32" height="32" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+<svg width="500" height="500" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
     <defs>
         <linearGradient id="bellGrad" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" style="stop-color:#b4f783;stop-opacity:1" />
             <stop offset="100%" style="stop-color:#59c837;stop-opacity:1" />
         </linearGradient>
+
         <linearGradient id="checkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" style="stop-color:#b4f783;stop-opacity:1" />
             <stop offset="100%" style="stop-color:#86d64d;stop-opacity:1" />
         </linearGradient>
     </defs>
-    <path d="M250,40 C290,40 300,80 300,80 C340,90 385,130 400,230 L420,310 C430,350 455,365 470,380 L70,380 C85,365 110,350 120,310 L140,230 C155,130 200,90 240,80 C240,55 260,40 250,40 Z" fill="url(#bellGrad)" />
+
+
+    <path d="M250,40
+         C290,40 300,80 300,80
+         C340,90 385,130 400,230
+         L420,310
+         C430,350 455,365 470,380
+         L70,380
+         C85,365 110,350 120,310
+         L140,230
+         C155,130 200,90 240,80
+         C240,55 260,40 250,40
+         Z"
+          fill="url(#bellGrad)" />
+
+
     <rect x="55" y="375" width="430" height="35" rx="17.5" fill="#59c837" stroke="#2d4239" stroke-width="2" />
+
     <path d="M180,420 Q250,460 320,420" fill="none" stroke="#2d4239" stroke-width="15" stroke-linecap="round"/>
+
     <circle cx="355" cy="345" r="105" fill="#1e2d2d" />
     <circle cx="355" cy="345" r="95" fill="white" />
+
     <circle cx="355" cy="345" r="82" fill="#242f38" />
+
     <rect x="352" y="275" width="6" height="12" rx="2" fill="#b4f783" />
     <rect x="352" y="403" width="6" height="12" rx="2" fill="#b4f783" />
     <rect x="413" y="342" width="12" height="6" rx="2" fill="#b4f783" />
     <rect x="285" y="342" width="12" height="6" rx="2" fill="#b4f783" />
+
     <path d="M305,335 L345,385 L445,275" fill="none" stroke="url(#checkGrad)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
 </svg>

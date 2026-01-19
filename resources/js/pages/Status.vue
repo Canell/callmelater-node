@@ -5,11 +5,8 @@
       <div class="container">
         <div class="d-flex align-items-center justify-content-between">
           <a href="/" class="status-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" stroke="#22C55E" stroke-width="2"/>
-              <path d="M12 6v6l4 2" stroke="#22C55E" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <span>CallMeLater Status</span>
+            <img src="/images/callmelater-logo.svg" alt="CallMeLater" width="28" height="28">
+            <span>CallMe<span style="color: #22C55E;">Later</span> Status</span>
           </a>
           <a href="https://callmelater.io" class="btn btn-sm btn-outline-secondary">
             Back to CallMeLater

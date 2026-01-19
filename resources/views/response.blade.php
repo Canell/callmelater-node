@@ -34,6 +34,14 @@
             font-weight: bold;
             color: #333;
             margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .logo img {
+            width: 32px;
+            height: 32px;
         }
         .icon {
             width: 64px;
@@ -85,7 +93,10 @@
 </head>
 <body>
     <div class="container">
-        <div class="logo">{{ config('app.name') }}</div>
+        <div class="logo">
+            <img src="/images/callmelater-logo.svg" alt="">
+            CallMe<span style="color: #22C55E;">Later</span>
+        </div>
 
         @if($error)
             <div class="icon icon-error">✕</div>

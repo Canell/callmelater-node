@@ -198,9 +198,9 @@ POSTMARK_TOKEN=your-postmark-server-token
 MAIL_FROM_ADDRESS=noreply@yourdomain.com
 MAIL_FROM_NAME="CallMeLater"
 
-TWILIO_SID=your-twilio-account-sid
-TWILIO_TOKEN=your-twilio-auth-token
-TWILIO_FROM=+1234567890
+BREVO_SMS_ENABLED=true
+BREVO_API_KEY=your-brevo-api-key
+BREVO_SMS_SENDER=CallMeLater
 
 # Security settings (optional overrides)
 CML_BLOCK_PRIVATE_IPS=true

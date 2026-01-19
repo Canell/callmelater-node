@@ -24,6 +24,11 @@ class ResponseController extends Controller
         $response = $request->query('response');
         $preset = $request->query('preset', '1h');
 
+        // If token exists but no response, show the choice page (for SMS links)
+        if ($token && ! $response) {
+            return $this->showChoicePage($token);
+        }
+
         $error = null;
         $success = null;
         $action = null;
@@ -65,6 +70,63 @@ class ResponseController extends Controller
             'success' => $success,
             'action' => $action,
             'response' => $response,
+        ]);
+    }
+
+    /**
+     * Show the response choice page (for SMS links without pre-selected response).
+     */
+    private function showChoicePage(string $token): View
+    {
+        $recipient = ReminderRecipient::query()
+            ->where('response_token', $token)
+            ->first();
+
+        if (! $recipient) {
+            return view('response', [
+                'error' => 'Invalid or expired response token.',
+                'success' => null,
+                'action' => null,
+                'response' => null,
+            ]);
+        }
+
+        if ($recipient->hasResponded()) {
+            return view('response', [
+                'error' => 'You have already responded to this reminder.',
+                'success' => null,
+                'action' => $recipient->action,
+                'response' => null,
+            ]);
+        }
+
+        $action = $recipient->action;
+
+        if ($action->token_expires_at && $action->token_expires_at->isPast()) {
+            return view('response', [
+                'error' => 'This reminder has expired.',
+                'success' => null,
+                'action' => null,
+                'response' => null,
+            ]);
+        }
+
+        if ($action->resolution_status !== ScheduledAction::STATUS_AWAITING_RESPONSE) {
+            return view('response', [
+                'error' => 'This reminder is no longer active.',
+                'success' => null,
+                'action' => null,
+                'response' => null,
+            ]);
+        }
+
+        // Check if snooze is available
+        $canSnooze = $action->snooze_count < $action->max_snoozes;
+
+        return view('response-choice', [
+            'token' => $token,
+            'action' => $action,
+            'canSnooze' => $canSnooze,
         ]);
     }
 }

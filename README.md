@@ -249,10 +249,10 @@ CACHE_STORE=redis
 MAIL_MAILER=postmark
 POSTMARK_TOKEN=your-token
 
-# SMS (Twilio)
-TWILIO_SID=your-sid
-TWILIO_TOKEN=your-token
-TWILIO_FROM=+1234567890
+# SMS (Brevo)
+BREVO_SMS_ENABLED=true
+BREVO_API_KEY=your-api-key
+BREVO_SMS_SENDER=CallMeLater
 
 # Security
 CML_BLOCK_PRIVATE_IPS=true

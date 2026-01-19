@@ -8,8 +8,8 @@ use App\Models\NotificationConsent;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
+use App\Services\BrevoService;
 use App\Services\ConsentService;
-use App\Services\TwilioService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -31,16 +31,17 @@ class DeliverReminder implements ShouldQueue
         public ScheduledAction $action
     ) {}
 
-    public function handle(TwilioService $twilioService, ConsentService $consentService): void
+    public function handle(BrevoService $brevoService, ConsentService $consentService): void
     {
         // CRITICAL: Verify action is still in EXECUTING state
         // This guards against cancellation race conditions
         $this->action->refresh();
-        if (!$this->action->isExecuting()) {
-            Log::info("Reminder skipped - no longer in executing state", [
+        if (! $this->action->isExecuting()) {
+            Log::info('Reminder skipped - no longer in executing state', [
                 'action_id' => $this->action->id,
                 'status' => $this->action->resolution_status,
             ]);
+
             return;
         }
 
@@ -54,8 +55,9 @@ class DeliverReminder implements ShouldQueue
         $recipients = $escalationRules['recipients'] ?? [];
 
         if (count($recipients) === 0) {
-            Log::error("No recipients configured for reminder", ['action_id' => $this->action->id]);
+            Log::error('No recipients configured for reminder', ['action_id' => $this->action->id]);
             $this->action->markAsFailed('No recipients configured');
+
             return;
         }
 
@@ -101,6 +103,7 @@ class DeliverReminder implements ShouldQueue
                 if ($owner?->is_admin) {
                     $this->sendEmail($recipientRecord);
                     $sentCount++;
+
                     continue;
                 }
 
@@ -122,13 +125,13 @@ class DeliverReminder implements ShouldQueue
             // For SMS recipients (phone numbers)
             if ($isPhone && in_array('sms', $channels)) {
                 // SMS consent is typically stricter - for now, send if allowed
-                $this->sendSms($recipientRecord, $twilioService);
+                $this->sendSms($recipientRecord, $brevoService);
                 $sentCount++;
             }
         }
 
         // Build notes for the event
-        $notes = "Sent to {$sentCount} recipient(s) via " . implode(', ', $channels);
+        $notes = "Sent to {$sentCount} recipient(s) via ".implode(', ', $channels);
         if ($awaitingConsentCount > 0) {
             $notes .= ", {$awaitingConsentCount} awaiting consent";
         }
@@ -147,7 +150,7 @@ class DeliverReminder implements ShouldQueue
         // Mark as awaiting response (uses model's state machine)
         $this->action->markAsAwaitingResponse($tokenExpiryDays);
 
-        Log::info("Reminder delivered", [
+        Log::info('Reminder delivered', [
             'action_id' => $this->action->id,
             'recipients' => count($recipients),
             'sent' => $sentCount,
@@ -179,6 +182,7 @@ class DeliverReminder implements ShouldQueue
             // Pending - check if we can send an opt-in request
             if ($consent->status === NotificationConsent::STATUS_PENDING) {
                 $this->trySendOptinRequest($email, $consent, $consentService, $owner);
+
                 return 'pending';
             }
         }
@@ -190,7 +194,7 @@ class DeliverReminder implements ShouldQueue
             $this->sendOptinRequest($check['consent'], $owner);
             $consentService->recordOptinSent($check['consent'], $owner);
         } else {
-            Log::info("Opt-in email suppressed", [
+            Log::info('Opt-in email suppressed', [
                 'email' => $email,
                 'reason' => $check['reason'],
             ]);
@@ -220,12 +224,12 @@ class DeliverReminder implements ShouldQueue
         try {
             Mail::to($consent->email)->send(new OptInRequestMail($consent, $owner, $this->action));
 
-            Log::info("Opt-in request sent", [
+            Log::info('Opt-in request sent', [
                 'action_id' => $this->action->id,
                 'recipient' => $consent->email,
             ]);
         } catch (\Exception $e) {
-            Log::error("Failed to send opt-in request", [
+            Log::error('Failed to send opt-in request', [
                 'action_id' => $this->action->id,
                 'recipient' => $consent->email,
                 'error' => $e->getMessage(),
@@ -238,12 +242,12 @@ class DeliverReminder implements ShouldQueue
         try {
             Mail::to($recipient->email)->send(new ReminderMail($this->action, $recipient));
 
-            Log::info("Reminder email sent", [
+            Log::info('Reminder email sent', [
                 'action_id' => $this->action->id,
                 'recipient' => $recipient->email,
             ]);
         } catch (\Exception $e) {
-            Log::error("Failed to send reminder email", [
+            Log::error('Failed to send reminder email', [
                 'action_id' => $this->action->id,
                 'recipient' => $recipient->email,
                 'error' => $e->getMessage(),
@@ -251,19 +255,18 @@ class DeliverReminder implements ShouldQueue
         }
     }
 
-    private function sendSms(ReminderRecipient $recipient, TwilioService $twilioService): void
+    private function sendSms(ReminderRecipient $recipient, BrevoService $brevoService): void
     {
         $baseUrl = config('app.url');
         $token = $recipient->response_token;
 
-        $confirmUrl = "{$baseUrl}/respond?token={$token}&response=confirm";
-        $declineUrl = "{$baseUrl}/respond?token={$token}&response=decline";
+        // Single URL that opens a choice page with Confirm/Decline/Snooze buttons
+        $responseUrl = "{$baseUrl}/respond?token={$token}";
 
-        $twilioService->sendReminderSms(
+        $brevoService->sendReminderSms(
             $recipient->email, // In this case, it's a phone number stored in the email field
             $this->action->name,
-            $confirmUrl,
-            $declineUrl
+            $responseUrl
         );
     }
 
