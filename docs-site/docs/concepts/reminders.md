@@ -4,14 +4,20 @@ sidebar_position: 4
 
 # Reminders
 
-Reminders let you get human confirmation before proceeding with an action.
+Reminders let you collect human responses (confirm, decline, or snooze). When someone responds, CallMeLater notifies your system via a callback URL — your system then decides what action to take.
 
 ## How Reminders Work
 
 1. You create a reminder action with recipients
 2. At the scheduled time, CallMeLater sends the reminder (email/SMS)
 3. Recipients see a simple interface: **Confirm**, **Decline**, or **Snooze**
-4. Their response triggers your webhook or updates the action state
+4. Their response triggers your callback URL with response details
+
+:::info Reminders vs HTTP Actions
+**HTTP actions** execute your webhook directly at the scheduled time.
+
+**Reminders** collect a human response, then call your callback URL with the response details. Your system receives the response and decides what to do next — CallMeLater doesn't automatically execute any business logic.
+:::
 
 ## Creating a Reminder
 
@@ -63,8 +69,8 @@ Recipients can:
 
 | Response | Effect |
 |----------|--------|
-| **Confirm** | Action marked as `executed`, triggers success webhook |
-| **Decline** | Action marked as `failed`, triggers failure webhook |
+| **Confirm** | Action marked as `executed`, callback URL receives response details |
+| **Decline** | Action marked as `failed`, callback URL receives response details |
 | **Snooze** | Reminder rescheduled, counter decremented |
 
 ## Snoozing

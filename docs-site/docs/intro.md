@@ -61,6 +61,8 @@ Ask someone to confirm, decline, or snooze:
 - Check-ins
 - Escalation chains
 
+**Note:** Reminders collect human responses — they don't automatically execute your webhook. When someone responds, CallMeLater calls your callback URL with the response details so your system can decide what to do next.
+
 [Learn more about reminders →](./concepts/reminders)
 
 ## Key Features
