@@ -16,7 +16,6 @@ import ActionDetail from './pages/ActionDetail.vue';
 import Admin from './pages/Admin.vue';
 import AdminStatus from './pages/AdminStatus.vue';
 import Status from './pages/Status.vue';
-import ConsentResult from './pages/ConsentResult.vue';
 import Settings from './pages/Settings.vue';
 import SubscriptionResult from './pages/SubscriptionResult.vue';
 import AcceptInvitation from './pages/AcceptInvitation.vue';
@@ -27,12 +26,6 @@ import AcceptInvitation from './pages/AcceptInvitation.vue';
 const routes = [
     // Status page (Vue-rendered for real-time updates)
     { path: '/status', name: 'status', component: Status, meta: { hideNavFooter: true } },
-
-    // Consent result pages (public, no auth required)
-    { path: '/consent/accepted', name: 'consent-accepted', component: ConsentResult, meta: { hideNavFooter: true } },
-    { path: '/consent/declined', name: 'consent-declined', component: ConsentResult, meta: { hideNavFooter: true } },
-    { path: '/consent/unsubscribed', name: 'consent-unsubscribed', component: ConsentResult, meta: { hideNavFooter: true } },
-    { path: '/consent/error', name: 'consent-error', component: ConsentResult, meta: { hideNavFooter: true } },
 
     // Subscription result pages
     { path: '/subscription/result', name: 'subscription-result', component: SubscriptionResult, meta: { hideNavFooter: true } },

@@ -22,8 +22,8 @@ class ReminderRecipient extends Model
     use HasUuids;
 
     public const STATUS_PENDING = 'pending';
-    public const STATUS_AWAITING_CONSENT = 'awaiting_consent';
-    public const STATUS_SUPPRESSED = 'suppressed';
+    public const STATUS_SENT = 'sent';
+    public const STATUS_BLOCKED = 'blocked';
     public const STATUS_CONFIRMED = 'confirmed';
     public const STATUS_DECLINED = 'declined';
     public const STATUS_SNOOZED = 'snoozed';
@@ -50,6 +50,10 @@ class ReminderRecipient extends Model
 
     public function hasResponded(): bool
     {
-        return $this->status !== self::STATUS_PENDING;
+        return in_array($this->status, [
+            self::STATUS_CONFIRMED,
+            self::STATUS_DECLINED,
+            self::STATUS_SNOOZED,
+        ]);
     }
 }

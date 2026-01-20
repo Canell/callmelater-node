@@ -387,7 +387,7 @@ FOR UPDATE SKIP LOCKED
 | `delivery_attempts` | HTTP call audit log | `action_id`, `attempt_number`, `status_code`, `response_body` |
 | `reminder_recipients` | Per-recipient tracking | `action_id`, `email`, `status`, `response_token` |
 | `reminder_events` | Reminder timeline | `reminder_id`, `event_type`, `notes`, `created_at` |
-| `notification_consents` | Email opt-in tracking | `email`, `status`, `consent_token` |
+| `blocked_recipients` | Blocked recipient list (admin) | `recipient`, `reason`, `blocked_by` |
 
 ### Laravel Queue Tables
 

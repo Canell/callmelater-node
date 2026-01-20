@@ -108,16 +108,14 @@
 
         <div class="footer">
             <p>
-                You're receiving this message because it was scheduled via <strong>{{ config('app.name') }}</strong> on behalf of <strong>{{ $action->account->name ?? 'Unknown' }}</strong>.
+                This email was sent via <strong>{{ config('app.name') }}</strong> on behalf of <strong>{{ $action->account->name ?? 'Unknown' }}</strong> as part of a scheduled reminder.
                 @if($action->token_expires_at)
                 <br>This link expires on {{ $action->token_expires_at->format('M j, Y \a\t g:i A T') }}.
                 @endif
             </p>
-            @if($unsubscribeUrl)
-            <p style="margin-top: 16px;">
-                <a href="{{ $unsubscribeUrl }}">Unsubscribe from all reminders</a>
+            <p style="margin-top: 12px; font-size: 13px;">
+                If you believe this message was sent in error, please contact the sender.
             </p>
-            @endif
         </div>
     </div>
 </body>

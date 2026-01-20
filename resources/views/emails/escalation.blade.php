@@ -124,10 +124,13 @@
 
         <div class="footer">
             <p>
-                This escalation was sent via <strong>{{ config('app.name') }}</strong> on behalf of <strong>{{ $action->account->name ?? 'Unknown' }}</strong>.
+                This email was sent via <strong>{{ config('app.name') }}</strong> on behalf of <strong>{{ $action->account->name ?? 'Unknown' }}</strong> as an escalated reminder.
                 @if($action->token_expires_at)
                 <br>This link expires on {{ $action->token_expires_at->format('M j, Y \a\t g:i A T') }}.
                 @endif
+            </p>
+            <p style="margin-top: 12px; font-size: 13px;">
+                If you believe this message was sent in error, please contact the sender.
             </p>
         </div>
     </div>

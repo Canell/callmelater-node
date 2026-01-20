@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\HeartbeatController;
-use App\Http\Controllers\Api\ConsentController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\InvitationController;
@@ -47,13 +46,6 @@ Route::post('/contact', [ContactController::class, 'store'])
 Route::post('/internal/heartbeat', [HeartbeatController::class, 'ping'])
     ->name('api.health.heartbeat')
     ->middleware('throttle:heartbeat');
-
-// Public consent endpoints (token-based, no login required)
-Route::prefix('v1/consent')->middleware('throttle:consent')->group(function () {
-    Route::get('/accept/{token}', [ConsentController::class, 'accept']);
-    Route::get('/decline/{token}', [ConsentController::class, 'decline']);
-    Route::get('/unsubscribe/{token}', [ConsentController::class, 'unsubscribe']);
-});
 
 // Public invitation endpoint (view invitation details)
 Route::get('/invitations/{token}', [InvitationController::class, 'show'])
