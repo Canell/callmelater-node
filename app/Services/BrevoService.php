@@ -106,8 +106,8 @@ class BrevoService
         string $responseUrl
     ): ?string {
         // SMS limit is 160 chars. Reserve space for URL (~50 chars) and formatting
-        // Format: "Message preview...\n👉 URL"
-        $urlPart = "\n👉 {$responseUrl}";
+        // Format: "Message preview...\n URL"
+        $urlPart = "\n {$responseUrl}";
         $maxMessageLength = 160 - strlen($urlPart) - 3; // -3 for "..."
 
         // Use message if available, otherwise fall back to action name
