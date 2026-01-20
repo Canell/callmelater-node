@@ -13,7 +13,9 @@ class Incident extends Model
     use HasFactory;
 
     public const IMPACT_MINOR = 'minor';
+
     public const IMPACT_MAJOR = 'major';
+
     public const IMPACT_CRITICAL = 'critical';
 
     public const IMPACTS = [
@@ -23,8 +25,11 @@ class Incident extends Model
     ];
 
     public const STATUS_INVESTIGATING = 'investigating';
+
     public const STATUS_IDENTIFIED = 'identified';
+
     public const STATUS_MONITORING = 'monitoring';
+
     public const STATUS_RESOLVED = 'resolved';
 
     public const STATUSES = [
@@ -112,7 +117,7 @@ class Incident extends Model
      */
     public function isActive(): bool
     {
-        return !$this->isResolved();
+        return ! $this->isResolved();
     }
 
     /**
@@ -153,11 +158,12 @@ class Incident extends Model
         $diff = $this->started_at->diff($end);
 
         if ($diff->days > 0) {
-            return $diff->days . 'd ' . $diff->h . 'h';
+            return $diff->days.'d '.$diff->h.'h';
         }
         if ($diff->h > 0) {
-            return $diff->h . 'h ' . $diff->i . 'm';
+            return $diff->h.'h '.$diff->i.'m';
         }
-        return $diff->i . 'm';
+
+        return $diff->i.'m';
     }
 }

@@ -13,7 +13,7 @@ class IntentResolverTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->resolver = new IntentResolver();
+        $this->resolver = new IntentResolver;
     }
 
     // ==================== ABSOLUTE TIMESTAMP ====================

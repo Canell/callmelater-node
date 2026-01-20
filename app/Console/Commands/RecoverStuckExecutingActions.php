@@ -28,6 +28,7 @@ class RecoverStuckExecutingActions extends Command
 
         if ($stuck->isEmpty()) {
             $this->info('No stuck actions found.');
+
             return Command::SUCCESS;
         }
 
@@ -48,7 +49,7 @@ class RecoverStuckExecutingActions extends Command
                 $action->next_retry_at = now()->addMinutes(1); // Retry in 1 minute
                 $action->save();
 
-                Log::warning("Recovered stuck EXECUTING action - scheduled for retry", [
+                Log::warning('Recovered stuck EXECUTING action - scheduled for retry', [
                     'action_id' => $action->id,
                     'attempt_count' => $action->attempt_count,
                 ]);
@@ -56,7 +57,7 @@ class RecoverStuckExecutingActions extends Command
                 // No retries left - mark as failed
                 $action->markAsFailed('Executor timeout: worker crashed or timed out');
 
-                Log::error("Recovered stuck EXECUTING action - marked as failed (no retries left)", [
+                Log::error('Recovered stuck EXECUTING action - marked as failed (no retries left)', [
                     'action_id' => $action->id,
                     'attempt_count' => $action->attempt_count,
                 ]);
@@ -69,7 +70,7 @@ class RecoverStuckExecutingActions extends Command
             $this->info("Dry run complete. Would recover {$stuck->count()} action(s).");
         } else {
             $this->info("Recovered {$recovered} action(s).");
-            Log::info("Stuck EXECUTING actions recovery completed", ['recovered' => $recovered]);
+            Log::info('Stuck EXECUTING actions recovery completed', ['recovered' => $recovered]);
         }
 
         return Command::SUCCESS;

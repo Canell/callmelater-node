@@ -12,7 +12,9 @@ class SystemComponent extends Model
     use HasFactory;
 
     public const STATUS_OPERATIONAL = 'operational';
+
     public const STATUS_DEGRADED = 'degraded';
+
     public const STATUS_OUTAGE = 'outage';
 
     public const STATUSES = [

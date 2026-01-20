@@ -6,12 +6,9 @@ use App\Models\DeliveryAttempt;
 use App\Models\ScheduledAction;
 use App\Models\SystemComponent;
 use App\Models\User;
-use App\Services\ActionService;
 use App\Services\HealthMonitorService;
-use App\Services\StatusService;
 use Database\Seeders\SystemUserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
 use Tests\TestCase;
 
 class HealthMonitorServiceTest extends TestCase
@@ -19,6 +16,7 @@ class HealthMonitorServiceTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private HealthMonitorService $service;
 
     protected function setUp(): void

@@ -11,10 +11,15 @@ class ReminderEvent extends Model
     use HasUuids;
 
     public const TYPE_SENT = 'sent';
+
     public const TYPE_SNOOZED = 'snoozed';
+
     public const TYPE_CONFIRMED = 'confirmed';
+
     public const TYPE_DECLINED = 'declined';
+
     public const TYPE_ESCALATED = 'escalated';
+
     public const TYPE_EXPIRED = 'expired';
 
     protected $fillable = [

@@ -75,6 +75,7 @@ class UrlValidator
             if ($this->isBlockedIp($host)) {
                 throw new \InvalidArgumentException('Requests to private IP addresses are not allowed');
             }
+
             return;
         }
 

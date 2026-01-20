@@ -34,6 +34,8 @@ const RECIPIENT_STATUS_BADGE_CLASSES = {
 
 const CANCELLABLE_STATUSES = ['pending_resolution', 'resolved', 'awaiting_response'];
 
+const RETRYABLE_STATUSES = ['failed'];
+
 export function useActionStatus() {
     /**
      * Format an action status to a human-readable label.
@@ -63,15 +65,24 @@ export function useActionStatus() {
         return CANCELLABLE_STATUSES.includes(status);
     };
 
+    /**
+     * Check if an action can be manually retried based on its status.
+     */
+    const canRetry = (status) => {
+        return RETRYABLE_STATUSES.includes(status);
+    };
+
     return {
         formatStatus,
         statusBadgeClass,
         recipientBadgeClass,
         canCancel,
+        canRetry,
         // Export constants for direct access if needed
         ACTION_STATUS_LABELS,
         ACTION_STATUS_BADGE_CLASSES,
         RECIPIENT_STATUS_BADGE_CLASSES,
         CANCELLABLE_STATUSES,
+        RETRYABLE_STATUSES,
     };
 }

@@ -85,7 +85,7 @@ class AppServiceProvider extends ServiceProvider
             $userId = $request->user()?->id ?? $request->ip(); // @phpstan-ignore nullsafe.neverNull
 
             return Limit::perMinute(3)
-                ->by($userId . '|' . md5($url))
+                ->by($userId.'|'.md5($url))
                 ->response(function (Request $request, array $headers) {
                     $retryAfter = $headers['Retry-After'] ?? 60;
 
@@ -128,7 +128,7 @@ class AppServiceProvider extends ServiceProvider
                 // Per IP: 5 requests per minute
                 Limit::perMinute(5)->by($request->ip()),
                 // Per email: 3 requests per 10 minutes
-                Limit::perMinutes(10, 3)->by('email:' . $email),
+                Limit::perMinutes(10, 3)->by('email:'.$email),
             ];
         });
 

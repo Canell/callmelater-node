@@ -12,6 +12,7 @@ class DomainVerificationService
 {
     // Thresholds that trigger verification requirement
     public const DAILY_THRESHOLD = 10;
+
     public const MONTHLY_THRESHOLD = 100;
 
     /**
@@ -129,6 +130,7 @@ class DomainVerificationService
                         'domain' => $verification->domain,
                         'account_id' => $verification->account_id,
                     ]);
+
                     return true;
                 }
             }
@@ -139,6 +141,7 @@ class DomainVerificationService
                 'domain' => $verification->domain,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -155,7 +158,7 @@ class DomainVerificationService
                 ->connectTimeout(5)
                 ->get($url);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return false;
             }
 
@@ -168,6 +171,7 @@ class DomainVerificationService
                     'domain' => $verification->domain,
                     'account_id' => $verification->account_id,
                 ]);
+
                 return true;
             }
 
@@ -177,6 +181,7 @@ class DomainVerificationService
                 'domain' => $verification->domain,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }

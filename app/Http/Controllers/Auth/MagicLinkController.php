@@ -31,8 +31,9 @@ class MagicLinkController extends Controller
         // Always return same response to prevent email enumeration
         $message = 'If an account exists with this email, we\'ve sent a magic link.';
 
-        if (!$user) {
+        if (! $user) {
             Log::info('Magic link requested for non-existent email', ['email' => $email]);
+
             return response()->json(['message' => $message]);
         }
 
@@ -81,18 +82,21 @@ class MagicLinkController extends Controller
     {
         $magicLink = MagicLinkToken::where('token', $token)->first();
 
-        if (!$magicLink) {
-            Log::warning('Invalid magic link token attempted', ['token' => substr($token, 0, 8) . '...']);
+        if (! $magicLink) {
+            Log::warning('Invalid magic link token attempted', ['token' => substr($token, 0, 8).'...']);
+
             return redirect('/login?error=invalid_link');
         }
 
         if ($magicLink->isExpired()) {
             Log::info('Expired magic link attempted', ['email' => $magicLink->email]);
+
             return redirect('/login?error=link_expired');
         }
 
         if ($magicLink->isUsed()) {
             Log::info('Already used magic link attempted', ['email' => $magicLink->email]);
+
             return redirect('/login?error=link_already_used');
         }
 
@@ -116,12 +120,13 @@ class MagicLinkController extends Controller
         } else {
             // Login link - user must exist
             $user = User::where('email', $magicLink->email)->first();
-            if (!$user) {
+            if (! $user) {
                 Log::warning('Login magic link for non-existent user', ['email' => $magicLink->email]);
+
                 return redirect('/login?error=user_not_found');
             }
             // Clicking a magic link proves email ownership - verify if not already
-            if (!$user->hasVerifiedEmail()) {
+            if (! $user->hasVerifiedEmail()) {
                 $user->markEmailAsVerified();
             }
             Log::info('User logged in via magic link', ['email' => $magicLink->email, 'user_id' => $user->id]);
@@ -158,6 +163,7 @@ class MagicLinkController extends Controller
         $localPart = explode('@', $email)[0];
         // Convert "john.doe" or "john_doe" to "John Doe"
         $name = str_replace(['.', '_', '-'], ' ', $localPart);
+
         return ucwords($name);
     }
 }

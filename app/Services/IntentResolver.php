@@ -10,7 +10,7 @@ class IntentResolver
     /**
      * Resolve an intent payload to a UTC timestamp.
      *
-     * @param array<string, mixed> $intentPayload
+     * @param  array<string, mixed>  $intentPayload
      * @return Carbon The resolved UTC timestamp
      */
     public function resolve(array $intentPayload, string $timezone = 'UTC'): Carbon
@@ -76,6 +76,7 @@ class IntentResolver
     private function nextWeekday(Carbon $now, int $dayOfWeek): Carbon
     {
         $next = $now->copy()->next($dayOfWeek);
+
         return $next->setTime($now->hour, $now->minute, 0);
     }
 
@@ -104,8 +105,8 @@ class IntentResolver
     /**
      * Resolve a specific time, optionally on a specific date.
      *
-     * @param string $time Time in HH:MM or HH:MM:SS format
-     * @param string|null $on Optional date in YYYY-MM-DD format
+     * @param  string  $time  Time in HH:MM or HH:MM:SS format
+     * @param  string|null  $on  Optional date in YYYY-MM-DD format
      */
     private function resolveAt(string $time, Carbon $now, ?string $on = null): Carbon
     {
@@ -136,6 +137,7 @@ class IntentResolver
     {
         try {
             new DateTimeZone($timezone);
+
             return true;
         } catch (\Exception) {
             return false;

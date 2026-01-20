@@ -20,7 +20,7 @@ class BrevoServiceTest extends TestCase
 
     public function test_is_enabled_returns_true_when_configured(): void
     {
-        $service = new BrevoService();
+        $service = new BrevoService;
 
         $this->assertTrue($service->isEnabled());
     }
@@ -29,7 +29,7 @@ class BrevoServiceTest extends TestCase
     {
         Config::set('brevo.enabled', false);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
 
         $this->assertFalse($service->isEnabled());
     }
@@ -38,7 +38,7 @@ class BrevoServiceTest extends TestCase
     {
         Config::set('brevo.api_key', null);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
 
         $this->assertFalse($service->isEnabled());
     }
@@ -47,7 +47,7 @@ class BrevoServiceTest extends TestCase
     {
         Config::set('brevo.enabled', false);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $result = $service->sendSms('+15551234567', 'Test message');
 
         $this->assertNull($result);
@@ -59,7 +59,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['messageId' => 'msg_12345'], 200),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $result = $service->sendSms('+15551234567', 'Test message');
 
         $this->assertEquals('msg_12345', $result);
@@ -71,7 +71,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['messageId' => 'msg_123'], 200),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $service->sendSms('+1 (555) 123-4567', 'Test message');
 
         Http::assertSent(function ($request) {
@@ -85,7 +85,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['error' => 'Invalid API key'], 401),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $result = $service->sendSms('+15551234567', 'Test message');
 
         $this->assertNull($result);
@@ -97,7 +97,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(null, 500),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $result = $service->sendSms('+15551234567', 'Test message');
 
         $this->assertNull($result);
@@ -109,7 +109,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['messageId' => 'msg_123'], 200),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $service->sendSms('+15551234567', 'Test message content');
 
         Http::assertSent(function ($request) {
@@ -126,7 +126,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['messageId' => 'msg_123'], 200),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $service->sendSms('+15551234567', 'Test message');
 
         Http::assertSent(function ($request) {
@@ -142,7 +142,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['messageId' => 'msg_123'], 200),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $service->sendReminderSms(
             '+15551234567',
             'Action Name',
@@ -164,7 +164,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['messageId' => 'msg_123'], 200),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $service->sendReminderSms(
             '+15551234567',
             'Deploy to Production',
@@ -185,7 +185,7 @@ class BrevoServiceTest extends TestCase
 
         $longMessage = str_repeat('A', 200); // Very long message
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $service->sendReminderSms(
             '+15551234567',
             'Action Name',
@@ -206,7 +206,7 @@ class BrevoServiceTest extends TestCase
             'api.brevo.com/*' => Http::response(['messageId' => 'msg_123'], 200),
         ]);
 
-        $service = new BrevoService();
+        $service = new BrevoService;
         $service->sendReminderSms(
             '+15551234567',
             'Test Action',

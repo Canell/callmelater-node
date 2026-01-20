@@ -31,7 +31,7 @@ class DispatcherInvariantsTest extends TestCase
     {
         $action = $this->createHttpAction(ScheduledAction::STATUS_RESOLVED);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         $action->refresh();
         $this->assertEquals(ScheduledAction::STATUS_EXECUTING, $action->resolution_status);
@@ -45,7 +45,7 @@ class DispatcherInvariantsTest extends TestCase
     {
         $action = $this->createHttpAction(ScheduledAction::STATUS_CANCELLED);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         Queue::assertNotPushed(DeliverHttpAction::class);
     }
@@ -57,7 +57,7 @@ class DispatcherInvariantsTest extends TestCase
     {
         $action = $this->createReminderAction(ScheduledAction::STATUS_AWAITING_RESPONSE);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         Queue::assertNotPushed(DeliverReminder::class);
     }
@@ -69,7 +69,7 @@ class DispatcherInvariantsTest extends TestCase
     {
         $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         Queue::assertNotPushed(DeliverHttpAction::class);
     }
@@ -81,7 +81,7 @@ class DispatcherInvariantsTest extends TestCase
     {
         $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTED);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         Queue::assertNotPushed(DeliverHttpAction::class);
     }
@@ -93,7 +93,7 @@ class DispatcherInvariantsTest extends TestCase
     {
         $action = $this->createHttpAction(ScheduledAction::STATUS_FAILED);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         Queue::assertNotPushed(DeliverHttpAction::class);
     }
@@ -115,7 +115,7 @@ class DispatcherInvariantsTest extends TestCase
             'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ]);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         $action->refresh();
         $this->assertEquals(ScheduledAction::STATUS_RESOLVED, $action->resolution_status);
@@ -130,10 +130,10 @@ class DispatcherInvariantsTest extends TestCase
         $action = $this->createHttpAction(ScheduledAction::STATUS_RESOLVED);
 
         // First dispatch
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         // Second dispatch (simulating overlapping workers)
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         // Should only be pushed once
         Queue::assertPushed(DeliverHttpAction::class, 1);
@@ -146,7 +146,7 @@ class DispatcherInvariantsTest extends TestCase
     {
         $action = $this->createReminderAction(ScheduledAction::STATUS_RESOLVED);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         $action->refresh();
         $this->assertEquals(ScheduledAction::STATUS_EXECUTING, $action->resolution_status);
@@ -173,7 +173,7 @@ class DispatcherInvariantsTest extends TestCase
             'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ]);
 
-        (new DispatcherJob())->handle();
+        (new DispatcherJob)->handle();
 
         $action->refresh();
         $this->assertEquals(ScheduledAction::STATUS_EXECUTING, $action->resolution_status);

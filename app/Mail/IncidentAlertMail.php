@@ -14,6 +14,7 @@ class IncidentAlertMail extends Mailable
     use Queueable, SerializesModels;
 
     public string $statusPageUrl;
+
     public string $adminUrl;
 
     public function __construct(
@@ -29,6 +30,7 @@ class IncidentAlertMail extends Mailable
     public function envelope(): Envelope
     {
         $impactLabel = strtoupper($this->incident->impact);
+
         return new Envelope(
             subject: "[{$impactLabel}] {$this->incident->title}",
         );

@@ -54,6 +54,6 @@ class SystemComponentsSeeder extends Seeder
             );
         }
 
-        $this->command->info('System components seeded: ' . count($components));
+        $this->command->info('System components seeded: '.count($components));
     }
 }

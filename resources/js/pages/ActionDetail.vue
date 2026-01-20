@@ -154,7 +154,7 @@
                     </div>
 
                     <!-- Danger Zone -->
-                    <div v-if="canCancel(action.status)" class="card card-cml border-danger">
+                    <div v-if="canCancel(action.status)" class="card card-cml border-danger mb-4">
                         <div class="card-header bg-transparent">
                             <h5 class="mb-0 text-danger">Danger Zone</h5>
                         </div>
@@ -162,6 +162,32 @@
                             <button class="btn btn-outline-danger" @click="confirmCancelAction" :disabled="cancelling">
                                 {{ cancelling ? 'Cancelling...' : 'Cancel Action' }}
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Retry Zone (for failed actions) -->
+                    <div v-if="canRetry(action.status)" class="card card-cml border-warning">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0 text-warning">Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">
+                                <strong>Warning:</strong> Retrying will re-execute this action.
+                                If your endpoint is not idempotent, this may cause duplicate effects.
+                            </p>
+                            <button
+                                class="btn btn-outline-warning"
+                                @click="confirmRetryAction"
+                                :disabled="retrying"
+                            >
+                                {{ retrying ? 'Retrying...' : 'Retry Action' }}
+                            </button>
+                            <div v-if="action.manual_retry_count > 0" class="mt-2 small text-muted">
+                                Previously retried {{ action.manual_retry_count }} time(s)
+                                <span v-if="action.last_manual_retry_at">
+                                    - Last retry: {{ formatDate(action.last_manual_retry_at) }}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -205,6 +231,15 @@
                                             <span v-if="event.duration_ms" class="me-2">{{ event.duration_ms }}ms</span>
                                             {{ formatTime(event.created_at) }}
                                         </small>
+                                    </div>
+
+                                    <!-- Manual retry cycle marker -->
+                                    <div v-if="event._type === 'cycle'" class="mt-2 small">
+                                        <span class="badge bg-info me-1">Manual Retry</span>
+                                        Cycle #{{ event.cycle_number }} triggered by {{ event.triggered_by_user?.name || 'Unknown' }}
+                                        <span v-if="event.result === 'success'" class="badge bg-success ms-2">Success</span>
+                                        <span v-else-if="event.result === 'failed'" class="badge bg-danger ms-2">Failed</span>
+                                        <span v-else class="badge bg-secondary ms-2">In Progress</span>
                                     </div>
 
                                     <!-- Brief summary (always visible) -->
@@ -273,7 +308,7 @@ import { useActionStatus } from '../composables/useActionStatus';
 import { formatDate, formatTime } from '../utils/dateFormatting';
 import ConfirmModal from '../components/ConfirmModal.vue';
 
-const { formatStatus, statusBadgeClass, recipientBadgeClass, canCancel } = useActionStatus();
+const { formatStatus, statusBadgeClass, recipientBadgeClass, canCancel, canRetry } = useActionStatus();
 
 export default {
     name: 'ActionDetail',
@@ -286,6 +321,7 @@ export default {
             action: null,
             loading: true,
             cancelling: false,
+            retrying: false,
             expandedEvents: {},
             confirmModal: {
                 show: false,
@@ -294,11 +330,12 @@ export default {
                 confirmText: 'Confirm',
                 variant: 'warning',
             },
+            pendingAction: null,
         };
     },
     computed: {
         events() {
-            // Combine delivery attempts and reminder events, sorted by date
+            // Combine delivery attempts, reminder events, and execution cycles
             const attempts = (this.action?.delivery_attempts || []).map(a => ({
                 ...a,
                 _type: 'attempt'
@@ -307,7 +344,15 @@ export default {
                 ...e,
                 _type: 'reminder'
             }));
-            return [...attempts, ...reminders].sort((a, b) =>
+            const cycles = (this.action?.execution_cycles || [])
+                .filter(c => c.triggered_by === 'manual')
+                .map(c => ({
+                    ...c,
+                    _type: 'cycle',
+                    id: `cycle-${c.id}`,
+                    created_at: c.started_at,
+                }));
+            return [...attempts, ...reminders, ...cycles].sort((a, b) =>
                 new Date(b.created_at) - new Date(a.created_at)
             );
         },
@@ -325,6 +370,7 @@ export default {
         statusBadgeClass,
         recipientBadgeClass,
         canCancel,
+        canRetry,
         hasDetails(event) {
             // HTTP attempts have expandable details
             return event._type === 'attempt';
@@ -388,10 +434,26 @@ export default {
                 confirmText: 'Yes, Cancel',
                 variant: 'danger',
             };
+            this.pendingAction = 'doCancelAction';
+        },
+        confirmRetryAction() {
+            this.confirmModal = {
+                show: true,
+                title: 'Retry Action',
+                message: `Retry "${this.action.name}"?\n\nWarning: If your endpoint is not idempotent, this may cause duplicate side effects. The action will be re-executed with a new execution cycle.`,
+                confirmText: 'Yes, Retry',
+                variant: 'warning',
+            };
+            this.pendingAction = 'doRetryAction';
         },
         handleConfirm() {
             this.confirmModal.show = false;
-            this.doCancelAction();
+            if (this.pendingAction === 'doRetryAction') {
+                this.doRetryAction();
+            } else {
+                this.doCancelAction();
+            }
+            this.pendingAction = null;
         },
         async doCancelAction() {
             this.cancelling = true;
@@ -403,6 +465,23 @@ export default {
                 this.toast.error(err.response?.data?.message || 'Failed to cancel action');
             } finally {
                 this.cancelling = false;
+            }
+        },
+        async doRetryAction() {
+            this.retrying = true;
+            try {
+                await axios.post(`/api/v1/actions/${this.action.id}/retry`);
+                this.toast.success('Action retry initiated');
+                await this.loadAction();
+            } catch (err) {
+                const reasons = err.response?.data?.reasons;
+                if (reasons && reasons.length > 0) {
+                    this.toast.error(reasons.join('. '));
+                } else {
+                    this.toast.error(err.response?.data?.message || 'Failed to retry action');
+                }
+            } finally {
+                this.retrying = false;
             }
         }
     }

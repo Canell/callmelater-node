@@ -419,7 +419,7 @@ class AdminController extends Controller
      */
     private function getUserPlan($subscription): string
     {
-        if (!$subscription) {
+        if (! $subscription) {
             return 'free';
         }
 
@@ -471,14 +471,14 @@ class AdminController extends Controller
         $proPrices = array_filter([$proPriceMonthly, $proPriceAnnual]);
         $businessPrices = array_filter([$businessPriceMonthly, $businessPriceAnnual]);
 
-        if (!empty($proPrices)) {
+        if (! empty($proPrices)) {
             $stats['pro'] = DB::table('subscriptions')
                 ->where('stripe_status', 'active')
                 ->whereIn('stripe_price', $proPrices)
                 ->count();
         }
 
-        if (!empty($businessPrices)) {
+        if (! empty($businessPrices)) {
             $stats['business'] = DB::table('subscriptions')
                 ->where('stripe_status', 'active')
                 ->whereIn('stripe_price', $businessPrices)

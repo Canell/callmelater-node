@@ -16,16 +16,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property Carbon|null $responded_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property-read ScheduledAction $action
  */
 class ReminderRecipient extends Model
 {
     use HasUuids;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_SENT = 'sent';
+
     public const STATUS_BLOCKED = 'blocked';
+
     public const STATUS_CONFIRMED = 'confirmed';
+
     public const STATUS_DECLINED = 'declined';
+
     public const STATUS_SNOOZED = 'snoozed';
 
     protected $fillable = [

@@ -17,7 +17,8 @@ class SystemUserSeeder extends Seeder
         $existingUser = User::where('email', self::SYSTEM_EMAIL)->first();
 
         if ($existingUser) {
-            $this->command->info('System user already exists: ' . self::SYSTEM_EMAIL);
+            $this->command->info('System user already exists: '.self::SYSTEM_EMAIL);
+
             return;
         }
 
@@ -42,7 +43,7 @@ class SystemUserSeeder extends Seeder
         // Add user to account members as owner
         $account->members()->attach($user->id, ['role' => 'owner']);
 
-        $this->command->info('System user created: ' . self::SYSTEM_EMAIL);
+        $this->command->info('System user created: '.self::SYSTEM_EMAIL);
     }
 
     /**
@@ -52,7 +53,7 @@ class SystemUserSeeder extends Seeder
     {
         $user = User::where('email', self::SYSTEM_EMAIL)->first();
 
-        if (!$user) {
+        if (! $user) {
             throw new \RuntimeException(
                 'System user not found. Run: php artisan db:seed --class=SystemUserSeeder'
             );

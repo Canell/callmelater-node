@@ -28,7 +28,7 @@ class HealthMonitorService
      */
     public function check(): array
     {
-        if (!config('callmelater.health_monitor.enabled', true)) {
+        if (! config('callmelater.health_monitor.enabled', true)) {
             return ['enabled' => false];
         }
 
@@ -130,7 +130,7 @@ class HealthMonitorService
     private function checkWebhookDelivery(array $metrics): array
     {
         $component = SystemComponent::where('slug', 'webhook-delivery')->first();
-        if (!$component) {
+        if (! $component) {
             return ['error' => 'Component not found'];
         }
 
@@ -180,6 +180,7 @@ class HealthMonitorService
         }
 
         $result['new_status'] = $component->fresh()->current_status;
+
         return $result;
     }
 
@@ -214,7 +215,7 @@ class HealthMonitorService
     private function checkScheduler(array $metrics): array
     {
         $component = SystemComponent::where('slug', 'scheduler')->first();
-        if (!$component) {
+        if (! $component) {
             return ['error' => 'Component not found'];
         }
 
@@ -257,6 +258,7 @@ class HealthMonitorService
         }
 
         $result['new_status'] = $component->fresh()->current_status;
+
         return $result;
     }
 
@@ -274,11 +276,11 @@ class HealthMonitorService
         $this->statusService->updateComponentStatus(
             $component,
             $status,
-            $message ?? "Automated status update",
+            $message ?? 'Automated status update',
             $systemUser
         );
 
-        Log::info("Health monitor: Component status changed", [
+        Log::info('Health monitor: Component status changed', [
             'component' => $component->slug,
             'from' => $component->current_status,
             'to' => $status,
@@ -329,7 +331,8 @@ class HealthMonitorService
         $recipients = AdminNotificationPreference::getHealthAlertRecipients();
 
         if (empty($recipients)) {
-            Log::warning("Health monitor: No admins opted into health alerts, skipping reminder");
+            Log::warning('Health monitor: No admins opted into health alerts, skipping reminder');
+
             return;
         }
 
@@ -354,14 +357,14 @@ class HealthMonitorService
                 'notified_at' => now(),
             ]);
 
-            Log::info("Health monitor: Sent degradation reminder", [
+            Log::info('Health monitor: Sent degradation reminder', [
                 'component' => $component->slug,
                 'action_id' => $action->id,
                 'recipients' => count($recipients),
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Health monitor: Failed to create reminder", [
+            Log::error('Health monitor: Failed to create reminder', [
                 'component' => $component->slug,
                 'error' => $e->getMessage(),
             ]);
@@ -391,7 +394,7 @@ MSG;
     /**
      * Auto-create incident for critical issues.
      *
-     * @param array<string, int>|null $distribution Distribution info (affected_accounts, affected_domains)
+     * @param  array<string, int>|null  $distribution  Distribution info (affected_accounts, affected_domains)
      */
     private function createAutoIncident(SystemComponent $component, ?float $failureRate = null, ?int $stuckCount = null, ?array $distribution = null): void
     {
@@ -408,13 +411,13 @@ MSG;
 
         if ($failureRate !== null) {
             $title = "Critical: High delivery error rate ({$failureRate}%)";
-            $reason = "Delivery error rate exceeded {$failureRate}% (threshold: " . $this->getThresholds()['failure_rate_critical'] . "%)";
+            $reason = "Delivery error rate exceeded {$failureRate}% (threshold: ".$this->getThresholds()['failure_rate_critical'].'%)';
             if ($distribution) {
                 $reason .= " across {$distribution['affected_accounts']} accounts and {$distribution['affected_domains']} domains";
             }
         } else {
             $title = "Critical: {$stuckCount} actions stuck";
-            $reason = "{$stuckCount} actions stuck in EXECUTING state (threshold: " . $this->getThresholds()['stuck_executing_critical'] . ")";
+            $reason = "{$stuckCount} actions stuck in EXECUTING state (threshold: ".$this->getThresholds()['stuck_executing_critical'].')';
         }
 
         $summary = "Automated incident: {$reason}";
@@ -427,7 +430,7 @@ MSG;
             $systemUser
         );
 
-        Log::warning("Health monitor: Auto-created incident", [
+        Log::warning('Health monitor: Auto-created incident', [
             'component' => $component->slug,
             'title' => $title,
             'distribution' => $distribution,
@@ -445,7 +448,8 @@ MSG;
         $recipients = AdminNotificationPreference::getIncidentAlertRecipients();
 
         if (empty($recipients)) {
-            Log::info("Health monitor: No admins opted into incident alerts, skipping notification");
+            Log::info('Health monitor: No admins opted into incident alerts, skipping notification');
+
             return;
         }
 
@@ -454,12 +458,12 @@ MSG;
                 Mail::to($email)->queue(new IncidentAlertMail($incident, $component->name, $reason));
             }
 
-            Log::info("Health monitor: Sent incident notifications", [
+            Log::info('Health monitor: Sent incident notifications', [
                 'incident_id' => $incident->id,
                 'recipients' => count($recipients),
             ]);
         } catch (\Exception $e) {
-            Log::error("Health monitor: Failed to send incident notification", [
+            Log::error('Health monitor: Failed to send incident notification', [
                 'incident_id' => $incident->id,
                 'error' => $e->getMessage(),
             ]);
@@ -500,7 +504,7 @@ MSG;
      */
     private function createHeartbeat(): ?array
     {
-        if (!config('callmelater.health_monitor.heartbeat_enabled', true)) {
+        if (! config('callmelater.health_monitor.heartbeat_enabled', true)) {
             return null;
         }
 
@@ -558,6 +562,7 @@ MSG;
     private function getHeartbeatUrl(): string
     {
         $baseUrl = config('app.url');
-        return rtrim($baseUrl, '/') . '/api/internal/heartbeat';
+
+        return rtrim($baseUrl, '/').'/api/internal/heartbeat';
     }
 }

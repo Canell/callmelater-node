@@ -8,6 +8,7 @@ use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
 use App\Services\BrevoService;
+use App\Services\QuotaService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -29,7 +30,7 @@ class DeliverReminder implements ShouldQueue
         public ScheduledAction $action
     ) {}
 
-    public function handle(BrevoService $brevoService): void
+    public function handle(BrevoService $brevoService, QuotaService $quotaService): void
     {
         // CRITICAL: Verify action is still in EXECUTING state
         // This guards against cancellation race conditions
@@ -106,10 +107,26 @@ class DeliverReminder implements ShouldQueue
                 $sentCount++;
                 $channelsUsed['email'] = true;
             } elseif ($isPhone) {
+                // Check SMS quota before sending
+                $account = $this->action->account;
+                if ($account && ! $quotaService->canSendSms($account)) {
+                    Log::warning('SMS quota exceeded, skipping SMS delivery', [
+                        'action_id' => $this->action->id,
+                        'recipient' => $recipient,
+                    ]);
+
+                    continue;
+                }
+
                 $this->sendSms($recipientRecord, $brevoService);
                 $recipientRecord->update(['status' => ReminderRecipient::STATUS_SENT]);
                 $sentCount++;
                 $channelsUsed['sms'] = true;
+
+                // Record SMS usage
+                if ($account) {
+                    $quotaService->recordSmsSent($account);
+                }
             }
         }
 

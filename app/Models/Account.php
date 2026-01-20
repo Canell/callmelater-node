@@ -17,7 +17,7 @@ use Laravel\Cashier\Billable;
  * @property string|null $manual_plan
  * @property \Carbon\Carbon|null $manual_plan_expires_at
  * @property string|null $manual_plan_reason
- * @property-read User $owner
+ * @property-read User|null $owner
  * @property-read Collection<int, User> $members
  */
 class Account extends Model

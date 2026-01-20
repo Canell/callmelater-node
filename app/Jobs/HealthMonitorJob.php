@@ -21,12 +21,13 @@ class HealthMonitorJob implements ShouldQueue
         try {
             $results = $healthMonitor->check();
 
-            if (!$results['enabled']) {
-                Log::debug("Health monitor: Disabled, skipping check");
+            if (! $results['enabled']) {
+                Log::debug('Health monitor: Disabled, skipping check');
+
                 return;
             }
 
-            Log::info("Health monitor: Check completed", [
+            Log::info('Health monitor: Check completed', [
                 'metrics' => $results['metrics'] ?? [],
                 'results' => array_map(
                     fn ($r) => $r['action'] ?? 'unknown',
@@ -35,7 +36,7 @@ class HealthMonitorJob implements ShouldQueue
             ]);
 
         } catch (\Throwable $e) {
-            Log::error("Health monitor: Check failed", [
+            Log::error('Health monitor: Check failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);

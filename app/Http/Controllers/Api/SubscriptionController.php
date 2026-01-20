@@ -12,7 +12,6 @@ class SubscriptionController extends Controller
     /**
      * Get the current user's subscription status.
      */
-
     public function status(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -133,7 +132,7 @@ class SubscriptionController extends Controller
         }
 
         $url = $account->billingPortalUrl(
-            config('app.url') . '/dashboard'
+            config('app.url').'/dashboard'
         );
 
         return response()->json([

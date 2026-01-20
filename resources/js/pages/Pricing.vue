@@ -41,10 +41,10 @@
                 <ul class="feature-list mb-4">
                   <li class="included">100 actions/month</li>
                   <li class="included">3 retry attempts</li>
-                  <li class="included">Email reminders only</li>
+                  <li class="included">Email reminders</li>
                   <li class="included">7-day history</li>
                   <li class="included">Webhook signatures</li>
-                  <li class="excluded">SMS reminders</li>
+                  <li class="excluded">0 SMS/month</li>
                 </ul>
                 <router-link to="/register" class="btn btn-outline-cml w-100">Get Started</router-link>
               </div>
@@ -72,7 +72,8 @@
                 <ul class="feature-list mb-4">
                   <li class="included">5,000 actions/month</li>
                   <li class="included">10 retry attempts</li>
-                  <li class="included">Email + SMS reminders</li>
+                  <li class="included">Email reminders</li>
+                  <li class="included">15 SMS/month</li>
                   <li class="included">90-day history</li>
                   <li class="included">Webhook signatures</li>
                   <li class="included">Callback webhooks</li>
@@ -104,7 +105,8 @@
                 <ul class="feature-list mb-4">
                   <li class="included">25,000 actions/month</li>
                   <li class="included">Unlimited retries</li>
-                  <li class="included">Email + SMS reminders</li>
+                  <li class="included">Email reminders</li>
+                  <li class="included">50 SMS/month</li>
                   <li class="included">1-year history</li>
                   <li class="included">Webhook signatures</li>
                   <li class="included">Callback webhooks</li>
@@ -128,6 +130,7 @@
                 <ul class="feature-list mb-4">
                   <li class="included">Everything in Business</li>
                   <li class="included">Unlimited actions</li>
+                  <li class="included">Custom SMS quota</li>
                   <li class="included">Custom retention</li>
                   <li class="included">Dedicated support</li>
                   <li class="included">Custom SLA available</li>

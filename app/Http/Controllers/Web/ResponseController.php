@@ -20,8 +20,11 @@ class ResponseController extends Controller
      */
     public function show(Request $request): View
     {
+        /** @var string|null $token */
         $token = $request->query('token');
+        /** @var string|null $response */
         $response = $request->query('response');
+        /** @var string $preset */
         $preset = $request->query('preset', '1h');
 
         // If token exists but no response, show the choice page (for SMS links)
@@ -33,6 +36,7 @@ class ResponseController extends Controller
         $success = null;
         $action = null;
 
+        // @phpstan-ignore booleanNot.alwaysFalse (false positive - $response can be null if $token is null)
         if (! $token || ! $response) {
             $error = 'Invalid response link.';
         } else {

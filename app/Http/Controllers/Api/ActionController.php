@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\RetryNotAllowedException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CreateActionRequest;
 use App\Http\Resources\ActionCollection;
@@ -9,6 +10,8 @@ use App\Http\Resources\ActionResource;
 use App\Models\ScheduledAction;
 use App\Services\ActionService;
 use App\Services\HttpRequestService;
+use App\Services\ManualRetryService;
+use App\Services\QuotaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,7 +39,7 @@ class ActionController extends Controller
                     ScheduledAction::STATUS_EXPIRED,
                 ])
                 // Or show terminal actions within history window
-                ->orWhere('created_at', '>=', $cutoffDate);
+                    ->orWhere('created_at', '>=', $cutoffDate);
             })
             ->orderBy('created_at', 'desc');
 
@@ -45,7 +48,7 @@ class ActionController extends Controller
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -77,7 +80,7 @@ class ActionController extends Controller
     public function show(Request $request, string $id): ActionResource|JsonResponse
     {
         $user = $request->user();
-        $action = ScheduledAction::with(['deliveryAttempts', 'reminderEvents', 'recipients'])
+        $action = ScheduledAction::with(['deliveryAttempts', 'reminderEvents', 'recipients', 'executionCycles.triggeredByUser'])
             ->where('account_id', $user->account_id)
             ->find($id);
 
@@ -99,6 +102,7 @@ class ActionController extends Controller
 
         try {
             $this->actionService->cancel($action);
+
             return response()->json(['message' => 'Action cancelled']);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
@@ -148,6 +152,7 @@ class ActionController extends Controller
 
         try {
             $this->actionService->cancel($action);
+
             return response()->json([
                 'message' => 'Action cancelled',
                 'id' => $action->id,
@@ -182,5 +187,73 @@ class ActionController extends Controller
         $result = $this->httpRequestService->execute($config);
 
         return response()->json($result);
+    }
+
+    /**
+     * Manually retry a failed action.
+     *
+     * POST /v1/actions/{id}/retry
+     */
+    public function retry(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+        $action = ScheduledAction::where('account_id', $user->account_id)->find($id);
+
+        if (! $action) {
+            return response()->json(['message' => 'Action not found'], 404);
+        }
+
+        $retryService = app(ManualRetryService::class);
+        $check = $retryService->canRetry($action, $user);
+
+        if (! $check['allowed']) {
+            return response()->json([
+                'message' => 'Retry not allowed',
+                'reasons' => $check['reasons'],
+            ], 422);
+        }
+
+        try {
+            $cycle = $retryService->retry($action, $user);
+
+            return response()->json([
+                'message' => 'Action retry initiated',
+                'execution_cycle_id' => $cycle->id,
+                'action' => new ActionResource($action->fresh(['deliveryAttempts', 'reminderEvents', 'recipients', 'executionCycles.triggeredByUser'])),
+            ]);
+        } catch (RetryNotAllowedException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Get current quota usage.
+     *
+     * GET /v1/quota
+     */
+    public function quota(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $account = $user->account;
+
+        if (! $account) {
+            return response()->json(['message' => 'No account found'], 404);
+        }
+
+        $quotaService = app(QuotaService::class);
+        $usage = $quotaService->getUsage($account);
+
+        return response()->json([
+            'period' => [
+                'year' => now()->year,
+                'month' => now()->month,
+                'month_name' => now()->format('F Y'),
+            ],
+            'actions' => $usage['actions'],
+            'sms' => $usage['sms'],
+            'plan' => $account->getPlan(),
+        ]);
     }
 }

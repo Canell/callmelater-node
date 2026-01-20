@@ -15,7 +15,7 @@ class HttpRequestService
     /**
      * Execute an HTTP request and return the result.
      *
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      * @return array{success: bool, status_code: int|null, duration_ms: int, error: string|null, body: string|null}
      */
     public function execute(array $config): array
@@ -73,7 +73,7 @@ class HttpRequestService
     /**
      * Make the actual HTTP request.
      *
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     public function makeRequest(array $config, ?string $webhookSecret = null, ?string $actionId = null, ?string $event = null): Response
     {
@@ -122,13 +122,13 @@ class HttpRequestService
     /**
      * Generate HMAC signature for webhook.
      *
-     * @param array<string, mixed>|null $body
+     * @param  array<string, mixed>|null  $body
      */
     public function generateSignature(?array $body, string $secret): string
     {
         $payload = $body ? json_encode($body) : '';
 
-        return 'sha256=' . hash_hmac('sha256', $payload ?: '', $secret);
+        return 'sha256='.hash_hmac('sha256', $payload ?: '', $secret);
     }
 
     /**

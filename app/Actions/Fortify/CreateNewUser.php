@@ -74,6 +74,6 @@ class CreateNewUser implements CreatesNewUsers
      */
     protected function throttleKey(): string
     {
-        return 'registration|' . request()->ip();
+        return 'registration|'.request()->ip();
     }
 }

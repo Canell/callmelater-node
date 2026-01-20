@@ -29,6 +29,7 @@ class RecoverStuckPendingActions extends Command
 
         if ($stuck->isEmpty()) {
             $this->info('No stuck pending_resolution actions found.');
+
             return Command::SUCCESS;
         }
 
@@ -46,13 +47,14 @@ class RecoverStuckPendingActions extends Command
             $action->refresh();
             if ($action->resolution_status !== ScheduledAction::STATUS_PENDING_RESOLUTION) {
                 $this->line("    -> Skipped (state changed to {$action->resolution_status})");
+
                 continue;
             }
 
             ResolveIntentJob::dispatch($action);
             $recovered++;
 
-            Log::info("Manually recovered pending_resolution action", [
+            Log::info('Manually recovered pending_resolution action', [
                 'action_id' => $action->id,
             ]);
         }
@@ -61,7 +63,7 @@ class RecoverStuckPendingActions extends Command
             $this->info("Dry run complete. Would recover {$stuck->count()} action(s).");
         } else {
             $this->info("Dispatched ResolveIntentJob for {$recovered} action(s).");
-            Log::info("Stuck pending_resolution actions recovery completed", ['recovered' => $recovered]);
+            Log::info('Stuck pending_resolution actions recovery completed', ['recovered' => $recovered]);
         }
 
         return Command::SUCCESS;

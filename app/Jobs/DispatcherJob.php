@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Jobs\ResolveIntentJob;
 use App\Models\ScheduledAction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -34,7 +33,7 @@ class DispatcherJob implements ShouldQueue
         } while ($count === self::BATCH_SIZE);
 
         if ($dispatched > 0) {
-            Log::info("Dispatcher completed", ['dispatched' => $dispatched]);
+            Log::info('Dispatcher completed', ['dispatched' => $dispatched]);
         }
     }
 
@@ -65,10 +64,10 @@ class DispatcherJob implements ShouldQueue
                 ->where('resolution_status', ScheduledAction::STATUS_RESOLVED)
                 ->where(function ($query) {
                     $query->where('execute_at_utc', '<=', now())
-                          ->orWhere(function ($q) {
-                              $q->whereNotNull('next_retry_at')
+                        ->orWhere(function ($q) {
+                            $q->whereNotNull('next_retry_at')
                                 ->where('next_retry_at', '<=', now());
-                          });
+                        });
                 })
                 ->orderBy('execute_at_utc')
                 ->limit(self::BATCH_SIZE)
@@ -79,7 +78,7 @@ class DispatcherJob implements ShouldQueue
             // This is the critical fix: actions become non-selectable immediately
             foreach ($actions as $action) {
                 // Double-check after lock (cancellation race protection)
-                if (!$action->canBeExecuted()) {
+                if (! $action->canBeExecuted()) {
                     continue;
                 }
 
@@ -102,7 +101,7 @@ class DispatcherJob implements ShouldQueue
                 DeliverReminder::dispatch($action);
             }
 
-            Log::debug("Action dispatched", [
+            Log::debug('Action dispatched', [
                 'action_id' => $action->id,
                 'type' => $action->type,
             ]);
@@ -111,7 +110,7 @@ class DispatcherJob implements ShouldQueue
             $action->resolution_status = ScheduledAction::STATUS_RESOLVED;
             $action->save();
 
-            Log::error("Failed to dispatch action", [
+            Log::error('Failed to dispatch action', [
                 'action_id' => $action->id,
                 'error' => $e->getMessage(),
             ]);
@@ -150,7 +149,7 @@ class DispatcherJob implements ShouldQueue
         }
 
         if ($recovered > 0) {
-            Log::info("Recovered stuck pending_resolution actions", ['count' => $recovered]);
+            Log::info('Recovered stuck pending_resolution actions', ['count' => $recovered]);
         }
     }
 }

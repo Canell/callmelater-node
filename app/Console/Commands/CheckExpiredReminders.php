@@ -45,7 +45,7 @@ class CheckExpiredReminders extends Command
 
         if ($count > 0) {
             $this->info("Marked {$count} reminder(s) as expired.");
-            Log::info("Expired reminders check completed", ['expired_count' => $count]);
+            Log::info('Expired reminders check completed', ['expired_count' => $count]);
         }
 
         return Command::SUCCESS;

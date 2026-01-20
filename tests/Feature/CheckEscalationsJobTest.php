@@ -47,7 +47,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertSent(EscalationMail::class, function ($mail) {
@@ -74,7 +74,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         $escalatedEvent = ReminderEvent::where('reminder_id', $action->id)
@@ -105,7 +105,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertNotSent(EscalationMail::class);
@@ -136,7 +136,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertNotSent(EscalationMail::class);
@@ -160,7 +160,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertNotSent(EscalationMail::class);
@@ -193,7 +193,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertNotSent(EscalationMail::class);
@@ -218,7 +218,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertSent(EscalationMail::class, 2);
@@ -247,7 +247,7 @@ class CheckEscalationsJobTest extends TestCase
             ->with('+15551234567', Mockery::type('string'))
             ->andReturn('msg_123');
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertNotSent(EscalationMail::class);
@@ -272,7 +272,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         $recipient = ReminderRecipient::where('action_id', $action->id)
@@ -297,7 +297,7 @@ class CheckEscalationsJobTest extends TestCase
 
         $brevoService = Mockery::mock(BrevoService::class);
 
-        $job = new CheckEscalationsJob();
+        $job = new CheckEscalationsJob;
         $job->handle($brevoService);
 
         Mail::assertNotSent(EscalationMail::class);

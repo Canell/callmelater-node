@@ -9,7 +9,7 @@ class SystemComponentSeeder extends Seeder
 {
     public function run(): void
     {
-        $service = new StatusService();
+        $service = new StatusService;
         $service->seedDefaultComponents();
     }
 }

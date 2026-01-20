@@ -13,7 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class AccountPlanOverride extends Model
 {
     public const ACTION_SET = 'set';
+
     public const ACTION_REVOKED = 'revoked';
+
     public const ACTION_EXPIRED = 'expired';
 
     protected $fillable = [

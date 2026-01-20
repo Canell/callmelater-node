@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 class MagicLinkToken extends Model
 {
     public const PURPOSE_LOGIN = 'login';
+
     public const PURPOSE_SIGNUP = 'signup';
 
     protected $fillable = [
@@ -57,7 +58,7 @@ class MagicLinkToken extends Model
 
     public function isValid(): bool
     {
-        return !$this->isExpired() && !$this->isUsed();
+        return ! $this->isExpired() && ! $this->isUsed();
     }
 
     public function markUsed(): void

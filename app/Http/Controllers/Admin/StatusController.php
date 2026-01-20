@@ -203,6 +203,7 @@ class StatusController extends Controller
             'data' => $events->map(function (StatusEvent $e): array {
                 /** @var \App\Models\User|null $creator */
                 $creator = $e->creator;
+
                 return [
                     'id' => $e->id,
                     'status' => $e->status,

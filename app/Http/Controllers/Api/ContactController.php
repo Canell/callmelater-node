@@ -37,7 +37,7 @@ class ContactController extends Controller
         Mail::raw($this->formatMessage($validated, $userInfo), function ($message) use ($validated) {
             $message->to(config('mail.support_address', 'support@callmelater.io'))
                 ->replyTo($validated['email'], $validated['name'])
-                ->subject('[CallMeLater Contact] ' . $this->getSubjectLabel($validated['subject']));
+                ->subject('[CallMeLater Contact] '.$this->getSubjectLabel($validated['subject']));
         });
 
         return response()->json([
@@ -175,7 +175,7 @@ class ContactController extends Controller
 
         $userSection = $userInfo['is_user']
             ? "Existing User: Yes\nPlan: {$userInfo['plan']}\nAccount: {$userInfo['account_name']}\nMember Since: {$userInfo['member_since']}{$subscriptionLine}"
-            : "Existing User: No";
+            : 'Existing User: No';
 
         return <<<TEXT
 New contact form submission:

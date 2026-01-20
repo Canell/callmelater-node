@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Models\Account;
-use App\Models\AccountPlanOverride;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,6 +12,7 @@ class ManualPlanOverrideTest extends TestCase
     use RefreshDatabase;
 
     private User $user;
+
     private Account $account;
 
     protected function setUp(): void

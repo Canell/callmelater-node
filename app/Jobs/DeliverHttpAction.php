@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\DeliveryAttempt;
+use App\Models\ExecutionCycle;
 use App\Models\ScheduledAction;
 use App\Services\HttpRequestService;
 use App\Services\UrlValidator;
@@ -24,7 +25,9 @@ class DeliverHttpAction implements ShouldQueue
 
     // Failure types for structured logging and retry decisions
     private const FAILURE_DOMAIN_CLIENT = 'domain_client';    // 4xx - client error, don't retry
+
     private const FAILURE_DOMAIN_SERVER = 'domain_server';    // 5xx - server error, retry
+
     private const FAILURE_SYSTEM = 'system';                   // Network/timeout, always retry
 
     public function __construct(
@@ -36,11 +39,12 @@ class DeliverHttpAction implements ShouldQueue
         // CRITICAL: Verify action is still in EXECUTING state
         // This guards against cancellation race conditions
         $this->action->refresh();
-        if (!$this->action->isExecuting()) {
+        if (! $this->action->isExecuting()) {
             $this->log('info', 'action_skipped', [
                 'reason' => 'no_longer_executing',
                 'current_status' => $this->action->resolution_status,
             ]);
+
             return;
         }
 
@@ -50,6 +54,7 @@ class DeliverHttpAction implements ShouldQueue
         if (! is_array($httpRequest) || ! isset($httpRequest['url'])) {
             $this->log('error', 'validation_failed', ['reason' => 'invalid_config']);
             $this->action->markAsFailed('Invalid HTTP request configuration');
+
             return;
         }
 
@@ -62,6 +67,7 @@ class DeliverHttpAction implements ShouldQueue
                 'detail' => $e->getMessage(),
             ]);
             $this->action->markAsFailed("Security: {$e->getMessage()}");
+
             return;
         }
 
@@ -77,6 +83,7 @@ class DeliverHttpAction implements ShouldQueue
                     'max_size' => $maxSize,
                 ]);
                 $this->action->markAsFailed("Request body exceeds maximum size ({$maxSize} bytes)");
+
                 return;
             }
         }
@@ -87,6 +94,8 @@ class DeliverHttpAction implements ShouldQueue
         $startTime = microtime(true);
         $attempt = new DeliveryAttempt([
             'action_id' => $this->action->id,
+            'execution_cycle_id' => $this->action->current_execution_cycle_id,
+            'execution_id' => $this->action->current_execution_cycle_id ?? $this->action->id,
             'attempt_number' => $this->action->attempt_count,
             'target_domain' => parse_url($httpRequest['url'], PHP_URL_HOST),
         ]);
@@ -152,6 +161,12 @@ class DeliverHttpAction implements ShouldQueue
     {
         $this->action->markAsExecuted();
 
+        // Update execution cycle if present
+        if ($this->action->current_execution_cycle_id) {
+            ExecutionCycle::find($this->action->current_execution_cycle_id)
+                ?->markAsSuccess();
+        }
+
         $this->log('info', 'delivery_success', [
             'status_code' => $statusCode,
             'duration_ms' => $durationMs,
@@ -171,6 +186,7 @@ class DeliverHttpAction implements ShouldQueue
         if ($isClientError) {
             // 4xx - Client errors are terminal (bad request, not found, unauthorized, etc.)
             $this->action->markAsFailed("HTTP {$statusCode}: Client error (not retryable)");
+            $this->updateExecutionCycleOnFailure("HTTP {$statusCode}: Client error (not retryable)");
 
             $this->log('warning', 'delivery_failed', [
                 'failure_type' => $failureType,
@@ -194,7 +210,9 @@ class DeliverHttpAction implements ShouldQueue
                     'attempts_remaining' => $this->action->max_attempts - $this->action->attempt_count,
                 ]);
             } else {
-                $this->action->markAsFailed("HTTP {$statusCode}: Failed after {$this->action->attempt_count} attempts");
+                $failureReason = "HTTP {$statusCode}: Failed after {$this->action->attempt_count} attempts";
+                $this->action->markAsFailed($failureReason);
+                $this->updateExecutionCycleOnFailure($failureReason);
 
                 $this->log('error', 'delivery_failed', [
                     'failure_type' => $failureType,
@@ -226,7 +244,9 @@ class DeliverHttpAction implements ShouldQueue
                 'attempts_remaining' => $this->action->max_attempts - $this->action->attempt_count,
             ]);
         } else {
-            $this->action->markAsFailed("System error: {$errorMessage} (after {$this->action->attempt_count} attempts)");
+            $failureReason = "System error: {$errorMessage} (after {$this->action->attempt_count} attempts)";
+            $this->action->markAsFailed($failureReason);
+            $this->updateExecutionCycleOnFailure($failureReason);
 
             $this->log('error', 'delivery_failed', [
                 'failure_type' => self::FAILURE_SYSTEM,
@@ -242,7 +262,7 @@ class DeliverHttpAction implements ShouldQueue
     /**
      * Structured logging with consistent context.
      *
-     * @param array<string, mixed> $extra
+     * @param  array<string, mixed>  $extra
      */
     private function log(string $level, string $event, array $extra = []): void
     {
@@ -253,5 +273,16 @@ class DeliverHttpAction implements ShouldQueue
         ], $extra);
 
         Log::{$level}("HTTP Executor: {$event}", $context);
+    }
+
+    /**
+     * Update the current execution cycle when action fails terminally.
+     */
+    private function updateExecutionCycleOnFailure(string $reason): void
+    {
+        if ($this->action->current_execution_cycle_id) {
+            ExecutionCycle::find($this->action->current_execution_cycle_id)
+                ?->markAsFailed($reason);
+        }
     }
 }

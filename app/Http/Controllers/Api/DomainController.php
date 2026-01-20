@@ -81,7 +81,7 @@ class DomainController extends Controller
             ->where('domain', $normalizedDomain)
             ->first();
 
-        if (!$verification) {
+        if (! $verification) {
             return response()->json([
                 'error' => 'not_found',
                 'message' => 'No verification record found for this domain.',
@@ -127,7 +127,7 @@ class DomainController extends Controller
             ->where('domain', $normalizedDomain)
             ->first();
 
-        if (!$verification) {
+        if (! $verification) {
             return response()->json([
                 'error' => 'not_found',
                 'message' => 'No verification record found for this domain.',

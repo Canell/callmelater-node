@@ -7,7 +7,6 @@ use App\Models\VerifiedDomain;
 use App\Services\DomainVerificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Mockery;
 use Tests\TestCase;
 
 class DomainVerificationApiTest extends TestCase

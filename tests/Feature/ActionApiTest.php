@@ -333,7 +333,7 @@ class ActionApiTest extends TestCase
         $this->createAction('Executed', ScheduledAction::STATUS_EXECUTED);
         $this->createAction('Failed', ScheduledAction::STATUS_FAILED);
 
-        $response = $this->getJson('/api/v1/actions?status=' . ScheduledAction::STATUS_EXECUTED);
+        $response = $this->getJson('/api/v1/actions?status='.ScheduledAction::STATUS_EXECUTED);
 
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')

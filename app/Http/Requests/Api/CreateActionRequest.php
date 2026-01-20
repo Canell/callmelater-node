@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use App\Models\ScheduledAction;
+use App\Models\UsageCounter;
 use App\Services\IntentResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -136,6 +137,17 @@ class CreateActionRequest extends FormRequest
      */
     private function validatePlanLimits(\Illuminate\Validation\Validator $validator, \App\Models\User $user): void
     {
+        // Check monthly actions limit
+        $maxActionsPerMonth = $user->getPlanLimit('max_actions_per_month');
+        $counter = UsageCounter::forCurrentMonth($user->account_id);
+
+        if ($counter->actions_created >= $maxActionsPerMonth) {
+            $validator->errors()->add(
+                'limit',
+                "You have reached your monthly limit of {$maxActionsPerMonth} actions. Upgrade your plan to create more actions."
+            );
+        }
+
         // Check pending actions limit (per account)
         $maxPending = $user->getPlanLimit('max_pending_actions');
         $currentPending = ScheduledAction::query()

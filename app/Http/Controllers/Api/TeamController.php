@@ -215,7 +215,7 @@ class TeamController extends Controller
         $team->load(['owner', 'members']);
 
         return response()->json([
-            'message' => 'Invitation sent to ' . $email,
+            'message' => 'Invitation sent to '.$email,
             'invitation_sent' => true,
             'team' => new TeamResource($team),
         ]);

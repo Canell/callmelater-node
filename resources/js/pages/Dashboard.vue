@@ -19,6 +19,13 @@
             </router-link>
         </div>
 
+        <!-- Quota Widget -->
+        <div class="row mb-4">
+            <div class="col-md-6 col-lg-4">
+                <QuotaWidget />
+            </div>
+        </div>
+
         <!-- Filters -->
         <div class="card card-cml mb-4">
             <div class="card-body d-flex gap-3">
@@ -171,6 +178,7 @@ import axios from 'axios';
 import { useActionStatus } from '../composables/useActionStatus';
 import { formatDate } from '../utils/dateFormatting';
 import ConfirmModal from '../components/ConfirmModal.vue';
+import QuotaWidget from '../components/QuotaWidget.vue';
 
 const { formatStatus, statusBadgeClass, canCancel } = useActionStatus();
 
@@ -178,6 +186,7 @@ export default {
     name: 'Dashboard',
     components: {
         ConfirmModal,
+        QuotaWidget,
     },
     inject: ['toast'],
     data() {

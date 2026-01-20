@@ -9,6 +9,7 @@ use Tests\TestCase;
 class UserPlanLimitsTest extends TestCase
 {
     use RefreshDatabase;
+
     public function test_free_user_gets_free_plan(): void
     {
         $user = User::factory()->create();

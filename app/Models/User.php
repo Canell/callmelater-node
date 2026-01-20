@@ -22,12 +22,13 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $webhook_secret
  * @property array|null $notification_preferences
  * @property string|null $account_id
+ * @property \Carbon\Carbon|null $quota_warning_sent_at
  * @property-read Account|null $account
  */
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'name',
@@ -39,6 +40,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'webhook_secret',
         'notification_preferences',
         'account_id',
+        'quota_warning_sent_at',
     ];
 
     protected $hidden = [
@@ -54,6 +56,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'is_admin' => 'boolean',
             'notification_preferences' => 'array',
+            'quota_warning_sent_at' => 'datetime',
         ];
     }
 
@@ -65,7 +68,7 @@ class User extends Authenticatable implements MustVerifyEmail
         static::creating(function (User $user) {
             // Generate webhook secret if not provided
             if (empty($user->webhook_secret)) {
-                $user->webhook_secret = 'whsec_' . Str::random(32);
+                $user->webhook_secret = 'whsec_'.Str::random(32);
             }
         });
 

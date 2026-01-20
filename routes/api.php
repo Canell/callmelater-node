@@ -4,9 +4,9 @@ use App\Http\Controllers\Admin\StatusController;
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\AdminController;
-use App\Http\Controllers\Api\HeartbeatController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
+use App\Http\Controllers\Api\HeartbeatController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
@@ -89,6 +89,8 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         // Cancel by idempotency key (must be before /{id} route)
         Route::delete('/actions', [ActionController::class, 'destroyByIdempotencyKey']);
         Route::delete('/actions/{id}', [ActionController::class, 'destroy']);
+        Route::post('/actions/{id}/retry', [ActionController::class, 'retry']);
+        Route::get('/quota', [ActionController::class, 'quota']);
 
         // Domain Verification
         Route::get('/domains', [DomainController::class, 'index']);

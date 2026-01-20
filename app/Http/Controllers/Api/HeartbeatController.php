@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\ScheduledAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -39,7 +38,7 @@ class HeartbeatController extends Controller
      */
     private function recordHeartbeat(?string $actionId, ?string $heartbeatId): void
     {
-        if (!$actionId) {
+        if (! $actionId) {
             return;
         }
 

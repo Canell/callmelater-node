@@ -70,6 +70,7 @@ class DeliverReminderCallback implements ShouldQueue
                 'reason' => 'security_block',
                 'detail' => $e->getMessage(),
             ]);
+
             return; // Security failure - don't retry
         }
 
@@ -168,6 +169,7 @@ class DeliverReminderCallback implements ShouldQueue
                 'attempt' => $this->attemptNumber,
                 'max_attempts' => self::MAX_ATTEMPTS,
             ]);
+
             return;
         }
 
@@ -209,7 +211,7 @@ class DeliverReminderCallback implements ShouldQueue
     /**
      * Structured logging with consistent context.
      *
-     * @param array<string, mixed> $extra
+     * @param  array<string, mixed>  $extra
      */
     private function log(string $level, string $event, array $extra = []): void
     {

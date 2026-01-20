@@ -10,6 +10,7 @@ use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
 use App\Models\User;
 use App\Services\BrevoService;
+use App\Services\QuotaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Mockery;
@@ -21,10 +22,18 @@ class DeliverReminderTest extends TestCase
 
     private User $user;
 
+    private QuotaService $quotaService;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->user = User::factory()->create();
+
+        // Create a mock QuotaService that allows SMS (no quota checks in tests)
+        $this->quotaService = Mockery::mock(QuotaService::class);
+        $this->quotaService->shouldReceive('canSendSms')->andReturn(true);
+        $this->quotaService->shouldReceive('recordSmsSent')->andReturn(null);
+
         Mail::fake();
     }
 
@@ -40,7 +49,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         Mail::assertSent(ReminderMail::class, function ($mail) {
             return $mail->hasTo('test@example.com');
@@ -57,7 +66,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         $recipient = ReminderRecipient::where('action_id', $action->id)->first();
         $this->assertNotNull($recipient);
@@ -76,7 +85,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         Mail::assertSent(ReminderMail::class, 3);
 
@@ -99,7 +108,7 @@ class DeliverReminderTest extends TestCase
             ->andReturn('msg_123');
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         // No email should be sent for phone numbers
         Mail::assertNotSent(ReminderMail::class);
@@ -118,7 +127,7 @@ class DeliverReminderTest extends TestCase
             ->andReturn('msg_123');
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         Mail::assertSent(ReminderMail::class, 1);
 
@@ -144,7 +153,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         // Only allowed recipient should receive email
         Mail::assertSent(ReminderMail::class, 1);
@@ -171,7 +180,7 @@ class DeliverReminderTest extends TestCase
         $brevoService->shouldNotReceive('sendReminderSms');
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         // Verify no recipient record was marked as sent
         $recipient = ReminderRecipient::where('action_id', $action->id)->first();
@@ -194,7 +203,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         Mail::assertNotSent(ReminderMail::class);
     }
@@ -211,7 +220,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         $action->refresh();
         $this->assertEquals(ScheduledAction::STATUS_AWAITING_RESPONSE, $action->resolution_status);
@@ -228,7 +237,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         $action->refresh();
         $expectedExpiry = now()->addDays(14);
@@ -245,7 +254,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         $event = ReminderEvent::where('reminder_id', $action->id)
             ->where('event_type', ReminderEvent::TYPE_SENT)
@@ -268,7 +277,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         Mail::assertNotSent(ReminderMail::class);
         $action->refresh();
@@ -287,7 +296,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         $action->refresh();
         $this->assertEquals(ScheduledAction::STATUS_FAILED, $action->resolution_status);
@@ -314,7 +323,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         // Should not send again
         Mail::assertNotSent(ReminderMail::class);
@@ -335,7 +344,7 @@ class DeliverReminderTest extends TestCase
             ->andReturn('msg_123');
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         Mail::assertNotSent(ReminderMail::class);
     }
@@ -353,7 +362,7 @@ class DeliverReminderTest extends TestCase
             ->andReturn('msg_123');
 
         $job = new DeliverReminder($action);
-        $job->handle($brevoService);
+        $job->handle($brevoService, $this->quotaService);
 
         Mail::assertNotSent(ReminderMail::class);
     }

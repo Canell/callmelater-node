@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 class StatusService
 {
     private const CACHE_KEY = 'public_status';
+
     private const CACHE_TTL = 60; // 1 minute
 
     /**
@@ -102,6 +103,7 @@ class StatusService
         if ($components->contains('status', SystemComponent::STATUS_DEGRADED)) {
             return 'degraded';
         }
+
         return 'operational';
     }
 
@@ -210,7 +212,7 @@ class StatusService
                         ->where('incidents.id', '!=', $incident->id)
                         ->exists();
 
-                    if (!$hasOtherActiveIncidents) {
+                    if (! $hasOtherActiveIncidents) {
                         $this->updateComponentStatus(
                             $component,
                             SystemComponent::STATUS_OPERATIONAL,

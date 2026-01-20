@@ -23,6 +23,7 @@ class CallbackAttempt extends Model
     use HasUuids;
 
     public const STATUS_SUCCESS = 'success';
+
     public const STATUS_FAILED = 'failed';
 
     protected $fillable = [

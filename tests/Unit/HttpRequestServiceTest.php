@@ -14,7 +14,7 @@ class HttpRequestServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new HttpRequestService(new UrlValidator());
+        $this->service = new HttpRequestService(new UrlValidator);
     }
 
     public function test_successful_request(): void

@@ -11,13 +11,15 @@ use Illuminate\Support\Str;
 class ActionService
 {
     public function __construct(
-        private DomainVerificationService $domainVerificationService
+        private DomainVerificationService $domainVerificationService,
+        private QuotaService $quotaService
     ) {}
 
     /**
      * Create a new scheduled action.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
+     *
      * @throws DomainVerificationRequiredException
      */
     public function create(User $user, array $data): ScheduledAction
@@ -26,7 +28,7 @@ class ActionService
         if (($data['type'] ?? '') === ScheduledAction::TYPE_HTTP) {
             $this->checkDomainVerification($user, $data);
         }
-        $action = new ScheduledAction();
+        $action = new ScheduledAction;
         $action->account_id = $user->account_id;
         $action->created_by_user_id = $user->id;
         $action->name = $data['name'];
@@ -66,6 +68,11 @@ class ActionService
 
         $action->save();
 
+        // Record action creation for quota tracking
+        if ($user->account) {
+            $this->quotaService->recordActionCreated($user->account);
+        }
+
         // Dispatch intent resolution job
         ResolveIntentJob::dispatch($action);
 
@@ -83,7 +90,7 @@ class ActionService
     /**
      * Reschedule an action with a new intent.
      *
-     * @param array<string, mixed> $intent
+     * @param  array<string, mixed>  $intent
      */
     public function reschedule(ScheduledAction $action, array $intent): void
     {
@@ -126,6 +133,7 @@ class ActionService
 
     /**
      * Mark an action as executed.
+     *
      * @deprecated Use $action->markAsExecuted() directly
      */
     public function markExecuted(ScheduledAction $action): void
@@ -135,6 +143,7 @@ class ActionService
 
     /**
      * Mark an action as failed.
+     *
      * @deprecated Use $action->markAsFailed() directly
      */
     public function markFailed(ScheduledAction $action, string $reason): void
@@ -144,6 +153,7 @@ class ActionService
 
     /**
      * Mark an action as awaiting response (for reminders).
+     *
      * @deprecated Use $action->markAsAwaitingResponse() directly
      */
     public function markAwaitingResponse(ScheduledAction $action, int $tokenExpiryDays = 7): void
@@ -153,6 +163,7 @@ class ActionService
 
     /**
      * Schedule next retry for a failed HTTP delivery.
+     *
      * @deprecated Use $action->scheduleNextRetry() directly
      */
     public function scheduleRetry(ScheduledAction $action): void
@@ -163,7 +174,8 @@ class ActionService
     /**
      * Check domain verification for HTTP actions.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
+     *
      * @throws DomainVerificationRequiredException
      */
     private function checkDomainVerification(User $user, array $data): void
@@ -176,7 +188,7 @@ class ActionService
         $httpRequest = $data['http_request'] ?? [];
         $url = $httpRequest['url'] ?? null;
 
-        if (!$url) {
+        if (! $url) {
             return;
         }
 

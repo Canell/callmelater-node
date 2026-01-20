@@ -12,9 +12,11 @@ class VerifiedDomain extends Model
     use HasUuids;
 
     public const METHOD_DNS = 'dns';
+
     public const METHOD_FILE = 'file';
 
     public const VALIDITY_MONTHS = 12;
+
     public const GRACE_PERIOD_DAYS = 30;
 
     protected $fillable = [
@@ -36,7 +38,7 @@ class VerifiedDomain extends Model
      */
     public static function generateToken(): string
     {
-        return 'clm_' . Str::random(16);
+        return 'clm_'.Str::random(16);
     }
 
     /**
@@ -66,7 +68,7 @@ class VerifiedDomain extends Model
      */
     public function isVerified(): bool
     {
-        return $this->verified_at !== null && !$this->isExpired();
+        return $this->verified_at !== null && ! $this->isExpired();
     }
 
     /**
@@ -86,7 +88,7 @@ class VerifiedDomain extends Model
      */
     public function isInGracePeriod(): bool
     {
-        if (!$this->isExpired()) {
+        if (! $this->isExpired()) {
             return false;
         }
 

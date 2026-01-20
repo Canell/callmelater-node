@@ -39,8 +39,12 @@ use Illuminate\Support\Facades\Mail;
  * @property Carbon|null $token_expires_at
  * @property string|null $webhook_secret
  * @property string|null $callback_url
+ * @property string|null $current_execution_cycle_id
+ * @property int $manual_retry_count
+ * @property Carbon|null $last_manual_retry_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property-read Account|null $account
  */
 class ScheduledAction extends Model
 {
@@ -48,20 +52,29 @@ class ScheduledAction extends Model
 
     // Action types
     public const TYPE_HTTP = 'http';
+
     public const TYPE_REMINDER = 'reminder';
 
     // Intent types
     public const INTENT_ABSOLUTE = 'absolute';
+
     public const INTENT_WALL_CLOCK = 'wall_clock';
 
     // Resolution statuses
     public const STATUS_PENDING_RESOLUTION = 'pending_resolution';
+
     public const STATUS_RESOLVED = 'resolved';
+
     public const STATUS_EXECUTING = 'executing';
+
     public const STATUS_AWAITING_RESPONSE = 'awaiting_response';
+
     public const STATUS_EXECUTED = 'executed';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUS_EXPIRED = 'expired';
+
     public const STATUS_FAILED = 'failed';
 
     // Terminal statuses (no further transitions allowed)
@@ -81,11 +94,12 @@ class ScheduledAction extends Model
         self::STATUS_EXECUTED => [],
         self::STATUS_CANCELLED => [],
         self::STATUS_EXPIRED => [],
-        self::STATUS_FAILED => [],
+        self::STATUS_FAILED => [self::STATUS_RESOLVED], // Allow manual retry
     ];
 
     // Confirmation modes
     public const CONFIRMATION_FIRST_RESPONSE = 'first_response';
+
     public const CONFIRMATION_ALL_REQUIRED = 'all_required';
 
     protected $fillable = [
@@ -116,6 +130,9 @@ class ScheduledAction extends Model
         'token_expires_at',
         'webhook_secret',
         'callback_url',
+        'current_execution_cycle_id',
+        'manual_retry_count',
+        'last_manual_retry_at',
     ];
 
     protected function casts(): array
@@ -129,6 +146,7 @@ class ScheduledAction extends Model
             'last_attempt_at' => 'datetime',
             'next_retry_at' => 'datetime',
             'token_expires_at' => 'datetime',
+            'last_manual_retry_at' => 'datetime',
         ];
     }
 
@@ -176,6 +194,16 @@ class ScheduledAction extends Model
         return $this->hasMany(CallbackAttempt::class, 'action_id');
     }
 
+    public function executionCycles(): HasMany
+    {
+        return $this->hasMany(ExecutionCycle::class, 'action_id');
+    }
+
+    public function currentExecutionCycle(): BelongsTo
+    {
+        return $this->belongsTo(ExecutionCycle::class, 'current_execution_cycle_id');
+    }
+
     // Scopes
     public function scopeResolved($query)
     {
@@ -186,7 +214,7 @@ class ScheduledAction extends Model
     {
         return $query->where(function ($q) {
             $q->where('execute_at_utc', '<=', now())
-              ->orWhere('next_retry_at', '<=', now());
+                ->orWhere('next_retry_at', '<=', now());
         });
     }
 
@@ -236,6 +264,7 @@ class ScheduledAction extends Model
     public function canTransitionTo(string $newStatus): bool
     {
         $allowedTransitions = self::VALID_TRANSITIONS[$this->resolution_status] ?? [];
+
         return in_array($newStatus, $allowedTransitions, true);
     }
 
@@ -246,7 +275,7 @@ class ScheduledAction extends Model
      */
     private function transitionTo(string $newStatus): void
     {
-        if (!$this->canTransitionTo($newStatus)) {
+        if (! $this->canTransitionTo($newStatus)) {
             throw new \InvalidArgumentException(
                 "Invalid state transition from '{$this->resolution_status}' to '{$newStatus}' for action {$this->id}"
             );
@@ -285,6 +314,14 @@ class ScheduledAction extends Model
     public function canBeCancelled(): bool
     {
         return $this->canTransitionTo(self::STATUS_CANCELLED);
+    }
+
+    /**
+     * Check if this action can be manually retried.
+     */
+    public function canBeManuallyRetried(): bool
+    {
+        return $this->resolution_status === self::STATUS_FAILED;
     }
 
     /**
@@ -357,7 +394,7 @@ class ScheduledAction extends Model
      */
     public function cancel(): void
     {
-        if (!$this->canBeCancelled()) {
+        if (! $this->canBeCancelled()) {
             throw new \InvalidArgumentException(
                 "Cannot cancel action in '{$this->resolution_status}' state"
             );
@@ -385,8 +422,9 @@ class ScheduledAction extends Model
      */
     public function scheduleNextRetry(): void
     {
-        if (!$this->shouldRetry()) {
+        if (! $this->shouldRetry()) {
             $this->markAsFailed('Max retry attempts reached');
+
             return;
         }
 
@@ -420,6 +458,7 @@ class ScheduledAction extends Model
 
         // Exponential (default)
         $index = min($this->attempt_count, count($exponentialDelays) - 1);
+
         return $exponentialDelays[$index];
     }
 }

@@ -44,10 +44,25 @@ class ActionResource extends JsonResource
             'callback_url' => $this->when($this->type === 'reminder', $this->callback_url),
             'token_expires_at' => $this->when($this->token_expires_at !== null, fn () => $this->token_expires_at?->toIso8601String()),
 
+            // Retry info (for failed actions)
+            'can_retry' => $this->when(
+                $this->resolution_status === 'failed',
+                fn () => $this->canBeManuallyRetried()
+            ),
+            'manual_retry_count' => $this->when(
+                $this->resolution_status === 'failed',
+                $this->manual_retry_count ?? 0
+            ),
+            'last_manual_retry_at' => $this->when(
+                $this->last_manual_retry_at !== null,
+                fn () => $this->last_manual_retry_at?->toIso8601String()
+            ),
+
             // Relationships (when loaded)
             'delivery_attempts' => DeliveryAttemptResource::collection($this->whenLoaded('deliveryAttempts')),
             'reminder_events' => ReminderEventResource::collection($this->whenLoaded('reminderEvents')),
             'recipients' => ReminderRecipientResource::collection($this->whenLoaded('recipients')),
+            'execution_cycles' => ExecutionCycleResource::collection($this->whenLoaded('executionCycles')),
 
             // Metadata
             'idempotency_key' => $this->idempotency_key,
