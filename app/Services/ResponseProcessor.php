@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Jobs\DeliverReminderCallback;
+use App\Mail\ReminderDeclinedMail;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
+use Illuminate\Support\Facades\Mail;
 
 class ResponseProcessor
 {
@@ -61,6 +63,12 @@ class ResponseProcessor
             $action->resolution_status = ScheduledAction::STATUS_EXECUTED;
             $action->executed_at_utc = now();
             $action->save();
+        }
+
+        // Send decline notification to action owner
+        $owner = $action->owner;
+        if ($owner && $owner->email) {
+            Mail::to($owner->email)->queue(new ReminderDeclinedMail($action, $recipient));
         }
 
         // Dispatch callback webhook if configured (best-effort, non-blocking)

@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Mail\ActionFailedMail;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * @property string $id
@@ -313,6 +315,20 @@ class ScheduledAction extends Model
         $this->transitionTo(self::STATUS_FAILED);
         $this->failure_reason = $reason;
         $this->save();
+
+        // Send failure notification to action owner
+        $this->sendFailureNotification();
+    }
+
+    /**
+     * Send email notification to action owner about failure.
+     */
+    private function sendFailureNotification(): void
+    {
+        $owner = $this->owner;
+        if ($owner && $owner->email) {
+            Mail::to($owner->email)->queue(new ActionFailedMail($this));
+        }
     }
 
     /**

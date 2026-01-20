@@ -2,10 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Mail\ReminderExpiredMail;
 use App\Models\ReminderEvent;
 use App\Models\ScheduledAction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class CheckExpiredReminders extends Command
 {
@@ -31,6 +33,12 @@ class CheckExpiredReminders extends Command
                 'captured_timezone' => $action->timezone,
                 'notes' => 'Token expired without response',
             ]);
+
+            // Send expiry notification to action owner
+            $owner = $action->owner;
+            if ($owner && $owner->email) {
+                Mail::to($owner->email)->queue(new ReminderExpiredMail($action));
+            }
 
             $count++;
         }
