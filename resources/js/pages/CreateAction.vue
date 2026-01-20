@@ -71,14 +71,13 @@
                                 <textarea class="form-control" v-model="form.description" rows="2"></textarea>
                             </div>
                             <div v-if="teams.length > 0" class="mb-0">
-                                <label class="form-label">Team <span class="text-muted fw-normal">(optional)</span></label>
+                                <label class="form-label">Scope</label>
                                 <select class="form-select" v-model="form.team_id" style="max-width: 300px;">
-                                    <option :value="null">Personal (only me)</option>
+                                    <option :value="null">Personal (visible only to you)</option>
                                     <option v-for="team in teams" :key="team.id" :value="team.id">
-                                        {{ team.name }}
+                                        {{ team.name }} (visible to team members)
                                     </option>
                                 </select>
-                                <div class="form-text">Actions assigned to a team are visible to all team members.</div>
                             </div>
                         </div>
                     </div>
@@ -326,17 +325,19 @@
                             <div class="mb-3">
                                 <label class="form-label">Message *</label>
                                 <textarea class="form-control" v-model="form.message" rows="4" required placeholder="Enter the reminder message..."></textarea>
+                                <div class="form-text">This is what recipients will see.</div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">
                                     Recipients *
-                                    <span class="text-muted fw-normal">
-                                        (one per line — emails or phone numbers with country code)
-                                    </span>
+                                    <span class="text-muted fw-normal">(one per line)</span>
                                 </label>
-                                <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="user@example.com&#10;+15551234567"></textarea>
-                                <div v-if="userPlan === 'free'" class="form-text">
-                                    SMS requires <a href="/pricing">Pro plan</a>. Phone numbers will be ignored on Free plan.
+                                <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="ops@example.com&#10;+32499123456"></textarea>
+                                <div class="form-text">
+                                    <span v-if="hasPhoneRecipients">SMS recipients will receive a link to respond.</span>
+                                    <span v-if="userPlan === 'free' && hasPhoneRecipients" class="text-warning">
+                                        SMS requires <a href="/pricing">Pro plan</a>.
+                                    </span>
                                 </div>
                             </div>
                             <div class="row mb-3">
@@ -346,6 +347,11 @@
                                         <option value="first_response">First Response Wins</option>
                                         <option value="all_required">All Must Confirm</option>
                                     </select>
+                                    <div class="form-text">
+                                        {{ form.confirmation_mode === 'first_response'
+                                            ? 'First person to respond determines the outcome.'
+                                            : 'All recipients must confirm for success.' }}
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Max Snoozes</label>
@@ -353,18 +359,18 @@
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">
+                                <label class="form-label small text-muted">
                                     Callback URL
-                                    <span class="text-muted fw-normal">(optional)</span>
+                                    <span class="badge bg-light text-muted ms-1">Advanced</span>
                                 </label>
                                 <input
                                     type="url"
-                                    class="form-control"
+                                    class="form-control form-control-sm"
                                     v-model="form.callback_url"
                                     placeholder="https://api.example.com/webhook/reminder-response"
                                 >
-                                <div class="form-text">
-                                    We'll POST to this URL when someone responds (confirm, decline, or snooze).
+                                <div class="form-text small">
+                                    Optional. We'll POST to this URL when someone responds.
                                 </div>
                             </div>
 
@@ -393,9 +399,7 @@
                                 <div class="mb-0">
                                     <label class="form-label">
                                         Escalation Contacts
-                                        <span class="text-muted fw-normal">
-                                            (one per line — emails or phone numbers)
-                                        </span>
+                                        <span class="text-muted fw-normal">(one per line)</span>
                                     </label>
                                     <textarea
                                         class="form-control"
@@ -404,6 +408,9 @@
                                         placeholder="manager@example.com&#10;+15551234567"
                                         :disabled="!escalation.hours"
                                     ></textarea>
+                                    <div class="form-text">
+                                        These contacts are notified only if nobody responds in time.
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -529,6 +536,11 @@ export default {
         },
         hasJsonErrors() {
             return !!(this.headersJsonError || this.bodyJsonError);
+        },
+        hasPhoneRecipients() {
+            if (!this.recipientsText) return false;
+            const lines = this.recipientsText.split('\n').map(l => l.trim()).filter(l => l);
+            return lines.some(line => /^\+?[\d\s\-()]+$/.test(line) && line.replace(/\D/g, '').length >= 10);
         },
         hasValidationErrors() {
             return this.hasJsonErrors || !!this.urlError || this.urlValidating;
