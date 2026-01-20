@@ -8,17 +8,24 @@
         * {
             box-sizing: border-box;
         }
+        html, body {
+            height: 100%;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             color: #333;
             margin: 0;
-            padding: 20px;
+            padding: 24px 16px;
             background-color: #f5f5f5;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        }
+        @media (min-height: 500px) {
+            body {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100%;
+            }
         }
         .container {
             background-color: #ffffff;

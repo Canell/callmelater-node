@@ -8,7 +8,7 @@
     <meta name="description" content="@yield('description', 'Schedule durable HTTP webhooks and human reminders. Reliable scheduled actions for developers. No cron jobs. No infrastructure.')">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon"  href="/favicon.ico">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -135,15 +135,15 @@
             margin: 2rem 0 1.5rem;
         }
 
-        /* Make the page full height */
-        html, body {
+        /* Make the page full height (sticky footer pattern) */
+        html {
             height: 100%;
         }
 
         body {
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            min-height: 100%;
         }
 
         main {
