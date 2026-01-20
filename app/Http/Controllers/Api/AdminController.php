@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\DeliveryAttempt;
 use App\Models\ReminderEvent;
+use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -58,11 +60,15 @@ class AdminController extends Controller
             'escalated' => ReminderEvent::where('event_type', 'escalated')->count(),
         ];
 
+        // Messaging stats (SMS vs Email)
+        $messaging = $this->getMessagingStats($now);
+
         return response()->json([
             'users' => $users,
             'subscriptions' => $subscriptions,
             'actions' => $actions,
             'reminders' => $reminders,
+            'messaging' => $messaging,
             'generated_at' => now()->toIso8601String(),
         ]);
     }
@@ -211,32 +217,41 @@ class AdminController extends Controller
             ];
         }
 
-        // Failure rate in last hour
-        $lastHourTotal = ScheduledAction::where('updated_at', '>=', $now->copy()->subHour())
-            ->whereIn('resolution_status', ['executed', 'failed'])
-            ->count();
+        // Failure rate in last hour - only count DELIVERY_ERROR (infrastructure issues)
+        // Customer errors (4xx/5xx from their endpoints) don't indicate platform problems
+        $deliveryAttempts = DeliveryAttempt::where('created_at', '>=', $now->copy()->subHour())
+            ->selectRaw('failure_category, COUNT(*) as count')
+            ->groupBy('failure_category')
+            ->pluck('count', 'failure_category');
 
-        $lastHourFailed = ScheduledAction::where('updated_at', '>=', $now->copy()->subHour())
-            ->where('resolution_status', 'failed')
-            ->count();
+        $lastHourTotal = $deliveryAttempts->sum();
+        $deliveryErrors = $deliveryAttempts->get(DeliveryAttempt::CATEGORY_DELIVERY_ERROR, 0);
+        $customer4xx = $deliveryAttempts->get(DeliveryAttempt::CATEGORY_CUSTOMER_4XX, 0);
+        $customer5xx = $deliveryAttempts->get(DeliveryAttempt::CATEGORY_CUSTOMER_5XX, 0);
 
+        // Platform failure rate only counts infrastructure/delivery errors
         $lastHourFailureRate = $lastHourTotal > 0
-            ? round(($lastHourFailed / $lastHourTotal) * 100, 2)
+            ? round(($deliveryErrors / $lastHourTotal) * 100, 2)
             : 0;
 
         if ($lastHourFailureRate > 10) {
             $errors[] = [
                 'type' => 'high_failure_rate',
-                'message' => "Failure rate in last hour: {$lastHourFailureRate}%",
+                'message' => "Platform failure rate in last hour: {$lastHourFailureRate}%",
                 'rate' => $lastHourFailureRate,
             ];
         } elseif ($lastHourFailureRate > 5) {
             $warnings[] = [
                 'type' => 'elevated_failure_rate',
-                'message' => "Failure rate in last hour: {$lastHourFailureRate}%",
+                'message' => "Platform failure rate in last hour: {$lastHourFailureRate}%",
                 'rate' => $lastHourFailureRate,
             ];
         }
+
+        // Warn about high customer error rates (for visibility, not platform health)
+        $customerErrorRate = $lastHourTotal > 0
+            ? round((($customer4xx + $customer5xx) / $lastHourTotal) * 100, 2)
+            : 0;
 
         // Determine overall status
         $status = 'healthy';
@@ -255,7 +270,14 @@ class AdminController extends Controller
                 'stuck_executing' => $stuckExecuting,
                 'stuck_awaiting' => $stuckAwaiting,
                 'high_retry_count' => $highRetry,
+                // Platform failure rate (only infrastructure errors, not customer endpoint errors)
                 'last_hour_failure_rate' => $lastHourFailureRate,
+                // Customer endpoint errors (for visibility only, not platform health)
+                'last_hour_customer_error_rate' => $customerErrorRate,
+                'last_hour_delivery_attempts' => $lastHourTotal,
+                'last_hour_delivery_errors' => $deliveryErrors,
+                'last_hour_customer_4xx' => $customer4xx,
+                'last_hour_customer_5xx' => $customer5xx,
             ],
             'checked_at' => now()->toIso8601String(),
         ]);
@@ -488,5 +510,81 @@ class AdminController extends Controller
         $stats['total_paying'] = $stats['pro'] + $stats['business'];
 
         return $stats;
+    }
+
+    /**
+     * Get messaging statistics (SMS and Email).
+     */
+    private function getMessagingStats(\Carbon\Carbon $now): array
+    {
+        // Get all recipients with their channel type
+        // Phone numbers start with '+' or contain only digits/spaces/dashes
+        $allRecipients = ReminderRecipient::selectRaw("
+            CASE
+                WHEN email LIKE '+%' OR email REGEXP '^[0-9 ()-]+$' THEN 'sms'
+                ELSE 'email'
+            END as channel,
+            status,
+            created_at
+        ")->get();
+
+        // For SQLite compatibility in tests, use PHP filtering
+        $recipients = ReminderRecipient::all();
+
+        $categorized = $recipients->map(function ($r) {
+            return [
+                'channel' => $this->isPhoneNumber($r->email) ? 'sms' : 'email',
+                'status' => $r->status,
+                'created_at' => $r->created_at,
+            ];
+        });
+
+        $last24h = $now->copy()->subHours(24);
+        $last7d = $now->copy()->subDays(7);
+        $last30d = $now->copy()->subDays(30);
+
+        // Email stats
+        $emails = $categorized->where('channel', 'email');
+        $emailStats = [
+            'total' => $emails->count(),
+            'last_24h' => $emails->where('created_at', '>=', $last24h)->count(),
+            'last_7d' => $emails->where('created_at', '>=', $last7d)->count(),
+            'last_30d' => $emails->where('created_at', '>=', $last30d)->count(),
+            'sent' => $emails->where('status', ReminderRecipient::STATUS_SENT)->count(),
+            'confirmed' => $emails->where('status', ReminderRecipient::STATUS_CONFIRMED)->count(),
+            'declined' => $emails->where('status', ReminderRecipient::STATUS_DECLINED)->count(),
+            'snoozed' => $emails->where('status', ReminderRecipient::STATUS_SNOOZED)->count(),
+            'blocked' => $emails->where('status', ReminderRecipient::STATUS_BLOCKED)->count(),
+        ];
+
+        // SMS stats
+        $sms = $categorized->where('channel', 'sms');
+        $smsStats = [
+            'total' => $sms->count(),
+            'last_24h' => $sms->where('created_at', '>=', $last24h)->count(),
+            'last_7d' => $sms->where('created_at', '>=', $last7d)->count(),
+            'last_30d' => $sms->where('created_at', '>=', $last30d)->count(),
+            'sent' => $sms->where('status', ReminderRecipient::STATUS_SENT)->count(),
+            'confirmed' => $sms->where('status', ReminderRecipient::STATUS_CONFIRMED)->count(),
+            'declined' => $sms->where('status', ReminderRecipient::STATUS_DECLINED)->count(),
+            'snoozed' => $sms->where('status', ReminderRecipient::STATUS_SNOOZED)->count(),
+            'blocked' => $sms->where('status', ReminderRecipient::STATUS_BLOCKED)->count(),
+        ];
+
+        return [
+            'email' => $emailStats,
+            'sms' => $smsStats,
+        ];
+    }
+
+    /**
+     * Check if a string is a phone number.
+     */
+    private function isPhoneNumber(string $value): bool
+    {
+        // Phone numbers start with + or contain only digits, spaces, dashes, parentheses
+        $cleaned = preg_replace('/[\s\-\(\)]+/', '', $value);
+
+        return str_starts_with($value, '+') || preg_match('/^\d{7,15}$/', $cleaned);
     }
 }

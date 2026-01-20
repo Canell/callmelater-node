@@ -235,10 +235,25 @@
                                     {{ health.metrics.high_retry_count }}
                                 </span>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span>Failure Rate (1h)</span>
+                            <hr class="my-2">
+                            <div class="small text-muted mb-2">Delivery Stats (1h)</div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>Platform Errors</span>
                                 <span :class="failureRateClass">
                                     {{ health.metrics.last_hour_failure_rate }}%
+                                    <small class="text-muted">({{ health.metrics.last_hour_delivery_errors || 0 }})</small>
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span>Customer 4xx</span>
+                                <span class="text-muted">
+                                    {{ health.metrics.last_hour_customer_4xx || 0 }}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span>Customer 5xx</span>
+                                <span class="text-muted">
+                                    {{ health.metrics.last_hour_customer_5xx || 0 }}
                                 </span>
                             </div>
                         </div>
@@ -279,6 +294,98 @@
                             <div class="col">
                                 <div class="h4 mb-0 text-primary">{{ overview?.actions?.pending || 0 }}</div>
                                 <small class="text-muted">Pending</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messaging Statistics -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card card-cml h-100">
+                    <div class="card-header bg-transparent">
+                        <h5 class="mb-0">
+                            <i class="bi bi-envelope me-2"></i>Email Statistics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <div class="h4 mb-0">{{ overview?.messaging?.email?.last_24h || 0 }}</div>
+                                <small class="text-muted">Last 24h</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 mb-0">{{ overview?.messaging?.email?.last_7d || 0 }}</div>
+                                <small class="text-muted">Last 7 days</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 mb-0">{{ overview?.messaging?.email?.total || 0 }}</div>
+                                <small class="text-muted">Total</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col">
+                                <div class="h5 mb-0 text-info">{{ overview?.messaging?.email?.sent || 0 }}</div>
+                                <small class="text-muted">Sent</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-success">{{ overview?.messaging?.email?.confirmed || 0 }}</div>
+                                <small class="text-muted">Confirmed</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-danger">{{ overview?.messaging?.email?.declined || 0 }}</div>
+                                <small class="text-muted">Declined</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-warning">{{ overview?.messaging?.email?.snoozed || 0 }}</div>
+                                <small class="text-muted">Snoozed</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card card-cml h-100">
+                    <div class="card-header bg-transparent">
+                        <h5 class="mb-0">
+                            <i class="bi bi-phone me-2"></i>SMS Statistics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <div class="h4 mb-0">{{ overview?.messaging?.sms?.last_24h || 0 }}</div>
+                                <small class="text-muted">Last 24h</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 mb-0">{{ overview?.messaging?.sms?.last_7d || 0 }}</div>
+                                <small class="text-muted">Last 7 days</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h4 mb-0">{{ overview?.messaging?.sms?.total || 0 }}</div>
+                                <small class="text-muted">Total</small>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col">
+                                <div class="h5 mb-0 text-info">{{ overview?.messaging?.sms?.sent || 0 }}</div>
+                                <small class="text-muted">Sent</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-success">{{ overview?.messaging?.sms?.confirmed || 0 }}</div>
+                                <small class="text-muted">Confirmed</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-danger">{{ overview?.messaging?.sms?.declined || 0 }}</div>
+                                <small class="text-muted">Declined</small>
+                            </div>
+                            <div class="col">
+                                <div class="h5 mb-0 text-warning">{{ overview?.messaging?.sms?.snoozed || 0 }}</div>
+                                <small class="text-muted">Snoozed</small>
                             </div>
                         </div>
                     </div>
