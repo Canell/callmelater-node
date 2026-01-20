@@ -252,10 +252,11 @@ class Account extends Model
         $startOfMonth = now()->startOfMonth();
 
         // Get all reminder actions with SMS channel created this month
+        // Using PostgreSQL JSONB operator: ->'channels' extracts the array, ? checks if it contains 'sms'
         $actions = $this->actions()
             ->where('type', ScheduledAction::TYPE_REMINDER)
             ->where('created_at', '>=', $startOfMonth)
-            ->whereRaw("JSON_CONTAINS(escalation_rules->'$.channels', '\"sms\"')")
+            ->whereRaw("(escalation_rules->'channels')::jsonb @> '\"sms\"'::jsonb")
             ->get();
 
         $smsCount = 0;

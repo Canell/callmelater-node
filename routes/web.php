@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 // Public reminder response page (no auth required)
 Route::get('/respond', [ResponseController::class, 'show'])->name('reminder.respond');
+Route::get('/r/{token}', [ResponseController::class, 'showShort'])->name('reminder.respond.short');
 
 // Magic link authentication routes
 Route::prefix('auth/magic-link')->group(function () {
@@ -37,4 +38,4 @@ Route::get('/cookies', fn () => view('pages.cookies'))->name('cookies');
 // SPA catch-all route - Vue Router handles authenticated routes
 Route::get('/{any?}', function () {
     return view('app');
-})->where('any', '^(?!api|sanctum|respond|stripe|auth).*$');
+})->where('any', '^(?!api|sanctum|respond|r/|stripe|auth).*$');

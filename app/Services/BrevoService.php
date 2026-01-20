@@ -47,6 +47,15 @@ class BrevoService
             // Remove leading + for Brevo API (they expect just digits with country code)
             $recipient = ltrim($recipient, '+');
 
+            // Debug: Log API key info (first 4 chars only for security)
+            $keyPreview = $this->apiKey ? substr($this->apiKey, 0, 4).'...' : 'NULL';
+            Log::debug('Brevo SMS attempt', [
+                'api_key_preview' => $keyPreview,
+                'api_key_length' => $this->apiKey ? strlen($this->apiKey) : 0,
+                'sender' => $this->sender,
+                'recipient' => $recipient,
+            ]);
+
             $response = Http::withHeaders([
                 'accept' => 'application/json',
                 'api-key' => $this->apiKey,
@@ -88,13 +97,28 @@ class BrevoService
 
     /**
      * Send a reminder SMS with a single response link.
+     * The message is truncated to fit SMS limits (160 chars).
      */
     public function sendReminderSms(
         string $to,
         string $actionName,
+        ?string $actionMessage,
         string $responseUrl
     ): ?string {
-        $message = "CallMeLater: {$actionName}\n{$responseUrl}";
+        // SMS limit is 160 chars. Reserve space for URL (~50 chars) and formatting
+        // Format: "Message preview...\n👉 URL"
+        $urlPart = "\n👉 {$responseUrl}";
+        $maxMessageLength = 160 - strlen($urlPart) - 3; // -3 for "..."
+
+        // Use message if available, otherwise fall back to action name
+        $content = $actionMessage ?: $actionName;
+
+        // Truncate if needed
+        if (strlen($content) > $maxMessageLength) {
+            $content = substr($content, 0, $maxMessageLength).'...';
+        }
+
+        $message = "{$content}{$urlPart}";
 
         return $this->sendSms($to, $message);
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\CheckEscalationsJob;
 use App\Jobs\DispatcherJob;
 use App\Jobs\HealthMonitorJob;
 use Illuminate\Foundation\Inspiring;
@@ -15,6 +16,9 @@ Schedule::job(new DispatcherJob())->everyMinute()->withoutOverlapping();
 
 // Check for expired reminders every 5 minutes
 Schedule::command('app:check-expired-reminders')->everyFiveMinutes();
+
+// Check for reminders needing escalation every 5 minutes
+Schedule::job(new CheckEscalationsJob())->everyFiveMinutes()->withoutOverlapping();
 
 // Recover stuck EXECUTING actions every 5 minutes (worker crash recovery)
 Schedule::command('app:recover-stuck-executing-actions')->everyFiveMinutes();

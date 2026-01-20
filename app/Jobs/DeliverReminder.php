@@ -88,7 +88,7 @@ class DeliverReminder implements ShouldQueue
                 ],
                 [
                     'status' => ReminderRecipient::STATUS_PENDING,
-                    'response_token' => Str::random(64),
+                    'response_token' => Str::random(20),
                 ]
             );
 
@@ -260,12 +260,13 @@ class DeliverReminder implements ShouldQueue
         $baseUrl = config('app.url');
         $token = $recipient->response_token;
 
-        // Single URL that opens a choice page with Confirm/Decline/Snooze buttons
-        $responseUrl = "{$baseUrl}/respond?token={$token}";
+        // Short URL format for SMS: /r/{token}
+        $responseUrl = "{$baseUrl}/r/{$token}";
 
         $brevoService->sendReminderSms(
             $recipient->email, // In this case, it's a phone number stored in the email field
             $this->action->name,
+            $this->action->message,
             $responseUrl
         );
     }

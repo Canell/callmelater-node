@@ -368,7 +368,7 @@
                                     <input type="number" class="form-control" v-model="form.max_snoozes" min="0" max="10">
                                 </div>
                             </div>
-                            <div class="mb-0">
+                            <div class="mb-3">
                                 <label class="form-label">
                                     Callback URL
                                     <span class="text-muted fw-normal">(optional)</span>
@@ -381,6 +381,45 @@
                                 >
                                 <div class="form-text">
                                     We'll POST to this URL when someone responds (confirm, decline, or snooze).
+                                </div>
+                            </div>
+
+                            <!-- Escalation Settings -->
+                            <div class="border-top pt-3 mt-3">
+                                <h6 class="mb-3">Escalation <span class="text-muted fw-normal">(optional)</span></h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Escalate after</label>
+                                        <div class="input-group">
+                                            <input
+                                                type="number"
+                                                class="form-control"
+                                                v-model="escalation.hours"
+                                                min="0"
+                                                step="0.5"
+                                                placeholder="e.g. 2"
+                                            >
+                                            <span class="input-group-text">hours</span>
+                                        </div>
+                                        <div class="form-text">
+                                            If no response received, escalate to contacts below.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label">
+                                        Escalation Contacts
+                                        <span class="text-muted fw-normal">
+                                            (one per line — emails or phone numbers)
+                                        </span>
+                                    </label>
+                                    <textarea
+                                        class="form-control"
+                                        v-model="escalation.contacts"
+                                        rows="2"
+                                        placeholder="manager@example.com&#10;+15551234567"
+                                        :disabled="!escalation.hours"
+                                    ></textarea>
                                 </div>
                             </div>
                         </div>
@@ -447,6 +486,10 @@ export default {
             channels: {
                 email: true,
                 sms: false,
+            },
+            escalation: {
+                hours: '',
+                contacts: '',
             },
             timezones: [
                 'UTC',
@@ -610,6 +653,14 @@ export default {
                     const actionChannels = rules.channels || ['email'];
                     this.channels.email = actionChannels.includes('email');
                     this.channels.sms = actionChannels.includes('sms');
+
+                    // Restore escalation settings
+                    if (rules.escalate_after_hours) {
+                        this.escalation.hours = rules.escalate_after_hours;
+                    }
+                    if (rules.escalation_contacts) {
+                        this.escalation.contacts = rules.escalation_contacts.join('\n');
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load action for cloning:', err);
@@ -821,6 +872,18 @@ export default {
                         recipients: this.recipientsText.split('\n').map(e => e.trim()).filter(e => e),
                         channels: selectedChannels,
                     };
+
+                    // Add escalation settings if configured
+                    if (this.escalation.hours && parseFloat(this.escalation.hours) > 0) {
+                        payload.escalation_rules.escalate_after_hours = parseFloat(this.escalation.hours);
+                        if (this.escalation.contacts?.trim()) {
+                            payload.escalation_rules.escalation_contacts = this.escalation.contacts
+                                .split('\n')
+                                .map(c => c.trim())
+                                .filter(c => c);
+                        }
+                    }
+
                     if (this.form.callback_url?.trim()) {
                         payload.callback_url = this.form.callback_url.trim();
                     }

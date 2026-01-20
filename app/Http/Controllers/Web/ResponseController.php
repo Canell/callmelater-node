@@ -74,6 +74,15 @@ class ResponseController extends Controller
     }
 
     /**
+     * Handle short URL format: /r/{token}
+     * Used in SMS to save characters.
+     */
+    public function showShort(string $token): View
+    {
+        return $this->showChoicePage($token);
+    }
+
+    /**
      * Show the response choice page (for SMS links without pre-selected response).
      */
     private function showChoicePage(string $token): View
