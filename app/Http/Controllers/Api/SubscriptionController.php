@@ -34,6 +34,10 @@ class SubscriptionController extends Controller
         $isManuallyManaged = $account->isPlanManuallyManaged();
 
         return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'email' => $user->email,
+            ],
             'subscribed' => $account->subscribed('default'),
             'plan' => $account->getPlan(),
             'on_trial' => $account->onTrial('default'),

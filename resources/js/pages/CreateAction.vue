@@ -332,6 +332,21 @@
                                     Recipients *
                                     <span class="text-muted fw-normal">(one per line)</span>
                                 </label>
+                                <!-- Team member quick-add buttons -->
+                                <div v-if="otherAccountMembers.length > 0" class="mb-2">
+                                    <small class="text-muted d-block mb-1">Quick add team members:</small>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <button
+                                            v-for="member in availableMembers"
+                                            :key="member.id"
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            @click="addRecipient(member.email)"
+                                        >
+                                            <span class="me-1">+</span>{{ member.name || member.email }}
+                                        </button>
+                                    </div>
+                                </div>
                                 <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="ops@example.com&#10;+32499123456"></textarea>
                                 <div class="form-text">
                                     <span v-if="hasPhoneRecipients">SMS recipients will receive a link to respond.</span>
@@ -401,6 +416,21 @@
                                         Escalation Contacts
                                         <span class="text-muted fw-normal">(one per line)</span>
                                     </label>
+                                    <!-- Team member quick-add for escalation -->
+                                    <div v-if="otherAccountMembers.length > 0 && escalation.hours" class="mb-2">
+                                        <small class="text-muted d-block mb-1">Quick add:</small>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <button
+                                                v-for="member in availableEscalationMembers"
+                                                :key="member.id"
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                @click="addEscalationContact(member.email)"
+                                            >
+                                                <span class="me-1">+</span>{{ member.name || member.email }}
+                                            </button>
+                                        </div>
+                                    </div>
                                     <textarea
                                         class="form-control"
                                         v-model="escalation.contacts"
@@ -462,6 +492,8 @@ export default {
             },
             // Teams (Business plan)
             teams: [],
+            accountMembers: [],
+            currentUserEmail: null,
             userPlan: 'free',
             scheduleType: 'datetime',
             intentPreset: 'tomorrow',
@@ -542,6 +574,39 @@ export default {
             const lines = this.recipientsText.split('\n').map(l => l.trim()).filter(l => l);
             return lines.some(line => /^\+?[\d\s\-()]+$/.test(line) && line.replace(/\D/g, '').length >= 10);
         },
+        currentRecipientEmails() {
+            if (!this.recipientsText) return [];
+            return this.recipientsText
+                .split('\n')
+                .map(l => l.trim().toLowerCase())
+                .filter(l => l);
+        },
+        otherAccountMembers() {
+            // Filter out the current user from account members
+            if (!this.currentUserEmail) return this.accountMembers;
+            return this.accountMembers.filter(
+                member => member.email.toLowerCase() !== this.currentUserEmail.toLowerCase()
+            );
+        },
+        availableMembers() {
+            // Filter out members already added as recipients (and current user)
+            return this.otherAccountMembers.filter(
+                member => !this.currentRecipientEmails.includes(member.email.toLowerCase())
+            );
+        },
+        currentEscalationEmails() {
+            if (!this.escalation.contacts) return [];
+            return this.escalation.contacts
+                .split('\n')
+                .map(l => l.trim().toLowerCase())
+                .filter(l => l);
+        },
+        availableEscalationMembers() {
+            // Filter out members already added as escalation contacts (and current user)
+            return this.otherAccountMembers.filter(
+                member => !this.currentEscalationEmails.includes(member.email.toLowerCase())
+            );
+        },
         hasValidationErrors() {
             return this.hasJsonErrors || !!this.urlError || this.urlValidating;
         },
@@ -588,15 +653,30 @@ export default {
         },
         async loadUserPlanAndTeams() {
             try {
-                // Check user's plan
-                const subResponse = await axios.get('/api/subscription/status');
-                this.userPlan = subResponse.data.plan || 'free';
+                // Check user's plan and get current user email
+                const [subResponse, accountResponse, teamsResponse] = await Promise.all([
+                    axios.get('/api/subscription/status'),
+                    axios.get('/api/account'),
+                    axios.get('/api/teams'),
+                ]);
 
-                // Load teams for Business users
-                if (this.userPlan === 'business') {
-                    const teamsResponse = await axios.get('/api/teams');
-                    this.teams = teamsResponse.data.data || [];
-                }
+                this.userPlan = subResponse.data.plan || 'free';
+                this.currentUserEmail = subResponse.data.user?.email || null;
+                this.teams = teamsResponse.data.data || [];
+
+                // Combine members from account and all teams (deduplicated by email)
+                const accountMembers = accountResponse.data.data?.members || [];
+                const teamMembers = this.teams.flatMap(team => team.members || []);
+                const allMembers = [...accountMembers, ...teamMembers];
+
+                // Deduplicate by email
+                const seen = new Set();
+                this.accountMembers = allMembers.filter(member => {
+                    const email = member.email.toLowerCase();
+                    if (seen.has(email)) return false;
+                    seen.add(email);
+                    return true;
+                });
             } catch (err) {
                 console.error('Failed to load user plan/teams:', err);
             }
@@ -798,6 +878,30 @@ export default {
                 console.warn('URL validation failed:', err);
             } finally {
                 this.urlValidating = false;
+            }
+        },
+        addRecipient(email) {
+            if (!email) return;
+            // Add email to recipients if not already present
+            const currentEmails = this.currentRecipientEmails;
+            if (!currentEmails.includes(email.toLowerCase())) {
+                if (this.recipientsText.trim()) {
+                    this.recipientsText += '\n' + email;
+                } else {
+                    this.recipientsText = email;
+                }
+            }
+        },
+        addEscalationContact(email) {
+            if (!email) return;
+            // Add email to escalation contacts if not already present
+            const currentEmails = this.currentEscalationEmails;
+            if (!currentEmails.includes(email.toLowerCase())) {
+                if (this.escalation.contacts?.trim()) {
+                    this.escalation.contacts += '\n' + email;
+                } else {
+                    this.escalation.contacts = email;
+                }
             }
         },
         async submit() {

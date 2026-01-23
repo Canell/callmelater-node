@@ -517,18 +517,8 @@ class AdminController extends Controller
      */
     private function getMessagingStats(\Carbon\Carbon $now): array
     {
-        // Get all recipients with their channel type
-        // Phone numbers start with '+' or contain only digits/spaces/dashes
-        $allRecipients = ReminderRecipient::selectRaw("
-            CASE
-                WHEN email LIKE '+%' OR email REGEXP '^[0-9 ()-]+$' THEN 'sms'
-                ELSE 'email'
-            END as channel,
-            status,
-            created_at
-        ")->get();
-
-        // For SQLite compatibility in tests, use PHP filtering
+        // Get all recipients and categorize in PHP for database compatibility
+        // (REGEXP syntax differs between MySQL, PostgreSQL, and SQLite)
         $recipients = ReminderRecipient::all();
 
         $categorized = $recipients->map(function ($r) {

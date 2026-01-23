@@ -75,7 +75,7 @@ class CreateActionRequest extends FormRequest
             'escalation_rules.channels' => ['nullable', 'array'],
             'escalation_rules.channels.*' => ['string', Rule::in(['email', 'sms'])],
             'escalation_rules.token_expiry_days' => ['nullable', 'integer', 'min:1', 'max:30'],
-            'escalation_rules.escalate_after_hours' => ['nullable', 'integer', 'min:1'],
+            'escalation_rules.escalate_after_hours' => ['nullable', 'numeric', 'min:0.5'],
             'escalation_rules.escalation_contacts' => ['nullable', 'array'],
             'escalation_rules.escalation_contacts.*' => ['email'],
             'max_snoozes' => ['nullable', 'integer', 'min:0', 'max:10'],
