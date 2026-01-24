@@ -41,7 +41,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_sends_email_to_email_recipient(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['test@example.com']]
         );
@@ -58,7 +58,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_creates_recipient_record_with_token(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['test@example.com']]
         );
@@ -77,7 +77,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_sends_to_multiple_email_recipients(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['user1@example.com', 'user2@example.com', 'user3@example.com']]
         );
@@ -96,7 +96,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_sends_sms_to_phone_recipient(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['+15551234567']]
         );
@@ -104,7 +104,7 @@ class DeliverReminderTest extends TestCase
         $brevoService = Mockery::mock(BrevoService::class);
         $brevoService->shouldReceive('sendReminderSms')
             ->once()
-            ->with('+15551234567', $action->name, $action->message, Mockery::type('string'))
+            ->with('+15551234567', $action->name, $action->getGateMessage(), Mockery::type('string'))
             ->andReturn('msg_123');
 
         $job = new DeliverReminder($action);
@@ -116,7 +116,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_sends_mixed_email_and_sms(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['test@example.com', '+15551234567']]
         );
@@ -145,7 +145,7 @@ class DeliverReminderTest extends TestCase
             'blocked_by' => 'admin',
         ]);
 
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['blocked@example.com', 'allowed@example.com']]
         );
@@ -170,7 +170,7 @@ class DeliverReminderTest extends TestCase
             'blocked_by' => 'admin',
         ]);
 
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['+15551234567']]
         );
@@ -195,7 +195,7 @@ class DeliverReminderTest extends TestCase
             'blocked_by' => 'admin',
         ]);
 
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['blocked@example.com']]
         );
@@ -212,7 +212,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_marks_action_as_awaiting_response(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['test@example.com']]
         );
@@ -227,11 +227,11 @@ class DeliverReminderTest extends TestCase
         $this->assertNotNull($action->token_expires_at);
     }
 
-    public function test_uses_custom_token_expiry_days(): void
+    public function test_uses_custom_token_expiry_from_gate_timeout(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
-            ['recipients' => ['test@example.com'], 'token_expiry_days' => 14]
+            ['recipients' => ['test@example.com'], 'timeout' => '14d']
         );
 
         $brevoService = Mockery::mock(BrevoService::class);
@@ -246,7 +246,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_creates_sent_event(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['test@example.com']]
         );
@@ -269,7 +269,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_skips_action_no_longer_in_executing_state(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_CANCELLED,
             ['recipients' => ['test@example.com']]
         );
@@ -288,7 +288,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_fails_when_no_recipients_configured(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => []]
         );
@@ -307,7 +307,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_skips_already_sent_recipients_on_retry(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['test@example.com']]
         );
@@ -333,7 +333,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_detects_various_phone_formats(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['+1 (555) 123-4567']]
         );
@@ -351,7 +351,7 @@ class DeliverReminderTest extends TestCase
 
     public function test_detects_international_phone_format(): void
     {
-        $action = $this->createReminderAction(
+        $action = $this->createGatedAction(
             ScheduledAction::STATUS_EXECUTING,
             ['recipients' => ['+33612345678']] // French mobile
         );
@@ -369,20 +369,27 @@ class DeliverReminderTest extends TestCase
 
     // ==================== HELPERS ====================
 
-    private function createReminderAction(string $status, array $escalationRules): ScheduledAction
+    private function createGatedAction(string $status, array $gateConfig): ScheduledAction
     {
+        $gate = array_merge([
+            'message' => 'Please confirm this action',
+            'recipients' => [],
+            'channels' => ['email'],
+            'timeout' => '7d',
+            'on_timeout' => 'cancel',
+            'max_snoozes' => 5,
+        ], $gateConfig);
+
         return ScheduledAction::create([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
-            'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'name' => 'Test Gated Action',
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subMinute()->toIso8601String()],
             'resolution_status' => $status,
             'execute_at_utc' => now()->subMinute(),
-            'message' => 'Please confirm this action',
-            'escalation_rules' => $escalationRules,
-            'max_snoozes' => 5,
+            'gate' => $gate,
         ]);
     }
 

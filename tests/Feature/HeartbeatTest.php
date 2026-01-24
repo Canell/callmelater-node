@@ -90,7 +90,7 @@ class HeartbeatTest extends TestCase
         // Verify action was created in database
         $action = ScheduledAction::find($result['results']['heartbeat']['action_id']);
         $this->assertNotNull($action);
-        $this->assertEquals('http', $action->type);
+        $this->assertEquals('immediate', $action->mode);
         $this->assertEquals('Health Monitor Heartbeat', $action->name);
     }
 
@@ -116,6 +116,6 @@ class HeartbeatTest extends TestCase
         $result = $service->check();
 
         $action = ScheduledAction::find($result['results']['heartbeat']['action_id']);
-        $this->assertEquals('https://callmelater.io/api/internal/heartbeat', $action->http_request['url']);
+        $this->assertEquals('https://callmelater.io/api/internal/heartbeat', $action->request['url']);
     }
 }

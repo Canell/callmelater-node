@@ -95,15 +95,23 @@ class DispatcherJob implements ShouldQueue
     private function dispatchAction(ScheduledAction $action): void
     {
         try {
-            if ($action->isHttp()) {
+            if ($action->isImmediate()) {
+                // Immediate mode: execute HTTP request
                 DeliverHttpAction::dispatch($action);
-            } elseif ($action->isReminder()) {
-                DeliverReminder::dispatch($action);
+            } elseif ($action->isGated()) {
+                if ($action->gatePassed()) {
+                    // Gate already passed (approved): execute the HTTP request
+                    DeliverHttpAction::dispatch($action);
+                } else {
+                    // Gate not passed yet: send gate notification
+                    DeliverReminder::dispatch($action);
+                }
             }
 
             Log::debug('Action dispatched', [
                 'action_id' => $action->id,
-                'type' => $action->type,
+                'mode' => $action->mode,
+                'gate_passed' => $action->gatePassed(),
             ]);
         } catch (\Throwable $e) {
             // If dispatch fails, revert to RESOLVED so it can be retried

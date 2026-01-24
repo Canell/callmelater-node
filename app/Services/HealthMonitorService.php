@@ -342,11 +342,11 @@ class HealthMonitorService
 
         try {
             $action = $this->actionService->create($systemUser, [
-                'type' => 'reminder',
+                'mode' => 'gated',
                 'name' => "Alert: {$component->name} degraded",
-                'message' => $this->buildReminderMessage($component, $tracking),
                 'intent' => ['delay' => '15m'], // Follow up in 15 min if still degraded
-                'escalation_rules' => [
+                'gate' => [
+                    'message' => $this->buildReminderMessage($component, $tracking),
                     'recipients' => $recipients,
                     'channels' => ['email'],
                 ],
@@ -513,10 +513,10 @@ MSG;
 
         try {
             $action = $this->actionService->create($systemUser, [
-                'type' => 'http',
+                'mode' => 'immediate',
                 'name' => 'Health Monitor Heartbeat',
                 'intent' => ['delay' => '1m'],
-                'http_request' => [
+                'request' => [
                     'method' => 'POST',
                     'url' => $this->getHeartbeatUrl(),
                     'headers' => [

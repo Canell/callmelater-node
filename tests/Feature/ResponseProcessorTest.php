@@ -335,19 +335,29 @@ class ResponseProcessorTest extends TestCase
 
     private function createAwaitingAction(array $attributes = []): ScheduledAction
     {
+        // Extract gate-specific attributes
+        $maxSnoozes = $attributes['max_snoozes'] ?? 5;
+        $confirmationMode = $attributes['confirmation_mode'] ?? ScheduledAction::CONFIRMATION_FIRST_RESPONSE;
+        unset($attributes['max_snoozes'], $attributes['confirmation_mode']);
+
         return ScheduledAction::create(array_merge([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
-            'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'name' => 'Test Gated Action',
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subHour()->toIso8601String()],
             'resolution_status' => ScheduledAction::STATUS_AWAITING_RESPONSE,
             'execute_at_utc' => now()->subHour(),
-            'message' => 'Please confirm this action',
-            'confirmation_mode' => ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
-            'escalation_rules' => ['recipients' => ['test@example.com']],
-            'max_snoozes' => 5,
+            'gate' => [
+                'message' => 'Please confirm this action',
+                'recipients' => ['test@example.com'],
+                'channels' => ['email'],
+                'timeout' => '7d',
+                'on_timeout' => 'cancel',
+                'max_snoozes' => $maxSnoozes,
+                'confirmation_mode' => $confirmationMode,
+            ],
             'snooze_count' => 0,
             'token_expires_at' => now()->addDays(7),
         ], $attributes));

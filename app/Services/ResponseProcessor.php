@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\DeliverHttpAction;
 use App\Jobs\DeliverReminderCallback;
 use App\Mail\ReminderDeclinedMail;
 use App\Models\ReminderEvent;
@@ -31,11 +32,17 @@ class ResponseProcessor
             'captured_timezone' => $action->timezone,
         ]);
 
-        // Check if action should be marked executed based on confirmation mode
-        if ($action->confirmation_mode === ScheduledAction::CONFIRMATION_FIRST_RESPONSE) {
-            $this->actionService->markExecuted($action);
-        } elseif ($action->confirmation_mode === ScheduledAction::CONFIRMATION_ALL_REQUIRED) {
-            $this->checkAllConfirmed($action);
+        // Check if action should proceed based on confirmation mode
+        $shouldProceed = $this->checkShouldProceed($action);
+
+        if ($shouldProceed) {
+            if ($action->hasRequest()) {
+                // Gated action with request - execute HTTP on approval
+                $this->executeGatedRequest($action);
+            } else {
+                // Callback-only gated action
+                $this->actionService->markExecuted($action);
+            }
         }
 
         // Dispatch callback webhook if configured (best-effort, non-blocking)
@@ -59,7 +66,7 @@ class ResponseProcessor
         ]);
 
         // If first_response mode and someone declines, mark as executed (declined)
-        if ($action->confirmation_mode === ScheduledAction::CONFIRMATION_FIRST_RESPONSE) {
+        if ($action->getConfirmationMode() === ScheduledAction::CONFIRMATION_FIRST_RESPONSE) {
             $action->resolution_status = ScheduledAction::STATUS_EXECUTED;
             $action->executed_at_utc = now();
             $action->save();
@@ -83,7 +90,7 @@ class ResponseProcessor
     public function handleSnooze(ReminderRecipient $recipient, ScheduledAction $action, string $preset): void
     {
         if (! $action->canSnooze()) {
-            throw new \InvalidArgumentException('Maximum snoozes reached for this reminder.');
+            throw new \InvalidArgumentException('Maximum snoozes reached for this action.');
         }
 
         $recipient->status = ReminderRecipient::STATUS_SNOOZED;
@@ -98,7 +105,7 @@ class ResponseProcessor
             'notes' => "Snoozed with preset: {$preset}",
         ]);
 
-        // Reset all recipient statuses for the snoozed reminder
+        // Reset all recipient statuses for the snoozed action
         ReminderRecipient::query()
             ->where('action_id', $action->id)
             ->update(['status' => ReminderRecipient::STATUS_PENDING, 'responded_at' => null]);
@@ -127,18 +134,49 @@ class ResponseProcessor
     }
 
     /**
-     * Check if all recipients have confirmed and mark action as executed if so.
+     * Check if the action should proceed based on confirmation mode.
      */
-    private function checkAllConfirmed(ScheduledAction $action): void
+    private function checkShouldProceed(ScheduledAction $action): bool
+    {
+        $confirmationMode = $action->getConfirmationMode();
+
+        if ($confirmationMode === ScheduledAction::CONFIRMATION_FIRST_RESPONSE) {
+            return true;
+        }
+
+        if ($confirmationMode === ScheduledAction::CONFIRMATION_ALL_REQUIRED) {
+            return $this->checkAllConfirmed($action);
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if all recipients have confirmed.
+     */
+    private function checkAllConfirmed(ScheduledAction $action): bool
     {
         $totalRecipients = $action->recipients()->count();
         $confirmedRecipients = $action->recipients()
             ->where('status', ReminderRecipient::STATUS_CONFIRMED)
             ->count();
 
-        if ($confirmedRecipients >= $totalRecipients) {
-            $this->actionService->markExecuted($action);
-        }
+        return $confirmedRecipients >= $totalRecipients;
+    }
+
+    /**
+     * Execute HTTP request for a gated action that was approved.
+     */
+    private function executeGatedRequest(ScheduledAction $action): void
+    {
+        // Mark gate as passed and prepare for HTTP execution
+        $action->gate_passed_at = now();
+        $action->resolution_status = ScheduledAction::STATUS_RESOLVED;
+        $action->execute_at_utc = now();
+        $action->save();
+
+        // Dispatch HTTP execution immediately
+        DeliverHttpAction::dispatch($action);
     }
 
     /**
@@ -149,7 +187,7 @@ class ResponseProcessor
         return match ($response) {
             'confirm' => 'Thank you! Your confirmation has been recorded.',
             'decline' => 'Your response has been recorded.',
-            'snooze' => 'Reminder snoozed. You will receive another reminder soon.',
+            'snooze' => 'Action snoozed. You will receive another notification soon.',
             default => 'Your response has been recorded.',
         };
     }
@@ -158,7 +196,7 @@ class ResponseProcessor
      * Dispatch callback webhook if configured.
      *
      * This is BEST-EFFORT delivery - the callback is dispatched asynchronously
-     * and never affects the reminder outcome.
+     * and never affects the action outcome.
      */
     private function dispatchCallback(
         ScheduledAction $action,

@@ -31,7 +31,7 @@ class ReminderCallbackTest extends TestCase
     {
         Queue::fake();
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
         $recipient = $this->createRecipient($action);
 
         $processor = app(ResponseProcessor::class);
@@ -48,7 +48,7 @@ class ReminderCallbackTest extends TestCase
     {
         Queue::fake();
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
         $recipient = $this->createRecipient($action);
 
         $processor = app(ResponseProcessor::class);
@@ -63,7 +63,7 @@ class ReminderCallbackTest extends TestCase
     {
         Queue::fake();
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
         $recipient = $this->createRecipient($action);
 
         $processor = app(ResponseProcessor::class);
@@ -79,7 +79,7 @@ class ReminderCallbackTest extends TestCase
     {
         Queue::fake();
 
-        $action = $this->createReminderWithoutCallback();
+        $action = $this->createGatedActionWithoutCallback();
         $recipient = $this->createRecipient($action);
 
         $processor = app(ResponseProcessor::class);
@@ -97,7 +97,7 @@ class ReminderCallbackTest extends TestCase
             'https://example.com/webhook' => Http::response(['received' => true], 200),
         ]);
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
 
         $job = new DeliverReminderCallback(
             $action,
@@ -129,7 +129,7 @@ class ReminderCallbackTest extends TestCase
             'https://example.com/webhook' => Http::response('Bad Request', 400),
         ]);
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
 
         $job = new DeliverReminderCallback(
             $action,
@@ -163,7 +163,7 @@ class ReminderCallbackTest extends TestCase
             'https://example.com/webhook' => Http::response('Server Error', 500),
         ]);
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
 
         $job = new DeliverReminderCallback(
             $action,
@@ -192,7 +192,7 @@ class ReminderCallbackTest extends TestCase
             'https://example.com/webhook' => Http::response('Server Error', 500),
         ]);
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
 
         // Third attempt (max)
         $job = new DeliverReminderCallback(
@@ -219,7 +219,7 @@ class ReminderCallbackTest extends TestCase
             'https://example.com/webhook' => Http::response(['ok' => true], 200),
         ]);
 
-        $action = $this->createReminderWithCallback();
+        $action = $this->createGatedActionWithCallback();
 
         $job = new DeliverReminderCallback(
             $action,
@@ -245,14 +245,14 @@ class ReminderCallbackTest extends TestCase
         });
     }
 
-    public function test_create_reminder_with_callback_url(): void
+    public function test_create_gated_action_with_callback_url(): void
     {
         $response = $this->actingAs($this->user)->postJson('/api/v1/actions', [
-            'name' => 'Test Reminder',
-            'type' => 'reminder',
-            'message' => 'Please confirm',
+            'name' => 'Test Gated Action',
+            'mode' => 'gated',
             'intent' => ['delay' => '1h'],
-            'escalation_rules' => [
+            'gate' => [
+                'message' => 'Please confirm',
                 'recipients' => ['test@example.com'],
             ],
             'callback_url' => 'https://example.com/webhook',
@@ -260,7 +260,7 @@ class ReminderCallbackTest extends TestCase
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('scheduled_actions', [
-            'name' => 'Test Reminder',
+            'name' => 'Test Gated Action',
             'callback_url' => 'https://example.com/webhook',
         ]);
     }
@@ -268,11 +268,11 @@ class ReminderCallbackTest extends TestCase
     public function test_callback_url_validation(): void
     {
         $response = $this->actingAs($this->user)->postJson('/api/v1/actions', [
-            'name' => 'Test Reminder',
-            'type' => 'reminder',
-            'message' => 'Please confirm',
+            'name' => 'Test Gated Action',
+            'mode' => 'gated',
             'intent' => ['delay' => '1h'],
-            'escalation_rules' => [
+            'gate' => [
+                'message' => 'Please confirm',
                 'recipients' => ['test@example.com'],
             ],
             'callback_url' => 'not-a-valid-url',
@@ -285,11 +285,11 @@ class ReminderCallbackTest extends TestCase
     public function test_callback_url_is_optional(): void
     {
         $response = $this->actingAs($this->user)->postJson('/api/v1/actions', [
-            'name' => 'Test Reminder',
-            'type' => 'reminder',
-            'message' => 'Please confirm',
+            'name' => 'Test Gated Action',
+            'mode' => 'gated',
             'intent' => ['delay' => '1h'],
-            'escalation_rules' => [
+            'gate' => [
+                'message' => 'Please confirm',
                 'recipients' => ['test@example.com'],
             ],
             // No callback_url
@@ -297,46 +297,52 @@ class ReminderCallbackTest extends TestCase
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('scheduled_actions', [
-            'name' => 'Test Reminder',
+            'name' => 'Test Gated Action',
             'callback_url' => null,
         ]);
     }
 
-    private function createReminderWithCallback(): ScheduledAction
+    private function createGatedActionWithCallback(): ScheduledAction
     {
         return ScheduledAction::create([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
-            'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'name' => 'Test Gated Action',
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subMinute()->toIso8601String()],
             'resolution_status' => ScheduledAction::STATUS_AWAITING_RESPONSE,
             'execute_at_utc' => now()->subMinute(),
-            'message' => 'Please confirm this action',
-            'confirmation_mode' => ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
-            'escalation_rules' => ['recipients' => ['recipient@example.com']],
+            'gate' => [
+                'message' => 'Please confirm this action',
+                'recipients' => ['recipient@example.com'],
+                'channels' => ['email'],
+                'confirmation_mode' => ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
+                'max_snoozes' => 5,
+            ],
             'callback_url' => 'https://example.com/webhook',
-            'max_snoozes' => 5,
         ]);
     }
 
-    private function createReminderWithoutCallback(): ScheduledAction
+    private function createGatedActionWithoutCallback(): ScheduledAction
     {
         return ScheduledAction::create([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
-            'name' => 'Test Reminder No Callback',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'name' => 'Test Gated Action No Callback',
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subMinute()->toIso8601String()],
             'resolution_status' => ScheduledAction::STATUS_AWAITING_RESPONSE,
             'execute_at_utc' => now()->subMinute(),
-            'message' => 'Please confirm this action',
-            'confirmation_mode' => ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
-            'escalation_rules' => ['recipients' => ['recipient@example.com']],
+            'gate' => [
+                'message' => 'Please confirm this action',
+                'recipients' => ['recipient@example.com'],
+                'channels' => ['email'],
+                'confirmation_mode' => ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
+                'max_snoozes' => 5,
+            ],
             'callback_url' => null,
-            'max_snoozes' => 5,
         ]);
     }
 
@@ -345,8 +351,8 @@ class ReminderCallbackTest extends TestCase
         return ReminderRecipient::create([
             'action_id' => $action->id,
             'email' => 'recipient@example.com',
-            'token' => 'test-token-123',
-            'status' => ReminderRecipient::STATUS_PENDING,
+            'response_token' => 'test-token-123',
+            'status' => ReminderRecipient::STATUS_SENT,
         ]);
     }
 }

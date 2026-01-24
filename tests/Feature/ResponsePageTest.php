@@ -243,20 +243,27 @@ class ResponsePageTest extends TestCase
 
     private function createAwaitingReminder(array $attributes = []): ScheduledAction
     {
+        $maxSnoozes = $attributes['max_snoozes'] ?? 5;
+        $snoozeCount = $attributes['snooze_count'] ?? 0;
+        unset($attributes['max_snoozes'], $attributes['snooze_count']);
+
         return ScheduledAction::create(array_merge([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => [],
             'resolution_status' => ScheduledAction::STATUS_AWAITING_RESPONSE,
             'execute_at_utc' => now()->subHour(),
-            'message' => 'Please confirm this action',
-            'confirmation_mode' => ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
-            'escalation_rules' => ['recipients' => ['test@example.com']],
-            'max_snoozes' => 5,
-            'snooze_count' => 0,
+            'gate' => [
+                'message' => 'Please confirm this action',
+                'recipients' => ['test@example.com'],
+                'channels' => ['email'],
+                'confirmation_mode' => ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
+                'max_snoozes' => $maxSnoozes,
+            ],
+            'snooze_count' => $snoozeCount,
             'token_expires_at' => now()->addDays(7),
         ], $attributes));
     }

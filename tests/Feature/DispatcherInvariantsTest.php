@@ -107,12 +107,12 @@ class DispatcherInvariantsTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Future Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->addHour()->toIso8601String()],
             'resolution_status' => ScheduledAction::STATUS_RESOLVED,
             'execute_at_utc' => now()->addHour(), // Future
-            'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+            'request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ]);
 
         (new DispatcherJob)->handle();
@@ -163,14 +163,14 @@ class DispatcherInvariantsTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Retry Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subHour()->toIso8601String()],
             'resolution_status' => ScheduledAction::STATUS_RESOLVED,
             'execute_at_utc' => now()->subHour(), // Past
             'next_retry_at' => now()->subMinute(), // Retry due
             'attempt_count' => 1,
-            'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+            'request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ]);
 
         (new DispatcherJob)->handle();
@@ -190,31 +190,37 @@ class DispatcherInvariantsTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test HTTP Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subMinute()->toIso8601String()],
             'resolution_status' => $status,
             'execute_at_utc' => now()->subMinute(), // Due
-            'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+            'request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ]);
     }
 
     /**
-     * Helper to create a reminder action with given status
+     * Helper to create a gated action with given status
      */
     private function createReminderAction(string $status): ScheduledAction
     {
         return ScheduledAction::create([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
-            'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'name' => 'Test Gated Action',
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subMinute()->toIso8601String()],
             'resolution_status' => $status,
             'execute_at_utc' => now()->subMinute(), // Due
-            'message' => 'Test reminder message',
-            'escalation_rules' => ['recipients' => ['test@example.com']],
+            'gate' => [
+                'message' => 'Test gate message',
+                'recipients' => ['test@example.com'],
+                'channels' => ['email'],
+                'timeout' => '7d',
+                'on_timeout' => 'cancel',
+                'max_snoozes' => 5,
+            ],
         ]);
     }
 }

@@ -24,18 +24,22 @@ class ActionService
      */
     public function create(User $user, array $data): ScheduledAction
     {
-        // Check domain verification for HTTP actions
-        if (($data['type'] ?? '') === ScheduledAction::TYPE_HTTP) {
-            $this->checkDomainVerification($user, $data);
+        $mode = $data['mode'] ?? ScheduledAction::MODE_IMMEDIATE;
+
+        // Check domain verification for any action with a request
+        if (isset($data['request'])) {
+            $this->checkDomainVerification($user, $data['request']);
         }
+
         $action = new ScheduledAction;
         $action->account_id = $user->account_id;
         $action->created_by_user_id = $user->id;
-        $action->name = $data['name'];
+        $action->name = $data['name'] ?? ($mode === ScheduledAction::MODE_IMMEDIATE ? 'HTTP Action' : 'Gated Action');
         $action->description = $data['description'] ?? null;
-        $action->type = $data['type'];
+        $action->mode = $mode;
         $action->timezone = $data['timezone'] ?? 'UTC';
         $action->idempotency_key = $data['idempotency_key'] ?? null;
+        $action->callback_url = $data['callback_url'] ?? null;
 
         // Set intent
         if (isset($data['execute_at'])) {
@@ -51,19 +55,18 @@ class ActionService
         // Set initial resolution status
         $action->resolution_status = ScheduledAction::STATUS_PENDING_RESOLUTION;
 
-        // Type-specific configuration
-        if ($action->isHttp()) {
-            $action->http_request = $data['http_request'] ?? [];
+        // Request configuration (for immediate mode, or optional for gated)
+        if (isset($data['request'])) {
+            $action->request = $data['request'];
             $action->max_attempts = $data['max_attempts'] ?? 5;
             $action->retry_strategy = $data['retry_strategy'] ?? 'exponential';
             // Use provided secret, fall back to user's default secret, or generate random
             $action->webhook_secret = $data['webhook_secret'] ?? $user->webhook_secret ?? Str::random(32);
-        } elseif ($action->isReminder()) {
-            $action->message = $data['message'] ?? null;
-            $action->confirmation_mode = $data['confirmation_mode'] ?? ScheduledAction::CONFIRMATION_FIRST_RESPONSE;
-            $action->escalation_rules = $data['escalation_rules'] ?? null;
-            $action->max_snoozes = $data['max_snoozes'] ?? 5;
-            $action->callback_url = $data['callback_url'] ?? null;
+        }
+
+        // Gate configuration (for gated mode)
+        if ($mode === ScheduledAction::MODE_GATED && isset($data['gate'])) {
+            $action->gate = $data['gate'];
         }
 
         $action->save();
@@ -109,12 +112,12 @@ class ActionService
     }
 
     /**
-     * Handle a snooze request for a reminder.
+     * Handle a snooze request for a gated action.
      */
     public function snooze(ScheduledAction $action, string $preset): void
     {
-        if (! $action->isReminder()) {
-            throw new \InvalidArgumentException('Only reminders can be snoozed.');
+        if (! $action->isGated()) {
+            throw new \InvalidArgumentException('Only gated actions can be snoozed.');
         }
 
         if (! $action->canSnooze()) {
@@ -152,7 +155,7 @@ class ActionService
     }
 
     /**
-     * Mark an action as awaiting response (for reminders).
+     * Mark an action as awaiting response (for gated actions).
      *
      * @deprecated Use $action->markAsAwaitingResponse() directly
      */
@@ -172,21 +175,20 @@ class ActionService
     }
 
     /**
-     * Check domain verification for HTTP actions.
+     * Check domain verification for actions with HTTP requests.
      *
-     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $request
      *
      * @throws DomainVerificationRequiredException
      */
-    private function checkDomainVerification(User $user, array $data): void
+    private function checkDomainVerification(User $user, array $request): void
     {
         // Skip domain verification for admin/system users
         if ($user->is_admin) {
             return;
         }
 
-        $httpRequest = $data['http_request'] ?? [];
-        $url = $httpRequest['url'] ?? null;
+        $url = $request['url'] ?? null;
 
         if (! $url) {
             return;

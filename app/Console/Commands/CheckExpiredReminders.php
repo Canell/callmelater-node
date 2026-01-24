@@ -19,7 +19,7 @@ class CheckExpiredReminders extends Command
     {
         $expired = ScheduledAction::query()
             ->where('resolution_status', ScheduledAction::STATUS_AWAITING_RESPONSE)
-            ->where('type', ScheduledAction::TYPE_REMINDER)
+            ->where('mode', ScheduledAction::MODE_GATED)
             ->where('token_expires_at', '<=', now())
             ->get();
 

@@ -49,7 +49,7 @@ class DeliverHttpAction implements ShouldQueue
         }
 
         /** @var array<string, mixed>|null $httpRequest */
-        $httpRequest = $this->action->http_request;
+        $httpRequest = $this->action->request;
 
         if (! is_array($httpRequest) || ! isset($httpRequest['url'])) {
             $this->log('error', 'validation_failed', ['reason' => 'invalid_config']);

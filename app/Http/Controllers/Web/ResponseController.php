@@ -134,7 +134,7 @@ class ResponseController extends Controller
         }
 
         // Check if snooze is available
-        $canSnooze = $action->snooze_count < $action->max_snoozes;
+        $canSnooze = $action->canSnooze();
 
         return view('response-choice', [
             'token' => $token,

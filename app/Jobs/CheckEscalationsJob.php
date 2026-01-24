@@ -24,15 +24,14 @@ class CheckEscalationsJob implements ShouldQueue
     {
         // Find reminders that need escalation:
         // - Status is awaiting_response
-        // - Has escalation_contacts configured
-        // - Has escalate_after_hours configured
-        // - Sent event exists and escalate_after_hours has passed
+        // - Has escalation configured in gate
+        // - Sent event exists and escalation time has passed
         // - No escalated event exists yet
 
         $reminders = ScheduledAction::query()
-            ->where('type', ScheduledAction::TYPE_REMINDER)
+            ->where('mode', ScheduledAction::MODE_GATED)
             ->where('resolution_status', ScheduledAction::STATUS_AWAITING_RESPONSE)
-            ->whereNotNull('escalation_rules')
+            ->whereNotNull('gate')
             ->get();
 
         $escalatedCount = 0;
@@ -51,11 +50,16 @@ class CheckEscalationsJob implements ShouldQueue
 
     private function shouldEscalate(ScheduledAction $reminder): bool
     {
-        $rules = $reminder->escalation_rules;
+        $gate = $reminder->gate ?? [];
+        $escalation = $gate['escalation'] ?? null;
+
+        if (! $escalation) {
+            return false;
+        }
 
         // Check if escalation is configured
-        $escalateAfterHours = $rules['escalate_after_hours'] ?? null;
-        $escalationContacts = $rules['escalation_contacts'] ?? [];
+        $escalateAfterHours = $escalation['after_hours'] ?? null;
+        $escalationContacts = $escalation['contacts'] ?? [];
 
         if (! $escalateAfterHours || empty($escalationContacts)) {
             return false;
@@ -90,8 +94,9 @@ class CheckEscalationsJob implements ShouldQueue
 
     private function escalate(ScheduledAction $reminder, BrevoService $brevoService): void
     {
-        $rules = $reminder->escalation_rules;
-        $escalationContacts = $rules['escalation_contacts'] ?? [];
+        $gate = $reminder->gate ?? [];
+        $escalation = $gate['escalation'] ?? [];
+        $escalationContacts = $escalation['contacts'] ?? [];
 
         $sentCount = 0;
         $contacts = [];
@@ -168,8 +173,9 @@ class CheckEscalationsJob implements ShouldQueue
         $urlPart = "\n👉 {$responseUrl}";
         $maxMessageLength = 160 - strlen($prefix) - strlen($urlPart) - 3;
 
-        // Use message if available, otherwise fall back to name
-        $content = $reminder->message ?: $reminder->name;
+        // Use message from gate if available, otherwise fall back to name
+        $gate = $reminder->gate ?? [];
+        $content = $gate['message'] ?? $reminder->name;
 
         if (strlen($content) > $maxMessageLength) {
             $content = substr($content, 0, $maxMessageLength).'...';

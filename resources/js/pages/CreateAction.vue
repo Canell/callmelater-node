@@ -19,36 +19,38 @@
                 </div>
 
                 <form v-if="!cloning" @submit.prevent="submit">
-                    <!-- Type Selection -->
+                    <!-- Mode Selection -->
                     <div class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
-                            <h5 class="mb-0">Action Type</h5>
+                            <h5 class="mb-0">How should this action execute?</h5>
                         </div>
                         <div class="card-body">
-                            <div class="row">
+                            <div class="row g-3">
                                 <div class="col-6">
                                     <div
                                         class="card h-100 cursor-pointer"
-                                        :class="{ 'border-primary': form.type === 'http' }"
-                                        @click="form.type = 'http'"
+                                        :class="{ 'border-primary border-2': form.mode === 'immediate' }"
+                                        @click="form.mode = 'immediate'; executeOnApproval = false"
                                         role="button"
                                     >
                                         <div class="card-body text-center py-4">
-                                            <h5>Webhook</h5>
-                                            <p class="text-muted mb-0 small">Schedule a webhook to any URL at a specific time</p>
+                                            <div class="fs-2 mb-2">&#9889;</div>
+                                            <h5 class="mb-1">Immediate</h5>
+                                            <p class="text-muted mb-0 small">Execute automatically at scheduled time</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-6">
                                     <div
                                         class="card h-100 cursor-pointer"
-                                        :class="{ 'border-primary': form.type === 'reminder' }"
-                                        @click="form.type = 'reminder'"
+                                        :class="{ 'border-primary border-2': form.mode === 'gated' }"
+                                        @click="form.mode = 'gated'"
                                         role="button"
                                     >
                                         <div class="card-body text-center py-4">
-                                            <h5>Reminder</h5>
-                                            <p class="text-muted mb-0 small">Send an interactive reminder with Yes/No/Snooze options</p>
+                                            <div class="fs-2 mb-2">&#128275;</div>
+                                            <h5 class="mb-1">Gated</h5>
+                                            <p class="text-muted mb-0 small">Requires human approval first</p>
                                         </div>
                                     </div>
                                 </div>
@@ -64,7 +66,7 @@
                         <div class="card-body">
                             <div class="mb-3">
                                 <label class="form-label">Name *</label>
-                                <input type="text" class="form-control" v-model="form.name" required :placeholder="form.type === 'http' ? 'e.g. Delete trial account' : 'e.g. Remind me to review contract'">
+                                <input type="text" class="form-control" v-model="form.name" required :placeholder="form.mode === 'immediate' ? 'e.g. Delete trial account' : 'e.g. Deploy to production'">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Description</label>
@@ -89,7 +91,7 @@
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <label class="form-label">When to execute *</label>
+                                <label class="form-label">{{ form.mode === 'gated' ? 'When to send approval request *' : 'When to execute *' }}</label>
                                 <div class="btn-group d-block mb-2" role="group">
                                     <input type="radio" class="btn-check" id="schedule-datetime" v-model="scheduleType" value="datetime">
                                     <label class="btn btn-outline-secondary" for="schedule-datetime">Specific Date/Time</label>
@@ -142,189 +144,15 @@
                         </div>
                     </div>
 
-                    <!-- Firewall Hint (for HTTP actions) -->
-                    <div v-if="form.type === 'http' && showFirewallHint && outboundIp" class="alert alert-light border mb-4 d-flex align-items-start">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-muted me-3 flex-shrink-0 mt-1">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="16" x2="12" y2="12"/>
-                            <line x1="12" y1="8" x2="12.01" y2="8"/>
-                        </svg>
-                        <div class="flex-grow-1">
-                            <strong>Firewall configuration</strong>
-                            <p class="mb-2 small text-muted">
-                                If your endpoint is protected by a firewall, you may need to allow incoming requests from CallMeLater's outbound IP address.
-                            </p>
-                            <div class="d-flex align-items-center gap-2">
-                                <code class="bg-white px-2 py-1 border rounded small">{{ outboundIp }}</code>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="copyIp">
-                                    {{ ipCopied ? 'Copied!' : 'Copy' }}
-                                </button>
-                                <a href="https://docs.callmelater.io/reference/security#ip-allowlisting" target="_blank" class="btn btn-sm btn-link">Learn more</a>
-                            </div>
-                        </div>
-                        <button type="button" class="btn-close ms-2" @click="dismissFirewallHint" aria-label="Dismiss"></button>
-                    </div>
-
-                    <!-- Webhook Config -->
-                    <div v-if="form.type === 'http'" class="card card-cml mb-4">
+                    <!-- Gate Configuration (Gated mode only) -->
+                    <div v-if="form.mode === 'gated'" class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
-                            <h5 class="mb-0">Webhook Details</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-md-3">
-                                    <label class="form-label">Method</label>
-                                    <select class="form-select" v-model="httpRequest.method">
-                                        <option>GET</option>
-                                        <option>POST</option>
-                                        <option>PUT</option>
-                                        <option>PATCH</option>
-                                        <option>DELETE</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-9">
-                                    <label class="form-label">URL *</label>
-                                    <div class="position-relative">
-                                        <input
-                                            type="url"
-                                            class="form-control"
-                                            :class="{ 'is-invalid': urlError }"
-                                            v-model="httpRequest.url"
-                                            required
-                                            placeholder="https://api.example.com/webhook"
-                                            @blur="validateUrl"
-                                        >
-                                        <div v-if="urlValidating" class="position-absolute top-50 end-0 translate-middle-y pe-3">
-                                            <span class="spinner-border spinner-border-sm text-muted"></span>
-                                        </div>
-                                    </div>
-                                    <div v-if="urlError" class="invalid-feedback d-block">{{ urlError }}</div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Headers (JSON)</label>
-                                <textarea
-                                    class="form-control font-monospace"
-                                    :class="{ 'is-invalid': headersJsonError }"
-                                    v-model="headersJson"
-                                    rows="3"
-                                    placeholder='{"Authorization": "Bearer YOUR_API_TOKEN"}'
-                                ></textarea>
-                                <div v-if="headersJsonError" class="invalid-feedback">{{ headersJsonError }}</div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Body (JSON)</label>
-                                <textarea
-                                    class="form-control font-monospace"
-                                    :class="{ 'is-invalid': bodyJsonError }"
-                                    v-model="bodyJson"
-                                    rows="4"
-                                    placeholder='{"event": "trial_expired", "user_id": 123}'
-                                ></textarea>
-                                <div v-if="bodyJsonError" class="invalid-feedback">{{ bodyJsonError }}</div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label class="form-label">Max Attempts</label>
-                                    <input type="number" class="form-control" v-model="form.max_attempts" min="1" max="10">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">
-                                        Retry Strategy
-                                        <span
-                                            class="text-muted ms-1"
-                                            role="button"
-                                            data-bs-toggle="tooltip"
-                                            data-bs-placement="top"
-                                            data-bs-html="true"
-                                            :title="retryTooltip"
-                                            @mouseenter="initTooltip"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <circle cx="12" cy="12" r="10"></circle>
-                                                <line x1="12" y1="16" x2="12" y2="12"></line>
-                                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                            </svg>
-                                        </span>
-                                    </label>
-                                    <select class="form-select" v-model="form.retry_strategy">
-                                        <option value="exponential">Exponential Backoff</option>
-                                        <option value="linear">Linear</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted">Retries only occur when the request fails or times out.</small>
-                                <a href="https://docs.callmelater.io/reference/retry-behavior" target="_blank" class="small ms-2">Learn more</a>
-                            </div>
-
-                            <!-- Test Webhook -->
-                            <div class="mt-4 pt-3 border-top">
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <div>
-                                        <strong>Test your webhook</strong>
-                                        <div class="text-muted small">Send a test request to verify your configuration</div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        class="btn btn-outline-secondary"
-                                        @click="testRequest"
-                                        :disabled="testButtonDisabled"
-                                    >
-                                        <span v-if="testing">
-                                            <span class="spinner-border spinner-border-sm me-1"></span>
-                                            Testing...
-                                        </span>
-                                        <span v-else-if="testCooldown > 0">
-                                            Wait {{ testCooldown }}s
-                                        </span>
-                                        <span v-else>Test Request</span>
-                                    </button>
-                                </div>
-
-                                <!-- Test Result -->
-                                <div v-if="testResult" class="mt-3">
-                                    <div
-                                        class="alert mb-0"
-                                        :class="testResult.success ? 'alert-success' : (testResult.rate_limited ? 'alert-warning' : 'alert-danger')"
-                                    >
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <strong v-if="testResult.success">Success!</strong>
-                                                <strong v-else-if="testResult.rate_limited">Test limit reached</strong>
-                                                <strong v-else>Failed</strong>
-                                                <span v-if="testResult.status_code" class="ms-2">
-                                                    HTTP {{ testResult.status_code }}
-                                                </span>
-                                                <span v-if="testResult.duration_ms" class="text-muted ms-2">({{ testResult.duration_ms }}ms)</span>
-                                            </div>
-                                            <button type="button" class="btn-close" @click="testResult = null"></button>
-                                        </div>
-                                        <div v-if="testResult.error" class="mt-2 small">
-                                            {{ testResult.error }}
-                                        </div>
-                                        <div v-if="testCooldown > 0" class="mt-2 small">
-                                            You can test again in <strong>{{ testCooldown }}</strong> seconds.
-                                        </div>
-                                        <div v-if="testResult.body" class="mt-2">
-                                            <small class="text-muted">Response preview:</small>
-                                            <pre class="mb-0 mt-1 p-2 bg-white rounded small" style="max-height: 100px; overflow: auto;">{{ testResult.body }}</pre>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Reminder Config -->
-                    <div v-if="form.type === 'reminder'" class="card card-cml mb-4">
-                        <div class="card-header bg-transparent">
-                            <h5 class="mb-0">Reminder Details</h5>
+                            <h5 class="mb-0">Gate Configuration</h5>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
                                 <label class="form-label">Message *</label>
-                                <textarea class="form-control" v-model="form.message" rows="4" required placeholder="Enter the reminder message..."></textarea>
+                                <textarea class="form-control" v-model="gate.message" rows="4" required placeholder="e.g. Ready to deploy v2.1 to production?"></textarea>
                                 <div class="form-text">This is what recipients will see.</div>
                             </div>
                             <div class="mb-3">
@@ -356,41 +184,49 @@
                                 </div>
                             </div>
                             <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Confirmation Mode</label>
-                                    <select class="form-select" v-model="form.confirmation_mode">
-                                        <option value="first_response">First Response Wins</option>
-                                        <option value="all_required">All Must Confirm</option>
-                                    </select>
-                                    <div class="form-text">
-                                        {{ form.confirmation_mode === 'first_response'
-                                            ? 'First person to respond determines the outcome.'
-                                            : 'All recipients must confirm for success.' }}
+                                <div class="col-md-4">
+                                    <label class="form-label">Timeout</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" v-model="gate.timeoutValue" min="1" placeholder="e.g. 4">
+                                        <select class="form-select" v-model="gate.timeoutUnit" style="max-width: 100px;">
+                                            <option value="h">hours</option>
+                                            <option value="d">days</option>
+                                            <option value="w">weeks</option>
+                                        </select>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Max Snoozes</label>
-                                    <input type="number" class="form-control" v-model="form.max_snoozes" min="0" max="10">
+                                <div class="col-md-4">
+                                    <label class="form-label">On Timeout</label>
+                                    <select class="form-select" v-model="gate.on_timeout">
+                                        <option value="expire">Mark as expired</option>
+                                        <option value="cancel">Cancel action</option>
+                                        <option value="approve">Auto-approve</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Confirmation Mode</label>
+                                    <select class="form-select" v-model="gate.confirmation_mode">
+                                        <option value="first_response">First Response</option>
+                                        <option value="all_required">All Must Confirm</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label small text-muted">
-                                    Callback URL
-                                    <span class="badge bg-light text-muted ms-1">Advanced</span>
+                                <label class="form-label">Max Snoozes</label>
+                                <input type="number" class="form-control" v-model="gate.max_snoozes" min="0" max="10" style="max-width: 100px;">
+                            </div>
+
+                            <!-- Execute HTTP on approval checkbox -->
+                            <div class="form-check mt-4 p-3 bg-light rounded">
+                                <input type="checkbox" class="form-check-input" id="executeOnApproval" v-model="executeOnApproval">
+                                <label class="form-check-label" for="executeOnApproval">
+                                    <strong>Execute HTTP request on approval</strong>
+                                    <div class="text-muted small">When approved, automatically fire a webhook to your specified URL</div>
                                 </label>
-                                <input
-                                    type="url"
-                                    class="form-control form-control-sm"
-                                    v-model="form.callback_url"
-                                    placeholder="https://api.example.com/webhook/reminder-response"
-                                >
-                                <div class="form-text small">
-                                    Optional. We'll POST to this URL when someone responds.
-                                </div>
                             </div>
 
                             <!-- Escalation Settings -->
-                            <div class="border-top pt-3 mt-3">
+                            <div class="border-top pt-3 mt-4">
                                 <h6 class="mb-3">Escalation <span class="text-muted fw-normal">(optional)</span></h6>
                                 <div class="row mb-3">
                                     <div class="col-md-6">
@@ -446,6 +282,201 @@
                         </div>
                     </div>
 
+                    <!-- Firewall Hint (for HTTP requests) -->
+                    <div v-if="showRequestConfig && showFirewallHint && outboundIp" class="alert alert-light border mb-4 d-flex align-items-start">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-muted me-3 flex-shrink-0 mt-1">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        <div class="flex-grow-1">
+                            <strong>Firewall configuration</strong>
+                            <p class="mb-2 small text-muted">
+                                If your endpoint is protected by a firewall, you may need to allow incoming requests from CallMeLater's outbound IP address.
+                            </p>
+                            <div class="d-flex align-items-center gap-2">
+                                <code class="bg-white px-2 py-1 border rounded small">{{ outboundIp }}</code>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @click="copyIp">
+                                    {{ ipCopied ? 'Copied!' : 'Copy' }}
+                                </button>
+                                <a href="https://docs.callmelater.io/reference/security#ip-allowlisting" target="_blank" class="btn btn-sm btn-link">Learn more</a>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close ms-2" @click="dismissFirewallHint" aria-label="Dismiss"></button>
+                    </div>
+
+                    <!-- HTTP Request Config (Immediate mode OR Gated + Execute on approval) -->
+                    <div v-if="showRequestConfig" class="card card-cml mb-4">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">HTTP Request</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Method</label>
+                                    <select class="form-select" v-model="request.method">
+                                        <option>GET</option>
+                                        <option>POST</option>
+                                        <option>PUT</option>
+                                        <option>PATCH</option>
+                                        <option>DELETE</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-9">
+                                    <label class="form-label">URL *</label>
+                                    <div class="position-relative">
+                                        <input
+                                            type="url"
+                                            class="form-control"
+                                            :class="{ 'is-invalid': urlError }"
+                                            v-model="request.url"
+                                            required
+                                            placeholder="https://api.example.com/webhook"
+                                            @blur="validateUrl"
+                                        >
+                                        <div v-if="urlValidating" class="position-absolute top-50 end-0 translate-middle-y pe-3">
+                                            <span class="spinner-border spinner-border-sm text-muted"></span>
+                                        </div>
+                                    </div>
+                                    <div v-if="urlError" class="invalid-feedback d-block">{{ urlError }}</div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Headers (JSON)</label>
+                                <textarea
+                                    class="form-control font-monospace"
+                                    :class="{ 'is-invalid': headersJsonError }"
+                                    v-model="headersJson"
+                                    rows="3"
+                                    placeholder='{"Authorization": "Bearer YOUR_API_TOKEN"}'
+                                ></textarea>
+                                <div v-if="headersJsonError" class="invalid-feedback">{{ headersJsonError }}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Body (JSON)</label>
+                                <textarea
+                                    class="form-control font-monospace"
+                                    :class="{ 'is-invalid': bodyJsonError }"
+                                    v-model="bodyJson"
+                                    rows="4"
+                                    placeholder='{"event": "deploy", "version": "2.1"}'
+                                ></textarea>
+                                <div v-if="bodyJsonError" class="invalid-feedback">{{ bodyJsonError }}</div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Max Attempts</label>
+                                    <input type="number" class="form-control" v-model="form.max_attempts" min="1" max="10">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">
+                                        Retry Strategy
+                                        <span
+                                            class="text-muted ms-1"
+                                            role="button"
+                                            data-bs-toggle="tooltip"
+                                            data-bs-placement="top"
+                                            data-bs-html="true"
+                                            :title="retryTooltip"
+                                            @mouseenter="initTooltip"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                            </svg>
+                                        </span>
+                                    </label>
+                                    <select class="form-select" v-model="form.retry_strategy">
+                                        <option value="exponential">Exponential Backoff</option>
+                                        <option value="linear">Linear</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">Retries only occur when the request fails or times out.</small>
+                                <a href="https://docs.callmelater.io/reference/retry-behavior" target="_blank" class="small ms-2">Learn more</a>
+                            </div>
+
+                            <!-- Test Request -->
+                            <div class="mt-4 pt-3 border-top">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <strong>Test your request</strong>
+                                        <div class="text-muted small">Send a test request to verify your configuration</div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-secondary"
+                                        @click="testRequest"
+                                        :disabled="testButtonDisabled"
+                                    >
+                                        <span v-if="testing">
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                            Testing...
+                                        </span>
+                                        <span v-else-if="testCooldown > 0">
+                                            Wait {{ testCooldown }}s
+                                        </span>
+                                        <span v-else>Test Request</span>
+                                    </button>
+                                </div>
+
+                                <!-- Test Result -->
+                                <div v-if="testResult" class="mt-3">
+                                    <div
+                                        class="alert mb-0"
+                                        :class="testResult.success ? 'alert-success' : (testResult.rate_limited ? 'alert-warning' : 'alert-danger')"
+                                    >
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong v-if="testResult.success">Success!</strong>
+                                                <strong v-else-if="testResult.rate_limited">Test limit reached</strong>
+                                                <strong v-else>Failed</strong>
+                                                <span v-if="testResult.status_code" class="ms-2">
+                                                    HTTP {{ testResult.status_code }}
+                                                </span>
+                                                <span v-if="testResult.duration_ms" class="text-muted ms-2">({{ testResult.duration_ms }}ms)</span>
+                                            </div>
+                                            <button type="button" class="btn-close" @click="testResult = null"></button>
+                                        </div>
+                                        <div v-if="testResult.error" class="mt-2 small">
+                                            {{ testResult.error }}
+                                        </div>
+                                        <div v-if="testCooldown > 0" class="mt-2 small">
+                                            You can test again in <strong>{{ testCooldown }}</strong> seconds.
+                                        </div>
+                                        <div v-if="testResult.body" class="mt-2">
+                                            <small class="text-muted">Response preview:</small>
+                                            <pre class="mb-0 mt-1 p-2 bg-white rounded small" style="max-height: 100px; overflow: auto;">{{ testResult.body }}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Callback URL (for gated without request) -->
+                    <div v-if="form.mode === 'gated' && !executeOnApproval" class="card card-cml mb-4">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">Callback <span class="text-muted fw-normal">(optional)</span></h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-0">
+                                <label class="form-label">Callback URL</label>
+                                <input
+                                    type="url"
+                                    class="form-control"
+                                    v-model="form.callback_url"
+                                    placeholder="https://api.example.com/webhook/response"
+                                >
+                                <div class="form-text">
+                                    We'll POST to this URL when someone responds (confirms, declines, or snoozes).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Error display -->
                     <div v-if="error" class="alert alert-danger">
                         {{ error }}
@@ -459,7 +490,7 @@
                     <!-- Submit -->
                     <div class="d-flex justify-content-end gap-2">
                         <router-link to="/dashboard" class="btn btn-outline-secondary">Cancel</router-link>
-                        <button type="submit" class="btn btn-cml-primary" :disabled="submitting || (form.type === 'http' && (hasValidationErrors || !isUrlValid))">
+                        <button type="submit" class="btn btn-cml-primary" :disabled="submitting || (showRequestConfig && (hasValidationErrors || !isUrlValid))">
                             {{ submitting ? 'Creating...' : 'Create Action' }}
                         </button>
                     </div>
@@ -477,19 +508,31 @@ export default {
     data() {
         return {
             form: {
-                type: 'http',
+                mode: 'immediate',
                 name: '',
                 description: '',
                 execute_at: '',
                 timezone: localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone,
                 max_attempts: 3,
                 retry_strategy: 'exponential',
-                message: '',
-                confirmation_mode: 'first_response',
-                max_snoozes: 5,
                 callback_url: '',
                 team_id: null,
             },
+            // Gate configuration (for gated mode)
+            gate: {
+                message: '',
+                timeoutValue: 7,
+                timeoutUnit: 'd',
+                on_timeout: 'expire',
+                confirmation_mode: 'first_response',
+                max_snoozes: 5,
+            },
+            // Request configuration (for immediate or gated+execute)
+            request: {
+                method: 'POST',
+                url: '',
+            },
+            executeOnApproval: false,
             // Teams (Business plan)
             teams: [],
             accountMembers: [],
@@ -499,10 +542,6 @@ export default {
             intentPreset: 'tomorrow',
             delayAmount: 1,
             delayUnit: 'h',
-            httpRequest: {
-                method: 'POST',
-                url: '',
-            },
             headersJson: '',
             bodyJson: '',
             recipientsText: '',
@@ -560,6 +599,9 @@ export default {
         };
     },
     computed: {
+        showRequestConfig() {
+            return this.form.mode === 'immediate' || this.executeOnApproval;
+        },
         headersJsonError() {
             return this.validateJson(this.headersJson, 'headers');
         },
@@ -614,9 +656,9 @@ export default {
             return this.testing || !this.isUrlValid || this.hasValidationErrors || this.testCooldown > 0;
         },
         isUrlValid() {
-            if (!this.httpRequest.url) return false;
+            if (!this.request.url) return false;
             try {
-                const url = new URL(this.httpRequest.url);
+                const url = new URL(this.request.url);
                 // Must have http/https protocol AND a valid hostname (not empty)
                 const validProtocol = url.protocol === 'http:' || url.protocol === 'https:';
                 const hasHost = url.hostname && url.hostname.length > 0 && url.hostname.includes('.');
@@ -690,7 +732,7 @@ export default {
                 this.cloneSourceName = action.name;
 
                 // Populate basic info
-                this.form.type = action.type;
+                this.form.mode = action.mode || 'immediate';
                 this.form.name = `${action.name} (copy)`;
                 this.form.description = action.description || '';
                 this.form.timezone = action.timezone || localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -700,35 +742,49 @@ export default {
                 this.delayAmount = 1;
                 this.delayUnit = 'h';
 
-                if (action.type === 'http') {
-                    // HTTP-specific fields
-                    const httpReq = action.http_request || {};
-                    this.httpRequest.method = httpReq.method || 'POST';
-                    this.httpRequest.url = httpReq.url || '';
-                    this.headersJson = httpReq.headers ? JSON.stringify(httpReq.headers, null, 2) : '';
-                    this.bodyJson = httpReq.body ? JSON.stringify(httpReq.body, null, 2) : '';
+                if (action.mode === 'immediate' || action.request) {
+                    // Request config
+                    const req = action.request || {};
+                    this.request.method = req.method || 'POST';
+                    this.request.url = req.url || '';
+                    this.headersJson = req.headers ? JSON.stringify(req.headers, null, 2) : '';
+                    this.bodyJson = req.body ? JSON.stringify(req.body, null, 2) : '';
                     this.form.max_attempts = action.max_attempts || 3;
                     this.form.retry_strategy = action.retry_strategy || 'exponential';
-                } else if (action.type === 'reminder') {
-                    // Reminder-specific fields
-                    this.form.message = action.message || '';
-                    this.form.confirmation_mode = action.confirmation_mode || 'first_response';
-                    this.form.max_snoozes = action.max_snoozes || 5;
-                    this.form.callback_url = action.callback_url || '';
 
-                    // Extract recipients from escalation_rules
-                    const rules = action.escalation_rules || {};
-                    const recipients = rules.recipients || [];
-                    this.recipientsText = recipients.join('\n');
-
-                    // Restore escalation settings
-                    if (rules.escalate_after_hours) {
-                        this.escalation.hours = rules.escalate_after_hours;
-                    }
-                    if (rules.escalation_contacts) {
-                        this.escalation.contacts = rules.escalation_contacts.join('\n');
+                    if (action.mode === 'gated' && action.request) {
+                        this.executeOnApproval = true;
                     }
                 }
+
+                if (action.mode === 'gated' && action.gate) {
+                    // Gate config
+                    const g = action.gate;
+                    this.gate.message = g.message || '';
+                    this.gate.confirmation_mode = g.confirmation_mode || 'first_response';
+                    this.gate.max_snoozes = g.max_snoozes || 5;
+                    this.gate.on_timeout = g.on_timeout || 'expire';
+
+                    // Parse timeout
+                    if (g.timeout) {
+                        const match = g.timeout.match(/^(\d+)([hdw])$/);
+                        if (match) {
+                            this.gate.timeoutValue = parseInt(match[1]);
+                            this.gate.timeoutUnit = match[2];
+                        }
+                    }
+
+                    // Recipients
+                    this.recipientsText = (g.recipients || []).join('\n');
+
+                    // Escalation
+                    if (g.escalation) {
+                        this.escalation.hours = g.escalation.after_hours || '';
+                        this.escalation.contacts = (g.escalation.contacts || []).join('\n');
+                    }
+                }
+
+                this.form.callback_url = action.callback_url || '';
             } catch (err) {
                 console.error('Failed to load action for cloning:', err);
                 this.error = 'Failed to load the action to clone. Please try again.';
@@ -759,8 +815,8 @@ export default {
 
             try {
                 const payload = {
-                    url: this.httpRequest.url,
-                    method: this.httpRequest.method,
+                    url: this.request.url,
+                    method: this.request.method,
                 };
 
                 // Parse headers if provided
@@ -843,7 +899,7 @@ export default {
             }
         },
         async validateUrl() {
-            const url = this.httpRequest.url?.trim();
+            const url = this.request.url?.trim();
             this.urlError = null;
 
             // Skip if empty - will be caught by required validation on submit
@@ -910,7 +966,7 @@ export default {
             this.errors = [];
 
             // Check for validation errors first
-            if (this.form.type === 'http' && this.hasValidationErrors) {
+            if (this.showRequestConfig && this.hasValidationErrors) {
                 this.error = 'Please fix the validation errors before submitting.';
                 this.submitting = false;
                 return;
@@ -919,7 +975,7 @@ export default {
             try {
                 // Build payload
                 const payload = {
-                    type: this.form.type,
+                    mode: this.form.mode,
                     name: this.form.name,
                     description: this.form.description || undefined,
                     timezone: this.form.timezone,
@@ -935,43 +991,50 @@ export default {
                     payload.intent = { delay: `${this.delayAmount}${this.delayUnit}` };
                 }
 
-                // Type-specific config
-                if (this.form.type === 'http') {
-                    payload.http_request = {
-                        method: this.httpRequest.method,
-                        url: this.httpRequest.url,
+                // Request config (for immediate or gated+execute)
+                if (this.showRequestConfig) {
+                    payload.request = {
+                        method: this.request.method,
+                        url: this.request.url,
                     };
                     if (this.headersJson.trim()) {
-                        payload.http_request.headers = JSON.parse(this.headersJson);
+                        payload.request.headers = JSON.parse(this.headersJson);
                     }
                     if (this.bodyJson.trim()) {
-                        payload.http_request.body = JSON.parse(this.bodyJson);
+                        payload.request.body = JSON.parse(this.bodyJson);
                     }
                     payload.max_attempts = parseInt(this.form.max_attempts);
                     payload.retry_strategy = this.form.retry_strategy;
-                } else {
-                    payload.message = this.form.message;
-                    payload.confirmation_mode = this.form.confirmation_mode;
-                    payload.max_snoozes = parseInt(this.form.max_snoozes);
+                }
 
-                    payload.escalation_rules = {
+                // Gate config (for gated mode)
+                if (this.form.mode === 'gated') {
+                    payload.gate = {
+                        message: this.gate.message,
                         recipients: this.recipientsText.split('\n').map(e => e.trim()).filter(e => e),
+                        timeout: `${this.gate.timeoutValue}${this.gate.timeoutUnit}`,
+                        on_timeout: this.gate.on_timeout,
+                        confirmation_mode: this.gate.confirmation_mode,
+                        max_snoozes: parseInt(this.gate.max_snoozes),
                     };
 
                     // Add escalation settings if configured
                     if (this.escalation.hours && parseFloat(this.escalation.hours) > 0) {
-                        payload.escalation_rules.escalate_after_hours = parseFloat(this.escalation.hours);
+                        payload.gate.escalation = {
+                            after_hours: parseFloat(this.escalation.hours),
+                        };
                         if (this.escalation.contacts?.trim()) {
-                            payload.escalation_rules.escalation_contacts = this.escalation.contacts
+                            payload.gate.escalation.contacts = this.escalation.contacts
                                 .split('\n')
                                 .map(c => c.trim())
                                 .filter(c => c);
                         }
                     }
+                }
 
-                    if (this.form.callback_url?.trim()) {
-                        payload.callback_url = this.form.callback_url.trim();
-                    }
+                // Callback URL (for gated without request)
+                if (this.form.mode === 'gated' && !this.executeOnApproval && this.form.callback_url?.trim()) {
+                    payload.callback_url = this.form.callback_url.trim();
                 }
 
                 await axios.post('/api/v1/actions', payload);

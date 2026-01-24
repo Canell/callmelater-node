@@ -76,13 +76,13 @@ class DomainVerificationService
         $dailyCount = DB::table('scheduled_actions')
             ->where('account_id', $user->account_id)
             ->where('created_at', '>=', now()->subDay())
-            ->whereRaw("http_request->>'url' LIKE ?", ["%{$domain}%"])
+            ->whereRaw("request->>'url' LIKE ?", ["%{$domain}%"])
             ->count();
 
         $monthlyCount = DB::table('scheduled_actions')
             ->where('account_id', $user->account_id)
             ->where('created_at', '>=', now()->subMonth())
-            ->whereRaw("http_request->>'url' LIKE ?", ["%{$domain}%"])
+            ->whereRaw("request->>'url' LIKE ?", ["%{$domain}%"])
             ->count();
 
         return [

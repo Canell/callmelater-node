@@ -37,8 +37,11 @@ class AdminController extends Controller
         // Action stats
         $actions = [
             'total' => ScheduledAction::count(),
-            'http' => ScheduledAction::where('type', 'http')->count(),
-            'reminder' => ScheduledAction::where('type', 'reminder')->count(),
+            'immediate' => ScheduledAction::where('mode', 'immediate')->count(),
+            'gated' => ScheduledAction::where('mode', 'gated')->count(),
+            'gated_with_request' => ScheduledAction::where('mode', 'gated')
+                ->whereNotNull('request')
+                ->count(),
             'executed' => ScheduledAction::where('resolution_status', 'executed')->count(),
             'failed' => ScheduledAction::where('resolution_status', 'failed')->count(),
             'cancelled' => ScheduledAction::where('resolution_status', 'cancelled')->count(),

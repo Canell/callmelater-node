@@ -20,15 +20,15 @@ class CreateActionRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        // Default type to 'http' if not provided
-        if (! $this->has('type')) {
-            $this->merge(['type' => ScheduledAction::TYPE_HTTP]);
+        // Default mode to 'immediate' if not provided
+        if (! $this->has('mode')) {
+            $this->merge(['mode' => ScheduledAction::MODE_IMMEDIATE]);
         }
 
         // Auto-generate name if not provided
         if (! $this->filled('name')) {
-            $type = $this->input('type', ScheduledAction::TYPE_HTTP);
-            $this->merge(['name' => $type === ScheduledAction::TYPE_HTTP ? 'HTTP Action' : 'Reminder']);
+            $mode = $this->input('mode', ScheduledAction::MODE_IMMEDIATE);
+            $this->merge(['name' => $mode === ScheduledAction::MODE_IMMEDIATE ? 'HTTP Action' : 'Gated Action']);
         }
     }
 
@@ -37,12 +37,16 @@ class CreateActionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $mode = $this->input('mode', ScheduledAction::MODE_IMMEDIATE);
+
         return [
+            // Common fields
             'name' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'type' => ['nullable', 'string', Rule::in([ScheduledAction::TYPE_HTTP, ScheduledAction::TYPE_REMINDER])],
+            'mode' => ['nullable', 'string', Rule::in([ScheduledAction::MODE_IMMEDIATE, ScheduledAction::MODE_GATED])],
             'timezone' => ['nullable', 'string', 'timezone:all'],
             'idempotency_key' => ['nullable', 'string', 'max:255'],
+            'callback_url' => ['nullable', 'url:http,https'],
 
             // Scheduling - either execute_at or intent
             'execute_at' => ['nullable', 'date', 'after:now'],
@@ -52,34 +56,35 @@ class CreateActionRequest extends FormRequest
             'intent.at' => ['nullable', 'string'],
             'intent.on' => ['nullable', 'date'],
 
-            // HTTP-specific
-            'http_request' => ['required_if:type,http', 'array'],
-            'http_request.url' => ['required_if:type,http', 'url:http,https'],
-            'http_request.method' => ['nullable', 'string', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
-            'http_request.headers' => ['nullable', 'array'],
-            'http_request.body' => ['nullable', 'array'],
-            'http_request.timeout' => ['nullable', 'integer', 'min:1', 'max:120'],
+            // Request block (required for immediate, optional for gated)
+            'request' => [$mode === ScheduledAction::MODE_IMMEDIATE ? 'required' : 'nullable', 'array'],
+            'request.url' => ['required_with:request', 'url:http,https'],
+            'request.method' => ['nullable', 'string', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
+            'request.headers' => ['nullable', 'array'],
+            'request.body' => ['nullable', 'array'],
+            'request.timeout' => ['nullable', 'integer', 'min:1', 'max:120'],
             'max_attempts' => ['nullable', 'integer', 'min:1', 'max:10'],
             'retry_strategy' => ['nullable', 'string', Rule::in(['exponential', 'linear'])],
             'webhook_secret' => ['nullable', 'string', 'max:255'],
 
-            // Reminder-specific
-            'message' => ['required_if:type,reminder', 'string', 'max:5000'],
-            'confirmation_mode' => ['nullable', 'string', Rule::in([
+            // Gate block (required for gated mode)
+            'gate' => ['required_if:mode,gated', 'array'],
+            'gate.message' => ['required_with:gate', 'string', 'max:5000'],
+            'gate.recipients' => ['required_with:gate', 'array', 'min:1'],
+            'gate.recipients.*' => ['required', 'string', 'regex:/^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\+[1-9]\d{6,14})$/'],
+            'gate.channels' => ['nullable', 'array'],
+            'gate.channels.*' => ['string', Rule::in(['email', 'sms'])],
+            'gate.timeout' => ['nullable', 'string', 'regex:/^\d+[hdw]$/'],
+            'gate.on_timeout' => ['nullable', 'string', Rule::in(['cancel', 'expire', 'approve'])],
+            'gate.max_snoozes' => ['nullable', 'integer', 'min:0', 'max:10'],
+            'gate.confirmation_mode' => ['nullable', 'string', Rule::in([
                 ScheduledAction::CONFIRMATION_FIRST_RESPONSE,
                 ScheduledAction::CONFIRMATION_ALL_REQUIRED,
             ])],
-            'escalation_rules' => ['nullable', 'array'],
-            'escalation_rules.recipients' => ['required_if:type,reminder', 'array', 'min:1'],
-            'escalation_rules.recipients.*' => ['required', 'string', 'regex:/^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\+[1-9]\d{6,14})$/'],
-            'escalation_rules.channels' => ['nullable', 'array'],
-            'escalation_rules.channels.*' => ['string', Rule::in(['email', 'sms'])],
-            'escalation_rules.token_expiry_days' => ['nullable', 'integer', 'min:1', 'max:30'],
-            'escalation_rules.escalate_after_hours' => ['nullable', 'numeric', 'min:0.5'],
-            'escalation_rules.escalation_contacts' => ['nullable', 'array'],
-            'escalation_rules.escalation_contacts.*' => ['email'],
-            'max_snoozes' => ['nullable', 'integer', 'min:0', 'max:10'],
-            'callback_url' => ['nullable', 'url:http,https'],
+            'gate.escalation' => ['nullable', 'array'],
+            'gate.escalation.after_hours' => ['nullable', 'numeric', 'min:0.5'],
+            'gate.escalation.contacts' => ['nullable', 'array'],
+            'gate.escalation.contacts.*' => ['email'],
         ];
     }
 
@@ -90,9 +95,13 @@ class CreateActionRequest extends FormRequest
     {
         return [
             'execute_at.after' => 'The execution time must be in the future.',
-            'http_request.url.url' => 'The URL must be a valid HTTP or HTTPS URL.',
-            'escalation_rules.recipients.required_if' => 'At least one recipient is required for reminders.',
-            'escalation_rules.recipients.*.regex' => 'Each recipient must be a valid email address or phone number (E.164 format, e.g. +15551234567).',
+            'request.url.url' => 'The URL must be a valid HTTP or HTTPS URL.',
+            'request.required' => 'A request configuration is required for immediate actions.',
+            'gate.required_if' => 'Gate configuration is required for gated actions.',
+            'gate.message.required_with' => 'A message is required for the gate.',
+            'gate.recipients.required_with' => 'At least one recipient is required for the gate.',
+            'gate.recipients.*.regex' => 'Each recipient must be a valid email address or phone number (E.164 format, e.g. +15551234567).',
+            'gate.timeout.regex' => 'Timeout must be a number followed by h (hours), d (days), or w (weeks). Example: 4h, 7d, 1w',
         ];
     }
 
@@ -174,20 +183,20 @@ class CreateActionRequest extends FormRequest
             }
         }
 
-        // Check recipients limit for reminders
-        if ($this->input('type') === ScheduledAction::TYPE_REMINDER) {
-            $recipients = $this->input('escalation_rules.recipients', []);
+        // Check gated action limits
+        if ($this->input('mode') === ScheduledAction::MODE_GATED) {
+            $recipients = $this->input('gate.recipients', []);
             $maxRecipients = $user->getPlanLimit('max_recipients');
 
             if (count($recipients) > $maxRecipients) {
-                $validator->errors()->add('escalation_rules.recipients', "Your plan allows up to {$maxRecipients} recipients per reminder.");
+                $validator->errors()->add('gate.recipients', "Your plan allows up to {$maxRecipients} recipients per gated action.");
             }
 
             // Check SMS channel requires paid plan and has remaining quota
-            $channels = $this->input('escalation_rules.channels', []);
+            $channels = $this->input('gate.channels', []);
             if (in_array('sms', $channels)) {
                 if ($user->getPlan() === 'free') {
-                    $validator->errors()->add('escalation_rules.channels', 'SMS reminders require a Pro or Business plan.');
+                    $validator->errors()->add('gate.channels', 'SMS notifications require a Pro or Business plan.');
                 } else {
                     // Check SMS monthly quota
                     $smsLimit = $user->getPlanLimit('sms_per_month');
@@ -204,7 +213,7 @@ class CreateActionRequest extends FormRequest
                     if ($currentUsage + $newSmsCount > $smsLimit) {
                         $remaining = max(0, $smsLimit - $currentUsage);
                         $validator->errors()->add(
-                            'escalation_rules.channels',
+                            'gate.channels',
                             "You have {$remaining} SMS remaining this month (limit: {$smsLimit}). This action requires {$newSmsCount} SMS."
                         );
                     }
@@ -212,8 +221,8 @@ class CreateActionRequest extends FormRequest
             }
         }
 
-        // Check max retries limit for HTTP actions
-        if ($this->input('type') === ScheduledAction::TYPE_HTTP && $this->filled('max_attempts')) {
+        // Check max retries limit for actions with request
+        if ($this->filled('request') && $this->filled('max_attempts')) {
             $maxRetries = $user->getPlanLimit('max_retries');
             $requestedAttempts = (int) $this->input('max_attempts');
 

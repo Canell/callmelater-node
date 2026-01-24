@@ -57,9 +57,9 @@ class ActionController extends Controller
             $query->where('resolution_status', $request->input('status'));
         }
 
-        // Filter by type
-        if ($request->has('type')) {
-            $query->where('type', $request->input('type'));
+        // Filter by mode
+        if ($request->has('mode')) {
+            $query->where('mode', $request->input('mode'));
         }
 
         $actions = $query->paginate($request->input('per_page', 25));

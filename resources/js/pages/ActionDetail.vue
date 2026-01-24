@@ -41,12 +41,12 @@
             <div class="row">
                 <!-- Left column: Details -->
                 <div class="col-lg-6">
-                    <!-- Type & Schedule -->
+                    <!-- Mode & Schedule -->
                     <div class="card card-cml mb-4">
                         <div class="card-header bg-transparent d-flex justify-content-between">
                             <h5 class="mb-0">Details</h5>
-                            <span :class="['badge', action.type === 'http' ? 'bg-primary' : 'bg-info']">
-                                {{ action.type.toUpperCase() }}
+                            <span :class="['badge', action.mode === 'immediate' ? 'bg-primary' : 'bg-info']">
+                                {{ action.mode === 'immediate' ? 'Immediate' : 'Gated' }}
                             </span>
                         </div>
                         <div class="card-body">
@@ -69,24 +69,24 @@
                         </div>
                     </div>
 
-                    <!-- HTTP Config -->
-                    <div v-if="action.type === 'http' && action.http_request" class="card card-cml mb-4">
+                    <!-- HTTP Request Config (for actions with request) -->
+                    <div v-if="action.request" class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
                             <h5 class="mb-0">HTTP Request</h5>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
                                 <code class="d-block p-2 bg-light rounded">
-                                    {{ action.http_request.method || 'POST' }} {{ action.http_request.url }}
+                                    {{ action.request.method || 'POST' }} {{ action.request.url }}
                                 </code>
                             </div>
-                            <div v-if="action.http_request.headers" class="mb-3">
+                            <div v-if="action.request.headers && Object.keys(action.request.headers).length" class="mb-3">
                                 <small class="text-muted d-block">Headers</small>
-                                <pre class="bg-light p-2 rounded mb-0"><code>{{ JSON.stringify(action.http_request.headers, null, 2) }}</code></pre>
+                                <pre class="bg-light p-2 rounded mb-0"><code>{{ JSON.stringify(action.request.headers, null, 2) }}</code></pre>
                             </div>
-                            <div v-if="action.http_request.body" class="mb-3">
+                            <div v-if="action.request.body" class="mb-3">
                                 <small class="text-muted d-block">Body</small>
-                                <pre class="bg-light p-2 rounded mb-0"><code>{{ JSON.stringify(action.http_request.body, null, 2) }}</code></pre>
+                                <pre class="bg-light p-2 rounded mb-0"><code>{{ JSON.stringify(action.request.body, null, 2) }}</code></pre>
                             </div>
                             <div class="row">
                                 <div class="col-6">
@@ -94,28 +94,37 @@
                                     <strong>{{ action.attempt_count }} / {{ action.max_attempts }}</strong>
                                 </div>
                             </div>
+                            <div v-if="action.gate_passed_at" class="mt-3">
+                                <small class="text-muted d-block">Gate Passed At</small>
+                                <strong>{{ formatDate(action.gate_passed_at) }}</strong>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Reminder Config -->
-                    <div v-if="action.type === 'reminder'" class="card card-cml mb-4">
+                    <!-- Gate Config (gated mode) -->
+                    <div v-if="action.mode === 'gated' && action.gate" class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
-                            <h5 class="mb-0">Reminder</h5>
+                            <h5 class="mb-0">Gate Configuration</h5>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
                                 <small class="text-muted d-block">Message</small>
-                                <div class="bg-light p-3 rounded">{{ action.message }}</div>
+                                <div class="bg-light p-3 rounded">{{ action.gate.message }}</div>
                             </div>
                             <div class="row">
                                 <div class="col-6">
                                     <small class="text-muted d-block">Confirmation Mode</small>
-                                    <strong>{{ action.confirmation_mode === 'first_response' ? 'First Response' : 'All Required' }}</strong>
+                                    <strong>{{ action.gate.confirmation_mode === 'first_response' ? 'First Response' : 'All Required' }}</strong>
                                 </div>
                                 <div class="col-6">
                                     <small class="text-muted d-block">Snoozes</small>
-                                    <strong>{{ action.snooze_count }} / {{ action.max_snoozes }}</strong>
+                                    <strong>{{ action.snooze_count || 0 }} / {{ action.gate.max_snoozes || 5 }}</strong>
                                 </div>
+                            </div>
+                            <div v-if="action.gate.timeout" class="mt-3">
+                                <small class="text-muted d-block">Timeout</small>
+                                <strong>{{ action.gate.timeout }}</strong>
+                                <span class="text-muted small ms-2">({{ action.gate.on_timeout || 'cancel' }} on timeout)</span>
                             </div>
                             <div v-if="action.callback_url" class="mt-3">
                                 <small class="text-muted d-block">Callback URL</small>
@@ -124,8 +133,8 @@
                         </div>
                     </div>
 
-                    <!-- Recipients (for reminders) -->
-                    <div v-if="action.type === 'reminder' && action.recipients?.length" class="card card-cml mb-4">
+                    <!-- Recipients (for gated actions) -->
+                    <div v-if="action.mode === 'gated' && action.recipients?.length" class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
                             <h5 class="mb-0">Recipients</h5>
                         </div>

@@ -29,11 +29,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_escalates_when_time_elapsed(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['manager@example.com'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 1,
+                'contacts' => ['manager@example.com'],
             ],
         ]);
 
@@ -57,11 +56,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_creates_escalated_event(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['manager@example.com'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 1,
+                'contacts' => ['manager@example.com'],
             ],
         ]);
 
@@ -87,11 +85,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_does_not_escalate_before_time(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 4,
-                'escalation_contacts' => ['manager@example.com'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 4,
+                'contacts' => ['manager@example.com'],
             ],
         ]);
 
@@ -113,11 +110,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_does_not_escalate_twice(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['manager@example.com'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 1,
+                'contacts' => ['manager@example.com'],
             ],
         ]);
 
@@ -144,12 +140,7 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_does_not_escalate_without_escalation_config(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                // No escalate_after_hours or escalation_contacts
-            ],
-        ]);
+        $action = $this->createAwaitingGatedAction([]);
 
         $event = ReminderEvent::create([
             'reminder_id' => $action->id,
@@ -166,21 +157,24 @@ class CheckEscalationsJobTest extends TestCase
         Mail::assertNotSent(EscalationMail::class);
     }
 
-    public function test_does_not_escalate_executed_reminder(): void
+    public function test_does_not_escalate_executed_action(): void
     {
         $action = ScheduledAction::create([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
-            'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'name' => 'Test Gated Action',
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => [],
             'resolution_status' => ScheduledAction::STATUS_EXECUTED, // Already executed
             'execute_at_utc' => now()->subDay(),
-            'escalation_rules' => [
+            'gate' => [
+                'message' => 'Please confirm',
                 'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['manager@example.com'],
+                'escalation' => [
+                    'after_hours' => 1,
+                    'contacts' => ['manager@example.com'],
+                ],
             ],
         ]);
 
@@ -201,11 +195,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_escalates_to_multiple_contacts(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['manager1@example.com', 'manager2@example.com'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 1,
+                'contacts' => ['manager1@example.com', 'manager2@example.com'],
             ],
         ]);
 
@@ -226,11 +219,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_escalates_to_phone_via_sms(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['+15551234567'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 1,
+                'contacts' => ['+15551234567'],
             ],
         ]);
 
@@ -255,11 +247,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_creates_recipient_records_for_escalation_contacts(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['manager@example.com'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 1,
+                'contacts' => ['manager@example.com'],
             ],
         ]);
 
@@ -285,11 +276,10 @@ class CheckEscalationsJobTest extends TestCase
 
     public function test_does_not_escalate_without_sent_event(): void
     {
-        $action = $this->createAwaitingReminder([
-            'escalation_rules' => [
-                'recipients' => ['original@example.com'],
-                'escalate_after_hours' => 1,
-                'escalation_contacts' => ['manager@example.com'],
+        $action = $this->createAwaitingGatedAction([
+            'escalation' => [
+                'after_hours' => 1,
+                'contacts' => ['manager@example.com'],
             ],
         ]);
 
@@ -303,20 +293,28 @@ class CheckEscalationsJobTest extends TestCase
         Mail::assertNotSent(EscalationMail::class);
     }
 
-    private function createAwaitingReminder(array $attributes = []): ScheduledAction
+    private function createAwaitingGatedAction(array $gateExtras = []): ScheduledAction
     {
-        return ScheduledAction::create(array_merge([
+        $gate = array_merge([
+            'message' => 'Please confirm',
+            'recipients' => ['test@example.com'],
+            'channels' => ['email'],
+            'timeout' => '7d',
+            'on_timeout' => 'cancel',
+        ], $gateExtras);
+
+        return ScheduledAction::create([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
-            'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'name' => 'Test Gated Action',
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => [],
             'resolution_status' => ScheduledAction::STATUS_AWAITING_RESPONSE,
             'execute_at_utc' => now()->subDay(),
             'token_expires_at' => now()->addDays(7),
-            'escalation_rules' => ['recipients' => ['test@example.com']],
-        ], $attributes));
+            'gate' => $gate,
+        ]);
     }
 
     protected function tearDown(): void

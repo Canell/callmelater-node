@@ -65,11 +65,11 @@ class SubscriptionApiTest extends TestCase
                 'account_id' => $this->user->account_id,
                 'created_by_user_id' => $this->user->id,
                 'name' => "Action {$i}",
-                'type' => ScheduledAction::TYPE_HTTP,
+                'mode' => ScheduledAction::MODE_IMMEDIATE,
                 'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
                 'intent_payload' => ['execute_at' => now()->addHour()->toIso8601String()],
                 'resolution_status' => ScheduledAction::STATUS_PENDING_RESOLUTION,
-                'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+                'request' => ['url' => 'https://example.com', 'method' => 'POST'],
             ]);
         }
 
@@ -78,13 +78,13 @@ class SubscriptionApiTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Executed Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subHour()->toIso8601String()],
             'resolution_status' => ScheduledAction::STATUS_EXECUTED,
             'execute_at_utc' => now()->subHour(),
             'executed_at_utc' => now()->subMinutes(30),
-            'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+            'request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ]);
 
         // Create a reminder
@@ -92,12 +92,15 @@ class SubscriptionApiTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test Reminder',
-            'type' => ScheduledAction::TYPE_REMINDER,
+            'mode' => ScheduledAction::MODE_GATED,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->addHour()->toIso8601String()],
             'resolution_status' => ScheduledAction::STATUS_PENDING_RESOLUTION,
-            'message' => 'Test message',
-            'escalation_rules' => ['recipients' => ['test@example.com']],
+            'gate' => [
+                'message' => 'Test message',
+                'recipients' => ['test@example.com'],
+                'channels' => ['email'],
+            ],
         ]);
 
         $response = $this->getJson('/api/subscription/status');

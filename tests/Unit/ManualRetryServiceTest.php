@@ -142,18 +142,18 @@ class ManualRetryServiceTest extends TestCase
         $this->assertNotNull($action->last_manual_retry_at);
     }
 
-    public function test_retry_dispatches_http_job_for_http_action(): void
+    public function test_retry_dispatches_http_job_for_immediate_action(): void
     {
-        $action = $this->createAction(ScheduledAction::STATUS_FAILED, 'http');
+        $action = $this->createAction(ScheduledAction::STATUS_FAILED, 'immediate');
 
         $this->retryService->retry($action, $this->user);
 
         Queue::assertPushed(\App\Jobs\DeliverHttpAction::class);
     }
 
-    public function test_retry_dispatches_reminder_job_for_reminder_action(): void
+    public function test_retry_dispatches_reminder_job_for_gated_action(): void
     {
-        $action = $this->createAction(ScheduledAction::STATUS_FAILED, 'reminder');
+        $action = $this->createAction(ScheduledAction::STATUS_FAILED, 'gated');
 
         $this->retryService->retry($action, $this->user);
 
@@ -184,24 +184,27 @@ class ManualRetryServiceTest extends TestCase
         $this->assertEquals(2, $cycle2->cycle_number);
     }
 
-    private function createAction(string $status, string $type = 'http'): ScheduledAction
+    private function createAction(string $status, string $mode = 'immediate'): ScheduledAction
     {
         $data = [
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test Action',
-            'type' => $type,
+            'mode' => $mode,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subHour()->toIso8601String()],
             'resolution_status' => $status,
             'execute_at_utc' => now()->subHour(),
         ];
 
-        if ($type === 'http') {
-            $data['http_request'] = ['url' => 'https://example.com', 'method' => 'POST'];
+        if ($mode === 'immediate') {
+            $data['request'] = ['url' => 'https://example.com', 'method' => 'POST'];
         } else {
-            $data['message'] = 'Test reminder';
-            $data['escalation_rules'] = ['recipients' => ['test@example.com']];
+            $data['gate'] = [
+                'message' => 'Test gate message',
+                'recipients' => ['test@example.com'],
+                'channels' => ['email'],
+            ];
         }
 
         return ScheduledAction::create($data);

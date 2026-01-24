@@ -26,7 +26,7 @@ class SubscriptionController extends Controller
             ->where('executed_at_utc', '>=', $startOfMonth)
             ->count();
         $remindersThisMonth = $account->actions()
-            ->where('type', ScheduledAction::TYPE_REMINDER)
+            ->where('mode', ScheduledAction::MODE_GATED)
             ->where('created_at', '>=', $startOfMonth)
             ->count();
 

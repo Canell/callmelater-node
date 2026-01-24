@@ -38,7 +38,9 @@
       "Bash(\"/Users/flavienb/Library/Application Support/Herd/bin/php\" artisan make:migration create_magic_link_tokens_table)",
       "Bash(npm install:*)",
       "Bash(ls:*)",
-      "Bash(./vendor/bin/pint:*)"
+      "Bash(./vendor/bin/pint:*)",
+      "Bash(find:*)",
+      "Bash(perl -i -pe:*)"
     ]
   }
 }

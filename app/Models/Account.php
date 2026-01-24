@@ -251,18 +251,19 @@ class Account extends Model
     {
         $startOfMonth = now()->startOfMonth();
 
-        // Get all reminder actions with SMS channel created this month
-        // Using PostgreSQL JSONB operator: ->'channels' extracts the array, ? checks if it contains 'sms'
+        // Get all gated actions with SMS channel created this month
+        // Using PostgreSQL JSONB operator: ->'channels' extracts the array, @> checks if it contains 'sms'
         $actions = $this->actions()
-            ->where('type', ScheduledAction::TYPE_REMINDER)
+            ->where('mode', ScheduledAction::MODE_GATED)
             ->where('created_at', '>=', $startOfMonth)
-            ->whereRaw("(escalation_rules->'channels')::jsonb @> '\"sms\"'::jsonb")
+            ->whereRaw("(gate->'channels')::jsonb @> '\"sms\"'::jsonb")
             ->get();
 
         $smsCount = 0;
 
         foreach ($actions as $action) {
-            $recipients = $action->escalation_rules['recipients'] ?? [];
+            $gate = $action->gate ?? [];
+            $recipients = $gate['recipients'] ?? [];
             foreach ($recipients as $recipient) {
                 if ($this->isPhoneNumber($recipient)) {
                     $smsCount++;

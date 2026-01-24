@@ -45,10 +45,10 @@
                     <option value="failed">Failed</option>
                     <option value="cancelled">Cancelled</option>
                 </select>
-                <select class="form-select" v-model="typeFilter" style="max-width: 150px;">
-                    <option value="">All types</option>
-                    <option value="http">HTTP</option>
-                    <option value="reminder">Reminder</option>
+                <select class="form-select" v-model="modeFilter" style="max-width: 150px;">
+                    <option value="">All modes</option>
+                    <option value="immediate">Immediate</option>
+                    <option value="gated">Gated</option>
                 </select>
             </div>
         </div>
@@ -62,7 +62,7 @@
 
         <!-- Empty state -->
         <div v-else-if="actions.length === 0" class="text-center py-5">
-            <template v-if="searchQuery || statusFilter || typeFilter">
+            <template v-if="searchQuery || statusFilter || modeFilter">
                 <h5 class="text-muted mb-2">No actions found</h5>
                 <p class="text-muted mb-4">Try adjusting your search or filters.</p>
                 <button class="btn btn-outline-secondary" @click="clearFilters">
@@ -85,7 +85,7 @@
                     <thead>
                         <tr>
                             <th>Name</th>
-                            <th>Type</th>
+                            <th>Mode</th>
                             <th>Status</th>
                             <th>Scheduled For</th>
                             <th class="text-muted">Created</th>
@@ -100,10 +100,10 @@
                                 </router-link>
                             </td>
                             <td>
-                                <span class="type-label">
-                                    <span v-if="action.type === 'http'">&#128279;</span>
-                                    <span v-else>&#128276;</span>
-                                    {{ action.type === 'http' ? 'HTTP' : 'Reminder' }}
+                                <span class="mode-label">
+                                    <span v-if="action.mode === 'immediate'">&#9889;</span>
+                                    <span v-else>&#128275;</span>
+                                    {{ action.mode === 'immediate' ? 'Immediate' : 'Gated' }}
                                 </span>
                             </td>
                             <td>
@@ -196,7 +196,7 @@ export default {
             loading: true,
             searchQuery: '',
             statusFilter: '',
-            typeFilter: '',
+            modeFilter: '',
             // Auto-refresh (runs silently in background)
             refreshInterval: null,
             refreshSeconds: 30,
@@ -267,7 +267,7 @@ export default {
         statusFilter() {
             this.loadActions();
         },
-        typeFilter() {
+        modeFilter() {
             this.loadActions();
         }
     },
@@ -282,7 +282,7 @@ export default {
                 const params = { page };
                 if (this.searchQuery) params.search = this.searchQuery;
                 if (this.statusFilter) params.status = this.statusFilter;
-                if (this.typeFilter) params.type = this.typeFilter;
+                if (this.modeFilter) params.mode = this.modeFilter;
 
                 const response = await axios.get('/api/v1/actions', { params });
                 this.actions = response.data.data;
@@ -336,7 +336,7 @@ export default {
         clearFilters() {
             this.searchQuery = '';
             this.statusFilter = '';
-            this.typeFilter = '';
+            this.modeFilter = '';
             this.loadActions();
         }
     }
@@ -350,7 +350,7 @@ export default {
 }
 
 /* Type label with icon */
-.type-label {
+.mode-label {
     font-size: 0.9em;
     color: #6b7280;
 }

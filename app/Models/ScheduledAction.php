@@ -16,26 +16,24 @@ use Illuminate\Support\Facades\Mail;
  * @property int|null $created_by_user_id
  * @property string $name
  * @property string|null $description
- * @property string $type
+ * @property string $mode
  * @property string $intent_type
  * @property array<string, mixed>|null $intent_payload
  * @property string|null $timezone
  * @property string $resolution_status
  * @property Carbon|null $execute_at_utc
  * @property Carbon|null $executed_at_utc
+ * @property Carbon|null $gate_passed_at
  * @property string|null $failure_reason
- * @property array<string, mixed>|null $http_request
+ * @property array<string, mixed>|null $request
+ * @property array<string, mixed>|null $gate
  * @property string|null $idempotency_key
  * @property int $attempt_count
  * @property int $max_attempts
  * @property Carbon|null $last_attempt_at
  * @property Carbon|null $next_retry_at
  * @property string|null $retry_strategy
- * @property string|null $message
- * @property string|null $confirmation_mode
- * @property array<string, mixed>|null $escalation_rules
  * @property int $snooze_count
- * @property int $max_snoozes
  * @property Carbon|null $token_expires_at
  * @property string|null $webhook_secret
  * @property string|null $callback_url
@@ -50,10 +48,10 @@ class ScheduledAction extends Model
 {
     use HasUuids;
 
-    // Action types
-    public const TYPE_HTTP = 'http';
+    // Action modes
+    public const MODE_IMMEDIATE = 'immediate';
 
-    public const TYPE_REMINDER = 'reminder';
+    public const MODE_GATED = 'gated';
 
     // Intent types
     public const INTENT_ABSOLUTE = 'absolute';
@@ -90,14 +88,14 @@ class ScheduledAction extends Model
         self::STATUS_PENDING_RESOLUTION => [self::STATUS_RESOLVED, self::STATUS_CANCELLED],
         self::STATUS_RESOLVED => [self::STATUS_EXECUTING, self::STATUS_CANCELLED],
         self::STATUS_EXECUTING => [self::STATUS_EXECUTED, self::STATUS_FAILED, self::STATUS_AWAITING_RESPONSE, self::STATUS_RESOLVED],
-        self::STATUS_AWAITING_RESPONSE => [self::STATUS_EXECUTED, self::STATUS_EXPIRED, self::STATUS_PENDING_RESOLUTION, self::STATUS_CANCELLED],
+        self::STATUS_AWAITING_RESPONSE => [self::STATUS_EXECUTED, self::STATUS_EXPIRED, self::STATUS_PENDING_RESOLUTION, self::STATUS_CANCELLED, self::STATUS_RESOLVED],
         self::STATUS_EXECUTED => [],
         self::STATUS_CANCELLED => [],
         self::STATUS_EXPIRED => [],
         self::STATUS_FAILED => [self::STATUS_RESOLVED], // Allow manual retry
     ];
 
-    // Confirmation modes
+    // Confirmation modes (used within gate config)
     public const CONFIRMATION_FIRST_RESPONSE = 'first_response';
 
     public const CONFIRMATION_ALL_REQUIRED = 'all_required';
@@ -107,26 +105,24 @@ class ScheduledAction extends Model
         'created_by_user_id',
         'name',
         'description',
-        'type',
+        'mode',
         'intent_type',
         'intent_payload',
         'timezone',
         'resolution_status',
         'execute_at_utc',
         'executed_at_utc',
+        'gate_passed_at',
         'failure_reason',
-        'http_request',
+        'request',
+        'gate',
         'idempotency_key',
         'attempt_count',
         'max_attempts',
         'last_attempt_at',
         'next_retry_at',
         'retry_strategy',
-        'message',
-        'confirmation_mode',
-        'escalation_rules',
         'snooze_count',
-        'max_snoozes',
         'token_expires_at',
         'webhook_secret',
         'callback_url',
@@ -139,10 +135,11 @@ class ScheduledAction extends Model
     {
         return [
             'intent_payload' => 'array',
-            'http_request' => 'array',
-            'escalation_rules' => 'array',
+            'request' => 'array',
+            'gate' => 'array',
             'execute_at_utc' => 'datetime',
             'executed_at_utc' => 'datetime',
+            'gate_passed_at' => 'datetime',
             'last_attempt_at' => 'datetime',
             'next_retry_at' => 'datetime',
             'token_expires_at' => 'datetime',
@@ -223,16 +220,115 @@ class ScheduledAction extends Model
         return $query->where('account_id', $accountId);
     }
 
-    // Helpers
-    public function isHttp(): bool
+    // ========================================
+    // Mode Helpers
+    // ========================================
+
+    /**
+     * Check if this is an immediate action (executes automatically at scheduled time).
+     */
+    public function isImmediate(): bool
     {
-        return $this->type === self::TYPE_HTTP;
+        return $this->mode === self::MODE_IMMEDIATE;
     }
 
-    public function isReminder(): bool
+    /**
+     * Check if this is a gated action (requires human approval).
+     */
+    public function isGated(): bool
     {
-        return $this->type === self::TYPE_REMINDER;
+        return $this->mode === self::MODE_GATED;
     }
+
+    /**
+     * Check if this action has an HTTP request configured.
+     */
+    public function hasRequest(): bool
+    {
+        return ! empty($this->request);
+    }
+
+    /**
+     * Check if the gate has been passed (approved).
+     */
+    public function gatePassed(): bool
+    {
+        return $this->gate_passed_at !== null;
+    }
+
+    /**
+     * Get the gate message.
+     */
+    public function getGateMessage(): ?string
+    {
+        return $this->gate['message'] ?? null;
+    }
+
+    /**
+     * Get the gate recipients.
+     *
+     * @return array<string>
+     */
+    public function getGateRecipients(): array
+    {
+        return $this->gate['recipients'] ?? [];
+    }
+
+    /**
+     * Get the gate channels.
+     *
+     * @return array<string>
+     */
+    public function getGateChannels(): array
+    {
+        return $this->gate['channels'] ?? ['email'];
+    }
+
+    /**
+     * Get the gate timeout string (e.g., "4h", "7d").
+     */
+    public function getGateTimeout(): string
+    {
+        return $this->gate['timeout'] ?? '7d';
+    }
+
+    /**
+     * Get the timeout behavior (cancel, expire, approve).
+     */
+    public function getGateOnTimeout(): string
+    {
+        return $this->gate['on_timeout'] ?? 'expire';
+    }
+
+    /**
+     * Get max snoozes from gate config.
+     */
+    public function getMaxSnoozes(): int
+    {
+        return $this->gate['max_snoozes'] ?? 5;
+    }
+
+    /**
+     * Get confirmation mode from gate config.
+     */
+    public function getConfirmationMode(): string
+    {
+        return $this->gate['confirmation_mode'] ?? self::CONFIRMATION_FIRST_RESPONSE;
+    }
+
+    /**
+     * Get escalation config from gate.
+     *
+     * @return array{after_hours: float|null, contacts: array<string>}|null
+     */
+    public function getEscalation(): ?array
+    {
+        return $this->gate['escalation'] ?? null;
+    }
+
+    // ========================================
+    // Status Helpers
+    // ========================================
 
     public function isResolved(): bool
     {
@@ -251,7 +347,7 @@ class ScheduledAction extends Model
 
     public function canSnooze(): bool
     {
-        return $this->snooze_count < $this->max_snoozes;
+        return $this->snooze_count < $this->getMaxSnoozes();
     }
 
     // ========================================
@@ -369,7 +465,7 @@ class ScheduledAction extends Model
     }
 
     /**
-     * Mark reminder as awaiting human response.
+     * Mark action as awaiting human response.
      */
     public function markAsAwaitingResponse(int $tokenExpiryDays = 7): void
     {
@@ -401,6 +497,22 @@ class ScheduledAction extends Model
         }
 
         $this->transitionTo(self::STATUS_CANCELLED);
+        $this->save();
+    }
+
+    /**
+     * Mark the gate as passed and prepare for HTTP execution.
+     */
+    public function passGate(): void
+    {
+        $this->gate_passed_at = now();
+        if ($this->hasRequest()) {
+            $this->transitionTo(self::STATUS_RESOLVED);
+            $this->execute_at_utc = now();
+        } else {
+            $this->transitionTo(self::STATUS_EXECUTED);
+            $this->executed_at_utc = now();
+        }
         $this->save();
     }
 
@@ -460,5 +572,28 @@ class ScheduledAction extends Model
         $index = min($this->attempt_count, count($exponentialDelays) - 1);
 
         return $exponentialDelays[$index];
+    }
+
+    // ========================================
+    // Timeout Parsing Helper
+    // ========================================
+
+    /**
+     * Parse a timeout string (e.g., "4h", "7d") to days.
+     */
+    public static function parseTimeoutToDays(string $timeout): int
+    {
+        if (preg_match('/^(\d+)([hdw])$/', $timeout, $matches)) {
+            $value = (int) $matches[1];
+            $unit = $matches[2];
+
+            return match ($unit) {
+                'h' => max(1, (int) ceil($value / 24)),
+                'w' => $value * 7,
+                default => $value, // 'd'
+            };
+        }
+
+        return 7; // Default to 7 days
     }
 }

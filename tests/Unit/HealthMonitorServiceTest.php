@@ -246,12 +246,12 @@ class HealthMonitorServiceTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subMinute()->toIso8601String()],
             'resolution_status' => $status,
             'execute_at_utc' => now()->subMinute(),
-            'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+            'request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ]);
     }
 

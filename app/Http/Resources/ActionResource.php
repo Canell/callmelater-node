@@ -15,11 +15,14 @@ class ActionResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $hasRequest = ! empty($this->request);
+        $isGated = $this->mode === 'gated';
+
         return [
             'id' => $this->id,
             'name' => $this->name,
             'description' => $this->description,
-            'type' => $this->type,
+            'mode' => $this->mode,
             'status' => $this->resolution_status,
             'timezone' => $this->timezone,
 
@@ -28,20 +31,20 @@ class ActionResource extends JsonResource
             'executed_at' => $this->executed_at_utc?->toIso8601String(),
             'failure_reason' => $this->when($this->resolution_status === 'failed', $this->failure_reason),
 
-            // HTTP-specific
-            'http_request' => $this->when($this->type === 'http', $this->http_request),
-            'attempt_count' => $this->when($this->type === 'http', $this->attempt_count),
-            'max_attempts' => $this->when($this->type === 'http', $this->max_attempts),
-            'retry_strategy' => $this->when($this->type === 'http', $this->retry_strategy),
+            // Gate (gated mode)
+            'gate' => $this->when($isGated, $this->gate),
+            'gate_passed_at' => $this->when($this->gate_passed_at !== null, fn () => $this->gate_passed_at?->toIso8601String()),
+
+            // Request (immediate mode OR gated with request)
+            'request' => $this->when($hasRequest, $this->request),
+            'attempt_count' => $this->when($hasRequest, $this->attempt_count),
+            'max_attempts' => $this->when($hasRequest, $this->max_attempts),
+            'retry_strategy' => $this->when($hasRequest, $this->retry_strategy),
             'next_retry_at' => $this->when($this->next_retry_at !== null, fn () => $this->next_retry_at?->toIso8601String()),
 
-            // Reminder-specific
-            'message' => $this->when($this->type === 'reminder', $this->message),
-            'confirmation_mode' => $this->when($this->type === 'reminder', $this->confirmation_mode),
-            'snooze_count' => $this->when($this->type === 'reminder', $this->snooze_count),
-            'max_snoozes' => $this->when($this->type === 'reminder', $this->max_snoozes),
-            'escalation_rules' => $this->when($this->type === 'reminder', $this->escalation_rules),
-            'callback_url' => $this->when($this->type === 'reminder', $this->callback_url),
+            // Gated-specific
+            'snooze_count' => $this->when($isGated, $this->snooze_count),
+            'callback_url' => $this->when($isGated, $this->callback_url),
             'token_expires_at' => $this->when($this->token_expires_at !== null, fn () => $this->token_expires_at?->toIso8601String()),
 
             // Retry info (for failed actions)

@@ -43,8 +43,8 @@ class ManualRetryService
             $reasons[] = 'Monthly action quota exceeded. Upgrade your plan to retry.';
         }
 
-        // 4. Check SMS quota for reminders with phone recipients
-        if ($action->isReminder() && $account) {
+        // 4. Check SMS quota for gated actions with phone recipients
+        if ($action->isGated() && $account) {
             $smsCount = $this->countSmsRecipients($action);
             if ($smsCount > 0 && ! $this->quotaService->canSendSms($account, $smsCount)) {
                 $remaining = $this->quotaService->getRemainingSms($account);
@@ -110,7 +110,7 @@ class ManualRetryService
         // Dispatch appropriate job immediately
         $action->markAsExecuting();
 
-        if ($action->isHttp()) {
+        if ($action->isImmediate()) {
             DeliverHttpAction::dispatch($action);
         } else {
             DeliverReminder::dispatch($action);
@@ -141,7 +141,8 @@ class ManualRetryService
      */
     private function countSmsRecipients(ScheduledAction $action): int
     {
-        $recipients = $action->escalation_rules['recipients'] ?? [];
+        $gate = $action->gate ?? [];
+        $recipients = $gate['recipients'] ?? [];
         $count = 0;
 
         foreach ($recipients as $recipient) {

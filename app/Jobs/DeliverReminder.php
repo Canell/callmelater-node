@@ -36,7 +36,7 @@ class DeliverReminder implements ShouldQueue
         // This guards against cancellation race conditions
         $this->action->refresh();
         if (! $this->action->isExecuting()) {
-            Log::info('Reminder skipped - no longer in executing state', [
+            Log::info('Gate notification skipped - no longer in executing state', [
                 'action_id' => $this->action->id,
                 'status' => $this->action->resolution_status,
             ]);
@@ -44,23 +44,18 @@ class DeliverReminder implements ShouldQueue
             return;
         }
 
-        /** @var array<string, mixed>|null $escalationRules */
-        $escalationRules = $this->action->escalation_rules;
-        if (! is_array($escalationRules)) {
-            $escalationRules = [];
-        }
-
-        /** @var array<int, string> $recipients */
-        $recipients = $escalationRules['recipients'] ?? [];
+        // Get recipients from gate configuration
+        $recipients = $this->action->getGateRecipients();
 
         if (count($recipients) === 0) {
-            Log::error('No recipients configured for reminder', ['action_id' => $this->action->id]);
+            Log::error('No recipients configured for gated action', ['action_id' => $this->action->id]);
             $this->action->markAsFailed('No recipients configured');
 
             return;
         }
 
-        $tokenExpiryDays = $escalationRules['token_expiry_days'] ?? 7;
+        // Parse timeout to days
+        $tokenExpiryDays = ScheduledAction::parseTimeoutToDays($this->action->getGateTimeout());
 
         $sentCount = 0;
         $blockedCount = 0;
@@ -148,12 +143,14 @@ class DeliverReminder implements ShouldQueue
         // Mark as awaiting response (uses model's state machine)
         $this->action->markAsAwaitingResponse($tokenExpiryDays);
 
-        Log::info('Reminder delivered', [
+        Log::info('Gate notification delivered', [
             'action_id' => $this->action->id,
+            'mode' => $this->action->mode,
             'recipients' => count($recipients),
             'sent' => $sentCount,
             'blocked' => $blockedCount,
             'channels' => $channels,
+            'has_request' => $this->action->hasRequest(),
         ]);
     }
 
@@ -162,12 +159,12 @@ class DeliverReminder implements ShouldQueue
         try {
             Mail::to($recipient->email)->send(new ReminderMail($this->action, $recipient));
 
-            Log::info('Reminder email sent', [
+            Log::info('Gate notification email sent', [
                 'action_id' => $this->action->id,
                 'recipient' => $recipient->email,
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to send reminder email', [
+            Log::error('Failed to send gate notification email', [
                 'action_id' => $this->action->id,
                 'recipient' => $recipient->email,
                 'error' => $e->getMessage(),
@@ -186,7 +183,7 @@ class DeliverReminder implements ShouldQueue
         $brevoService->sendReminderSms(
             $recipient->email, // In this case, it's a phone number stored in the email field
             $this->action->name,
-            $this->action->message,
+            $this->action->getGateMessage(),
             $responseUrl
         );
     }

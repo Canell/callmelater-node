@@ -31,7 +31,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_successful_http_delivery_marks_action_executed(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
 
         $mockResponse = Mockery::mock(Response::class);
         $mockResponse->shouldReceive('status')->andReturn(200);
@@ -54,7 +54,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_successful_delivery_creates_delivery_attempt_record(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
 
         $mockResponse = Mockery::mock(Response::class);
         $mockResponse->shouldReceive('status')->andReturn(200);
@@ -83,7 +83,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_4xx_error_marks_action_failed_immediately(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
         $action->update(['max_attempts' => 5]); // Even with retries available
 
         $mockResponse = Mockery::mock(Response::class);
@@ -109,7 +109,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_401_unauthorized_does_not_retry(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
         $action->update(['max_attempts' => 5]);
 
         $mockResponse = Mockery::mock(Response::class);
@@ -136,7 +136,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_5xx_error_schedules_retry_when_attempts_remain(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
         $action->update(['max_attempts' => 3, 'attempt_count' => 0]);
 
         $mockResponse = Mockery::mock(Response::class);
@@ -162,7 +162,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_5xx_error_marks_failed_when_max_attempts_reached(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
         $action->update(['max_attempts' => 3, 'attempt_count' => 2]); // Last attempt
 
         $mockResponse = Mockery::mock(Response::class);
@@ -190,7 +190,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_connection_exception_schedules_retry(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
         $action->update(['max_attempts' => 3, 'attempt_count' => 0]);
 
         $httpService = Mockery::mock(HttpRequestService::class);
@@ -211,7 +211,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_system_exception_marks_failed_after_max_attempts(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
         $action->update(['max_attempts' => 1, 'attempt_count' => 0]); // Single attempt
 
         $httpService = Mockery::mock(HttpRequestService::class);
@@ -234,8 +234,8 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_invalid_config_marks_action_failed(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
-        $action->update(['http_request' => null]); // Invalid config
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
+        $action->update(['request' => null]); // Invalid config
 
         $urlValidator = Mockery::mock(UrlValidator::class);
         $httpService = Mockery::mock(HttpRequestService::class);
@@ -250,7 +250,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_ssrf_blocked_url_marks_action_failed(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
 
         $urlValidator = Mockery::mock(UrlValidator::class);
         $urlValidator->shouldReceive('validate')
@@ -272,7 +272,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_skips_action_no_longer_in_executing_state(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_CANCELLED);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_CANCELLED);
 
         $urlValidator = Mockery::mock(UrlValidator::class);
         $httpService = Mockery::mock(HttpRequestService::class);
@@ -287,7 +287,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_skips_already_executed_action(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTED);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTED);
 
         $urlValidator = Mockery::mock(UrlValidator::class);
         $httpService = Mockery::mock(HttpRequestService::class);
@@ -303,7 +303,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_delivery_attempt_records_duration(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
 
         $mockResponse = Mockery::mock(Response::class);
         $mockResponse->shouldReceive('status')->andReturn(200);
@@ -327,8 +327,8 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_delivery_attempt_records_target_domain(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
-        $action->update(['http_request' => ['url' => 'https://api.example.com/webhook', 'method' => 'POST']]);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
+        $action->update(['request' => ['url' => 'https://api.example.com/webhook', 'method' => 'POST']]);
 
         $mockResponse = Mockery::mock(Response::class);
         $mockResponse->shouldReceive('status')->andReturn(200);
@@ -352,7 +352,7 @@ class DeliverHttpActionTest extends TestCase
 
     public function test_failure_sends_notification_email(): void
     {
-        $action = $this->createHttpAction(ScheduledAction::STATUS_EXECUTING);
+        $action = $this->createImmediateAction(ScheduledAction::STATUS_EXECUTING);
         $action->update(['max_attempts' => 1]);
 
         $mockResponse = Mockery::mock(Response::class);
@@ -377,18 +377,18 @@ class DeliverHttpActionTest extends TestCase
 
     // ==================== HELPERS ====================
 
-    private function createHttpAction(string $status): ScheduledAction
+    private function createImmediateAction(string $status): ScheduledAction
     {
         return ScheduledAction::create([
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test HTTP Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_ABSOLUTE,
             'intent_payload' => ['execute_at' => now()->subMinute()->toIso8601String()],
             'resolution_status' => $status,
             'execute_at_utc' => now()->subMinute(),
-            'http_request' => ['url' => 'https://example.com/webhook', 'method' => 'POST'],
+            'request' => ['url' => 'https://example.com/webhook', 'method' => 'POST'],
             'max_attempts' => 3,
             'attempt_count' => 0,
         ]);

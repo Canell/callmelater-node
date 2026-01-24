@@ -97,12 +97,12 @@ class ResolveIntentJobTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_WALL_CLOCK,
             'intent_payload' => ['delay' => '1h'],
             'resolution_status' => ScheduledAction::STATUS_RESOLVED, // Already resolved
             'execute_at_utc' => now()->addHour(),
-            'http_request' => ['url' => 'https://example.com'],
+            'request' => ['url' => 'https://example.com'],
         ]);
 
         $originalExecuteAt = $action->execute_at_utc->copy();
@@ -208,11 +208,11 @@ class ResolveIntentJobTest extends TestCase
             'account_id' => $this->user->account_id,
             'created_by_user_id' => $this->user->id,
             'name' => 'Test Action',
-            'type' => ScheduledAction::TYPE_HTTP,
+            'mode' => ScheduledAction::MODE_IMMEDIATE,
             'intent_type' => ScheduledAction::INTENT_WALL_CLOCK,
             'intent_payload' => ['delay' => '1h'],
             'resolution_status' => ScheduledAction::STATUS_PENDING_RESOLUTION,
-            'http_request' => ['url' => 'https://example.com', 'method' => 'POST'],
+            'request' => ['url' => 'https://example.com', 'method' => 'POST'],
         ], $attributes));
     }
 }
