@@ -92,6 +92,9 @@
         <div class="declined-by">
             <strong>Declined by:</strong> {{ $recipient->email }}<br>
             <strong>At:</strong> {{ $recipient->responded_at?->format('M j, Y \a\t g:i A') }}
+            @if($recipient->response_comment)
+            <br><strong>Comment:</strong> {{ $recipient->response_comment }}
+            @endif
         </div>
 
         <a href="{{ $actionUrl }}" class="btn">View Details</a>
