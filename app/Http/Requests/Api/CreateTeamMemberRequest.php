@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Http\Requests\Api;
+
+use App\Models\TeamMember;
+use Illuminate\Foundation\Http\FormRequest;
+
+class CreateTeamMemberRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return [
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'regex:/^\+[1-9]\d{6,14}$/', 'max:20'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'phone.regex' => 'Phone number must be in E.164 format (e.g., +15551234567).',
+        ];
+    }
+
+    public function withValidator(\Illuminate\Validation\Validator $validator): void
+    {
+        $validator->after(function ($validator) {
+            // At least one contact method is required
+            if (! $this->filled('email') && ! $this->filled('phone')) {
+                $validator->errors()->add('email', 'At least one contact method (email or phone) is required.');
+            }
+
+            /** @var \App\Models\User $user */
+            $user = $this->user();
+            $accountId = $user->account_id;
+
+            // Check email uniqueness within account
+            if ($this->filled('email')) {
+                $exists = TeamMember::where('account_id', $accountId)
+                    ->where('email', $this->input('email'))
+                    ->exists();
+
+                if ($exists) {
+                    $validator->errors()->add('email', 'A team member with this email already exists.');
+                }
+            }
+
+            // Check phone uniqueness within account
+            if ($this->filled('phone')) {
+                $exists = TeamMember::where('account_id', $accountId)
+                    ->where('phone', $this->input('phone'))
+                    ->exists();
+
+                if ($exists) {
+                    $validator->errors()->add('phone', 'A team member with this phone number already exists.');
+                }
+            }
+        });
+    }
+}

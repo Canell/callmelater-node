@@ -158,24 +158,53 @@
                             <div class="mb-3">
                                 <label class="form-label">
                                     Recipients *
-                                    <span class="text-muted fw-normal">(one per line)</span>
                                 </label>
-                                <!-- Team member quick-add buttons -->
-                                <div v-if="otherAccountMembers.length > 0" class="mb-2">
-                                    <small class="text-muted d-block mb-1">Quick add team members:</small>
-                                    <div class="d-flex flex-wrap gap-1">
-                                        <button
-                                            v-for="member in availableMembers"
-                                            :key="member.id"
-                                            type="button"
-                                            class="btn btn-sm btn-outline-secondary"
-                                            @click="addRecipient(member.email)"
-                                        >
-                                            <span class="me-1">+</span>{{ member.name || member.email }}
-                                        </button>
-                                    </div>
+
+                                <!-- Team member selector -->
+                                <div v-if="teamMembers.length > 0" class="mb-3">
+                                    <label class="form-label small text-muted">Select from contacts:</label>
+                                    <select class="form-select" @change="addTeamMemberRecipient($event)" style="max-width: 300px;">
+                                        <option value="">Choose a contact...</option>
+                                        <option v-for="member in availableTeamMembers" :key="member.id" :value="member.id">
+                                            {{ member.full_name }} ({{ member.email || member.phone }})
+                                        </option>
+                                    </select>
                                 </div>
-                                <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="ops@example.com&#10;+32499123456"></textarea>
+
+                                <!-- Selected team members as badges -->
+                                <div v-if="selectedTeamMembers.length > 0" class="mb-2">
+                                    <span
+                                        v-for="member in selectedTeamMembers"
+                                        :key="member.id"
+                                        class="badge bg-primary me-1 mb-1 d-inline-flex align-items-center"
+                                    >
+                                        {{ member.full_name }}
+                                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" @click="removeTeamMemberRecipient(member)"></button>
+                                    </span>
+                                </div>
+
+                                <!-- Additional recipients (manual entry) -->
+                                <div class="mb-2">
+                                    <label class="form-label small text-muted">
+                                        {{ teamMembers.length > 0 ? 'Or enter additional email/phone:' : 'Enter recipients (one per line):' }}
+                                    </label>
+                                    <!-- Team member quick-add buttons -->
+                                    <div v-if="otherAccountMembers.length > 0" class="mb-2">
+                                        <small class="text-muted d-block mb-1">Quick add account members:</small>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <button
+                                                v-for="member in availableMembers"
+                                                :key="member.id"
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                @click="addRecipient(member.email)"
+                                            >
+                                                <span class="me-1">+</span>{{ member.name || member.email }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="ops@example.com&#10;+32499123456"></textarea>
+                                </div>
                                 <div class="form-text">
                                     <span v-if="hasPhoneRecipients">SMS recipients will receive a link to respond.</span>
                                     <span v-if="userPlan === 'free' && hasPhoneRecipients" class="text-warning">
@@ -538,6 +567,9 @@ export default {
             accountMembers: [],
             currentUserEmail: null,
             userPlan: 'free',
+            // Team members (contacts)
+            teamMembers: [],
+            selectedTeamMembers: [],
             scheduleType: 'datetime',
             intentPreset: 'tomorrow',
             delayAmount: 1,
@@ -649,6 +681,11 @@ export default {
                 member => !this.currentEscalationEmails.includes(member.email.toLowerCase())
             );
         },
+        availableTeamMembers() {
+            // Filter out already selected team members
+            const selectedIds = this.selectedTeamMembers.map(m => m.id);
+            return this.teamMembers.filter(member => !selectedIds.includes(member.id));
+        },
         hasValidationErrors() {
             return this.hasJsonErrors || !!this.urlError || this.urlValidating;
         },
@@ -696,15 +733,17 @@ export default {
         async loadUserPlanAndTeams() {
             try {
                 // Check user's plan and get current user email
-                const [subResponse, accountResponse, teamsResponse] = await Promise.all([
+                const [subResponse, accountResponse, teamsResponse, teamMembersResponse] = await Promise.all([
                     axios.get('/api/subscription/status'),
                     axios.get('/api/account'),
                     axios.get('/api/teams'),
+                    axios.get('/api/v1/team-members'),
                 ]);
 
                 this.userPlan = subResponse.data.plan || 'free';
                 this.currentUserEmail = subResponse.data.user?.email || null;
                 this.teams = teamsResponse.data.data || [];
+                this.teamMembers = teamMembersResponse.data.data || [];
 
                 // Combine members from account and all teams (deduplicated by email)
                 const accountMembers = accountResponse.data.data?.members || [];
@@ -960,6 +999,19 @@ export default {
                 }
             }
         },
+        addTeamMemberRecipient(event) {
+            const memberId = event.target.value;
+            if (!memberId) return;
+            const member = this.teamMembers.find(m => m.id === memberId);
+            if (member && !this.selectedTeamMembers.some(m => m.id === memberId)) {
+                this.selectedTeamMembers.push(member);
+            }
+            // Reset the select
+            event.target.value = '';
+        },
+        removeTeamMemberRecipient(member) {
+            this.selectedTeamMembers = this.selectedTeamMembers.filter(m => m.id !== member.id);
+        },
         async submit() {
             this.submitting = true;
             this.error = null;
@@ -1009,9 +1061,14 @@ export default {
 
                 // Gate config (for gated mode)
                 if (this.form.mode === 'gated') {
+                    // Combine selected team member IDs with manually entered recipients
+                    const manualRecipients = this.recipientsText.split('\n').map(e => e.trim()).filter(e => e);
+                    const teamMemberIds = this.selectedTeamMembers.map(m => m.id);
+                    const allRecipients = [...teamMemberIds, ...manualRecipients];
+
                     payload.gate = {
                         message: this.gate.message,
-                        recipients: this.recipientsText.split('\n').map(e => e.trim()).filter(e => e),
+                        recipients: allRecipients,
                         timeout: `${this.gate.timeoutValue}${this.gate.timeoutUnit}`,
                         on_timeout: this.gate.on_timeout,
                         confirmation_mode: this.gate.confirmation_mode,

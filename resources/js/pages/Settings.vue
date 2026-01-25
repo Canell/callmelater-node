@@ -97,6 +97,112 @@
                         </div>
                     </div>
 
+                    <!-- Contacts -->
+                    <div v-show="activeTab === 'contacts'" class="card card-cml">
+                        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Contacts</h5>
+                            <button class="btn btn-cml-primary btn-sm" @click="openContactModal()">
+                                Add Contact
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Manage contacts that can receive reminders. When creating gated actions, you can select contacts by name instead of typing email addresses.
+                            </p>
+
+                            <!-- Search -->
+                            <div class="mb-4" style="max-width: 300px;">
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    v-model="contactsSearch"
+                                    placeholder="Search contacts..."
+                                    @input="searchContacts"
+                                >
+                            </div>
+
+                            <!-- Loading -->
+                            <div v-if="loadingContacts" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
+                            </div>
+
+                            <!-- Empty state -->
+                            <div v-else-if="contacts.length === 0" class="text-center py-4 text-muted">
+                                <p v-if="contactsSearch">No contacts found matching "{{ contactsSearch }}"</p>
+                                <p v-else>No contacts yet. Add your first contact above.</p>
+                            </div>
+
+                            <!-- Contacts table -->
+                            <div v-else class="table-responsive">
+                                <table class="table table-cml">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Phone</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="contact in contacts" :key="contact.id">
+                                            <td><strong>{{ contact.full_name }}</strong></td>
+                                            <td>{{ contact.email || '-' }}</td>
+                                            <td>{{ contact.phone || '-' }}</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-sm btn-outline-secondary me-1" @click="openContactModal(contact)">
+                                                    Edit
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @click="confirmDeleteContact(contact)">
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Modal -->
+                    <div v-if="showContactModal" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">{{ editingContact ? 'Edit Contact' : 'Add Contact' }}</h5>
+                                    <button type="button" class="btn-close" @click="closeContactModal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div v-if="contactFormError" class="alert alert-danger">{{ contactFormError }}</div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">First Name *</label>
+                                        <input type="text" class="form-control" v-model="contactForm.first_name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Last Name *</label>
+                                        <input type="text" class="form-control" v-model="contactForm.last_name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" v-model="contactForm.email" placeholder="email@example.com">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Phone</label>
+                                        <input type="text" class="form-control" v-model="contactForm.phone" placeholder="+15551234567">
+                                        <small class="text-muted">E.164 format required (e.g., +15551234567)</small>
+                                    </div>
+                                    <div class="text-muted small">* At least one contact method (email or phone) is required.</div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" @click="closeContactModal">Cancel</button>
+                                    <button type="button" class="btn btn-cml-primary" @click="saveContact" :disabled="savingContact">
+                                        {{ savingContact ? 'Saving...' : (editingContact ? 'Update' : 'Add Contact') }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Members (Workspace) -->
                     <div v-show="activeTab === 'teams'" class="card card-cml">
                         <div class="card-header bg-transparent">
@@ -622,6 +728,7 @@ export default {
             activeTab: 'profile',
             tabs: [
                 { id: 'profile', label: 'Profile' },
+                { id: 'contacts', label: 'Contacts' },
                 { id: 'teams', label: 'Members', businessOnly: true },
                 { id: 'api', label: 'API & Security' },
                 { id: 'usage', label: 'Usage & Limits' },
@@ -725,6 +832,21 @@ export default {
             editingTeam: null,
             addMemberEmail: '',
             addingMember: false,
+
+            // Contacts (Team Members)
+            contacts: [],
+            loadingContacts: false,
+            contactsSearch: '',
+            showContactModal: false,
+            editingContact: null,
+            contactForm: {
+                first_name: '',
+                last_name: '',
+                email: '',
+                phone: '',
+            },
+            savingContact: false,
+            contactFormError: null,
 
             // Admin Notifications
             adminNotifications: {
@@ -832,6 +954,9 @@ export default {
 
                 // Load usage stats
                 await this.loadUsage();
+
+                // Load contacts
+                await this.loadContacts();
 
                 // Load admin notifications for admin users
                 if (this.user.is_admin) {
@@ -1167,6 +1292,113 @@ export default {
                 this.toast.success('Member removed.');
             } catch (err) {
                 this.toast.error(err.response?.data?.error || 'Failed to remove member');
+            }
+        },
+
+        // Contact methods
+        async loadContacts() {
+            this.loadingContacts = true;
+            try {
+                const params = {};
+                if (this.contactsSearch) {
+                    params.search = this.contactsSearch;
+                }
+                const response = await axios.get('/api/v1/team-members', { params });
+                this.contacts = response.data.data || [];
+            } catch (err) {
+                console.error('Failed to load contacts:', err);
+            } finally {
+                this.loadingContacts = false;
+            }
+        },
+        searchContacts() {
+            // Debounce search
+            clearTimeout(this._searchTimeout);
+            this._searchTimeout = setTimeout(() => {
+                this.loadContacts();
+            }, 300);
+        },
+        openContactModal(contact = null) {
+            this.editingContact = contact;
+            this.contactFormError = null;
+            if (contact) {
+                this.contactForm = {
+                    first_name: contact.first_name,
+                    last_name: contact.last_name,
+                    email: contact.email || '',
+                    phone: contact.phone || '',
+                };
+            } else {
+                this.contactForm = {
+                    first_name: '',
+                    last_name: '',
+                    email: '',
+                    phone: '',
+                };
+            }
+            this.showContactModal = true;
+        },
+        closeContactModal() {
+            this.showContactModal = false;
+            this.editingContact = null;
+            this.contactFormError = null;
+        },
+        async saveContact() {
+            this.savingContact = true;
+            this.contactFormError = null;
+            try {
+                const data = {
+                    first_name: this.contactForm.first_name,
+                    last_name: this.contactForm.last_name,
+                    email: this.contactForm.email || null,
+                    phone: this.contactForm.phone || null,
+                };
+
+                if (this.editingContact) {
+                    // Update
+                    const response = await axios.put(`/api/v1/team-members/${this.editingContact.id}`, data);
+                    const idx = this.contacts.findIndex(c => c.id === this.editingContact.id);
+                    if (idx !== -1) {
+                        this.contacts[idx] = response.data.data;
+                    }
+                    this.toast.success('Contact updated.');
+                } else {
+                    // Create
+                    const response = await axios.post('/api/v1/team-members', data);
+                    this.contacts.unshift(response.data.data);
+                    this.toast.success('Contact added.');
+                }
+                this.closeContactModal();
+            } catch (err) {
+                const errorData = err.response?.data;
+                if (errorData?.errors) {
+                    // Get first error message
+                    const firstError = Object.values(errorData.errors)[0];
+                    this.contactFormError = Array.isArray(firstError) ? firstError[0] : firstError;
+                } else {
+                    this.contactFormError = errorData?.message || 'Failed to save contact';
+                }
+            } finally {
+                this.savingContact = false;
+            }
+        },
+        confirmDeleteContact(contact) {
+            this.showConfirm({
+                title: 'Delete Contact',
+                message: `Delete "${contact.full_name}"? This cannot be undone.`,
+                confirmText: 'Delete',
+                variant: 'danger',
+                action: 'doDeleteContact',
+                data: contact,
+            });
+        },
+        async doDeleteContact(contact) {
+            try {
+                await axios.delete(`/api/v1/team-members/${contact.id}`);
+                this.contacts = this.contacts.filter(c => c.id !== contact.id);
+                this.toast.success('Contact deleted.');
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to delete contact');
             }
         },
     },

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use App\Models\ScheduledAction;
+use App\Models\TeamMember;
 use App\Models\UsageCounter;
 use App\Services\IntentResolver;
 use Illuminate\Foundation\Http\FormRequest;
@@ -71,7 +72,7 @@ class CreateActionRequest extends FormRequest
             'gate' => ['required_if:mode,gated', 'array'],
             'gate.message' => ['required_with:gate', 'string', 'max:5000'],
             'gate.recipients' => ['required_with:gate', 'array', 'min:1'],
-            'gate.recipients.*' => ['required', 'string', 'regex:/^([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\+[1-9]\d{6,14})$/'],
+            'gate.recipients.*' => ['required', 'string'],
             'gate.channels' => ['nullable', 'array'],
             'gate.channels.*' => ['string', Rule::in(['email', 'sms'])],
             'gate.timeout' => ['nullable', 'string', 'regex:/^\d+[hdw]$/'],
@@ -100,7 +101,6 @@ class CreateActionRequest extends FormRequest
             'gate.required_if' => 'Gate configuration is required for gated actions.',
             'gate.message.required_with' => 'A message is required for the gate.',
             'gate.recipients.required_with' => 'At least one recipient is required for the gate.',
-            'gate.recipients.*.regex' => 'Each recipient must be a valid email address or phone number (E.164 format, e.g. +15551234567).',
             'gate.timeout.regex' => 'Timeout must be a number followed by h (hours), d (days), or w (weeks). Example: 4h, 7d, 1w',
         ];
     }
@@ -121,6 +121,17 @@ class CreateActionRequest extends FormRequest
                 $resolver = app(IntentResolver::class);
                 if (! $resolver->isValidTimezone($this->input('timezone'))) {
                     $validator->errors()->add('timezone', 'Invalid timezone.');
+                }
+            }
+
+            // Validate gate recipients (email, phone, or team member UUID)
+            $recipients = $this->input('gate.recipients', []);
+            foreach ($recipients as $index => $recipient) {
+                if (! $this->isValidRecipient($recipient, $user->account_id)) {
+                    $validator->errors()->add(
+                        "gate.recipients.{$index}",
+                        'Each recipient must be a valid email address, phone number (E.164 format, e.g. +15551234567), or team member ID.'
+                    );
                 }
             }
 
@@ -239,5 +250,38 @@ class CreateActionRequest extends FormRequest
     {
         // Simple check for phone numbers (starts with + or contains only digits, spaces, dashes)
         return preg_match('/^\+?[\d\s\-\(\)]+$/', $value) === 1 && strlen(preg_replace('/\D/', '', $value)) >= 10;
+    }
+
+    /**
+     * Check if a value is a valid UUID.
+     */
+    private function isUuid(string $value): bool
+    {
+        return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $value) === 1;
+    }
+
+    /**
+     * Check if a recipient is valid (email, phone, or team member UUID).
+     */
+    private function isValidRecipient(string $recipient, ?string $accountId): bool
+    {
+        // Check if it's a valid email
+        if (filter_var($recipient, FILTER_VALIDATE_EMAIL) !== false) {
+            return true;
+        }
+
+        // Check if it's a valid E.164 phone number
+        if (preg_match('/^\+[1-9]\d{6,14}$/', $recipient) === 1) {
+            return true;
+        }
+
+        // Check if it's a valid UUID that exists as a team member
+        if ($this->isUuid($recipient) && $accountId) {
+            return TeamMember::where('id', $recipient)
+                ->where('account_id', $accountId)
+                ->exists();
+        }
+
+        return false;
     }
 }

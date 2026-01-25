@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\TeamMemberController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\PublicStatusController;
@@ -97,6 +98,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/domains/{domain}', [DomainController::class, 'show']);
         Route::post('/domains/{domain}/verify', [DomainController::class, 'verify']);
         Route::delete('/domains/{domain}', [DomainController::class, 'destroy']);
+
+        // Team Members (Contacts)
+        Route::get('/team-members', [TeamMemberController::class, 'index']);
+        Route::post('/team-members', [TeamMemberController::class, 'store']);
+        Route::get('/team-members/{teamMember}', [TeamMemberController::class, 'show']);
+        Route::put('/team-members/{teamMember}', [TeamMemberController::class, 'update']);
+        Route::delete('/team-members/{teamMember}', [TeamMemberController::class, 'destroy']);
     });
 
     // Subscription Management

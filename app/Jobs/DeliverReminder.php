@@ -7,6 +7,7 @@ use App\Models\BlockedRecipient;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
+use App\Models\TeamMember;
 use App\Services\BrevoService;
 use App\Services\QuotaService;
 use Illuminate\Bus\Queueable;
@@ -63,15 +64,47 @@ class DeliverReminder implements ShouldQueue
 
         // Create recipient records with response tokens and send notifications
         foreach ($recipients as $recipient) {
+            // Resolve team member ID if applicable
+            $teamMemberId = null;
+            $resolvedContact = $recipient;
+
+            if ($this->isUuid($recipient)) {
+                $teamMember = TeamMember::where('id', $recipient)
+                    ->where('account_id', $this->action->account_id)
+                    ->first();
+
+                if ($teamMember) {
+                    $teamMemberId = $teamMember->id;
+                    // Use email as primary contact, fallback to phone
+                    $resolvedContact = $teamMember->email ?? $teamMember->phone;
+
+                    if (! $resolvedContact) {
+                        Log::warning('Team member has no contact info, skipping', [
+                            'action_id' => $this->action->id,
+                            'team_member_id' => $teamMemberId,
+                        ]);
+
+                        continue;
+                    }
+                } else {
+                    Log::warning('Team member not found, skipping', [
+                        'action_id' => $this->action->id,
+                        'recipient' => $recipient,
+                    ]);
+
+                    continue;
+                }
+            }
+
             // Determine if it's an email or phone number
-            $isPhone = $this->isPhoneNumber($recipient);
-            $isEmail = filter_var($recipient, FILTER_VALIDATE_EMAIL) !== false;
+            $isPhone = $this->isPhoneNumber($resolvedContact);
+            $isEmail = filter_var($resolvedContact, FILTER_VALIDATE_EMAIL) !== false;
 
             // Check if recipient is blocked
-            if (BlockedRecipient::isBlocked($recipient)) {
+            if (BlockedRecipient::isBlocked($resolvedContact)) {
                 Log::info('Recipient blocked, skipping', [
                     'action_id' => $this->action->id,
-                    'recipient' => $recipient,
+                    'recipient' => $resolvedContact,
                 ]);
                 $blockedCount++;
 
@@ -82,9 +115,10 @@ class DeliverReminder implements ShouldQueue
             $recipientRecord = ReminderRecipient::firstOrCreate(
                 [
                     'action_id' => $this->action->id,
-                    'email' => $recipient,
+                    'email' => $resolvedContact,
                 ],
                 [
+                    'team_member_id' => $teamMemberId,
                     'status' => ReminderRecipient::STATUS_PENDING,
                     'response_token' => Str::random(20),
                 ]
@@ -192,5 +226,10 @@ class DeliverReminder implements ShouldQueue
     {
         // Simple check for phone numbers (starts with + or contains only digits, spaces, dashes)
         return preg_match('/^\+?[\d\s\-\(\)]+$/', $value) === 1 && strlen(preg_replace('/\D/', '', $value)) >= 10;
+    }
+
+    private function isUuid(string $value): bool
+    {
+        return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $value) === 1;
     }
 }

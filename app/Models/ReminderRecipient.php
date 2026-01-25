@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $id
  * @property string $action_id
+ * @property string|null $team_member_id
  * @property string $email
  * @property string $status
  * @property string|null $response_token
@@ -17,6 +19,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read ScheduledAction $action
+ * @property-read TeamMember|null $teamMember
+ * @property-read string $display_name
  */
 class ReminderRecipient extends Model
 {
@@ -36,6 +40,7 @@ class ReminderRecipient extends Model
 
     protected $fillable = [
         'action_id',
+        'team_member_id',
         'email',
         'status',
         'response_token',
@@ -52,6 +57,22 @@ class ReminderRecipient extends Model
     public function action(): BelongsTo
     {
         return $this->belongsTo(ScheduledAction::class, 'action_id');
+    }
+
+    public function teamMember(): BelongsTo
+    {
+        return $this->belongsTo(TeamMember::class);
+    }
+
+    /**
+     * Get the display name for this recipient.
+     * Returns team member name if available, otherwise the email/phone.
+     */
+    protected function displayName(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->teamMember?->full_name ?? $this->email
+        );
     }
 
     public function hasResponded(): bool

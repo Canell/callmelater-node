@@ -80,7 +80,7 @@ class ActionController extends Controller
     public function show(Request $request, string $id): ActionResource|JsonResponse
     {
         $user = $request->user();
-        $action = ScheduledAction::with(['deliveryAttempts', 'reminderEvents', 'recipients', 'executionCycles.triggeredByUser'])
+        $action = ScheduledAction::with(['deliveryAttempts', 'reminderEvents', 'recipients.teamMember', 'executionCycles.triggeredByUser'])
             ->where('account_id', $user->account_id)
             ->find($id);
 
@@ -219,7 +219,7 @@ class ActionController extends Controller
             return response()->json([
                 'message' => 'Action retry initiated',
                 'execution_cycle_id' => $cycle->id,
-                'action' => new ActionResource($action->fresh(['deliveryAttempts', 'reminderEvents', 'recipients', 'executionCycles.triggeredByUser'])),
+                'action' => new ActionResource($action->fresh(['deliveryAttempts', 'reminderEvents', 'recipients.teamMember', 'executionCycles.triggeredByUser'])),
             ]);
         } catch (RetryNotAllowedException $e) {
             return response()->json([

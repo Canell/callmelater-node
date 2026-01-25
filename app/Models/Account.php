@@ -80,6 +80,14 @@ class Account extends Model
     }
 
     /**
+     * All team members (contacts) for this account.
+     */
+    public function teamMembers(): HasMany
+    {
+        return $this->hasMany(TeamMember::class, 'account_id');
+    }
+
+    /**
      * Audit log of manual plan overrides.
      */
     public function planOverrides(): HasMany
