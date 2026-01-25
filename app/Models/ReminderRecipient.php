@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $status
  * @property string|null $response_token
  * @property Carbon|null $responded_at
+ * @property string|null $response_comment
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read ScheduledAction $action
@@ -45,6 +46,7 @@ class ReminderRecipient extends Model
         'status',
         'response_token',
         'responded_at',
+        'response_comment',
     ];
 
     protected function casts(): array

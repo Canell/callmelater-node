@@ -99,6 +99,37 @@
         .btn-snooze:hover {
             background-color: #e5e7eb;
         }
+        .comment-section {
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        .comment-label {
+            display: block;
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .comment-textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        .comment-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .char-count {
+            text-align: right;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
         .footer {
             margin-top: 32px;
             font-size: 12px;
@@ -120,17 +151,28 @@
             <p class="description">Please respond to this reminder.</p>
         @endif
 
+        <div class="comment-section">
+            <label class="comment-label" for="comment">Add a comment (optional)</label>
+            <textarea
+                id="comment"
+                class="comment-textarea"
+                maxlength="500"
+                placeholder="Add context to your response..."
+            ></textarea>
+            <div class="char-count"><span id="charCount">0</span>/500</div>
+        </div>
+
         <div class="buttons">
-            <a href="/respond?token={{ $token }}&response=confirm" class="btn btn-confirm">
+            <button type="button" class="btn btn-confirm" onclick="submitResponse('confirm')">
                 Confirm
-            </a>
-            <a href="/respond?token={{ $token }}&response=decline" class="btn btn-decline">
+            </button>
+            <button type="button" class="btn btn-decline" onclick="submitResponse('decline')">
                 Decline
-            </a>
+            </button>
             @if($canSnooze)
-                <a href="/respond?token={{ $token }}&response=snooze&preset=1h" class="btn btn-snooze">
+                <button type="button" class="btn btn-snooze" onclick="submitResponse('snooze', '1h')">
                     Snooze 1 hour
-                </a>
+                </button>
             @endif
         </div>
 
@@ -138,5 +180,31 @@
             Powered by CallMeLater
         </div>
     </div>
+
+    <script>
+        // Character counter
+        const textarea = document.getElementById('comment');
+        const charCount = document.getElementById('charCount');
+
+        textarea.addEventListener('input', function() {
+            charCount.textContent = this.value.length;
+        });
+
+        // Submit response with comment
+        function submitResponse(response, preset) {
+            const comment = textarea.value.trim();
+            let url = '/respond?token={{ $token }}&response=' + response;
+
+            if (preset) {
+                url += '&preset=' + preset;
+            }
+
+            if (comment) {
+                url += '&comment=' + encodeURIComponent(comment);
+            }
+
+            window.location.href = url;
+        }
+    </script>
 </body>
 </html>

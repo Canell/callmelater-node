@@ -26,6 +26,8 @@ class ResponseController extends Controller
         $response = $request->query('response');
         /** @var string $preset */
         $preset = $request->query('preset', '1h');
+        /** @var string|null $comment */
+        $comment = $request->input('comment');
 
         // If token exists but no response, show the choice page (for SMS links)
         if ($token && ! $response) {
@@ -60,7 +62,7 @@ class ResponseController extends Controller
                 } else {
                     // Process the response
                     try {
-                        $this->responseProcessor->process($recipient, $action, $response, $preset);
+                        $this->responseProcessor->process($recipient, $action, $response, $preset, $comment);
                         $success = $this->responseProcessor->getSuccessMessage($response);
                     } catch (\Exception $e) {
                         $error = $e->getMessage();

@@ -20,6 +20,7 @@ class ReminderRecipientResource extends JsonResource
             'email' => $this->email,
             'status' => $this->status,
             'responded_at' => $this->responded_at?->toIso8601String(),
+            'response_comment' => $this->response_comment,
             'created_at' => $this->created_at->toIso8601String(),
             'display_name' => $this->display_name,
             'team_member' => $this->whenLoaded('teamMember', fn () => $this->teamMember ? [

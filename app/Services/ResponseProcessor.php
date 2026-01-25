@@ -19,10 +19,11 @@ class ResponseProcessor
     /**
      * Process a confirm response from a recipient.
      */
-    public function handleConfirm(ReminderRecipient $recipient, ScheduledAction $action): void
+    public function handleConfirm(ReminderRecipient $recipient, ScheduledAction $action, ?string $comment = null): void
     {
         $recipient->status = ReminderRecipient::STATUS_CONFIRMED;
         $recipient->responded_at = now();
+        $recipient->response_comment = $comment;
         $recipient->save();
 
         ReminderEvent::create([
@@ -30,6 +31,7 @@ class ResponseProcessor
             'event_type' => ReminderEvent::TYPE_CONFIRMED,
             'actor_email' => $recipient->email,
             'captured_timezone' => $action->timezone,
+            'notes' => $comment,
         ]);
 
         // Check if action should proceed based on confirmation mode
@@ -46,16 +48,17 @@ class ResponseProcessor
         }
 
         // Dispatch callback webhook if configured (best-effort, non-blocking)
-        $this->dispatchCallback($action, 'confirm', $recipient->email);
+        $this->dispatchCallback($action, 'confirm', $recipient->email, null, null, $comment);
     }
 
     /**
      * Process a decline response from a recipient.
      */
-    public function handleDecline(ReminderRecipient $recipient, ScheduledAction $action): void
+    public function handleDecline(ReminderRecipient $recipient, ScheduledAction $action, ?string $comment = null): void
     {
         $recipient->status = ReminderRecipient::STATUS_DECLINED;
         $recipient->responded_at = now();
+        $recipient->response_comment = $comment;
         $recipient->save();
 
         ReminderEvent::create([
@@ -63,6 +66,7 @@ class ResponseProcessor
             'event_type' => ReminderEvent::TYPE_DECLINED,
             'actor_email' => $recipient->email,
             'captured_timezone' => $action->timezone,
+            'notes' => $comment,
         ]);
 
         // If first_response mode and someone declines, mark as executed (declined)
@@ -79,7 +83,7 @@ class ResponseProcessor
         }
 
         // Dispatch callback webhook if configured (best-effort, non-blocking)
-        $this->dispatchCallback($action, 'decline', $recipient->email);
+        $this->dispatchCallback($action, 'decline', $recipient->email, null, null, $comment);
     }
 
     /**
@@ -87,7 +91,7 @@ class ResponseProcessor
      *
      * @throws \InvalidArgumentException if max snoozes reached
      */
-    public function handleSnooze(ReminderRecipient $recipient, ScheduledAction $action, string $preset): void
+    public function handleSnooze(ReminderRecipient $recipient, ScheduledAction $action, string $preset, ?string $comment = null): void
     {
         if (! $action->canSnooze()) {
             throw new \InvalidArgumentException('Maximum snoozes reached for this action.');
@@ -95,14 +99,20 @@ class ResponseProcessor
 
         $recipient->status = ReminderRecipient::STATUS_SNOOZED;
         $recipient->responded_at = now();
+        $recipient->response_comment = $comment;
         $recipient->save();
+
+        $notes = "Snoozed with preset: {$preset}";
+        if ($comment) {
+            $notes .= " - {$comment}";
+        }
 
         ReminderEvent::create([
             'reminder_id' => $action->id,
             'event_type' => ReminderEvent::TYPE_SNOOZED,
             'actor_email' => $recipient->email,
             'captured_timezone' => $action->timezone,
-            'notes' => "Snoozed with preset: {$preset}",
+            'notes' => $notes,
         ]);
 
         // Reset all recipient statuses for the snoozed action
@@ -115,7 +125,7 @@ class ResponseProcessor
 
         // Dispatch callback webhook if configured (best-effort, non-blocking)
         $action->refresh(); // Get updated execute_at_utc after snooze
-        $this->dispatchCallback($action, 'snooze', $recipient->email, $preset, $action->execute_at_utc?->toIso8601String());
+        $this->dispatchCallback($action, 'snooze', $recipient->email, $preset, $action->execute_at_utc?->toIso8601String(), $comment);
     }
 
     /**
@@ -123,12 +133,23 @@ class ResponseProcessor
      *
      * @throws \InvalidArgumentException if response type is invalid
      */
-    public function process(ReminderRecipient $recipient, ScheduledAction $action, string $response, ?string $preset = null): void
+    public function process(ReminderRecipient $recipient, ScheduledAction $action, string $response, ?string $preset = null, ?string $comment = null): void
     {
+        // Sanitize and limit comment length
+        if ($comment !== null) {
+            $comment = trim($comment);
+            if (strlen($comment) > 500) {
+                $comment = substr($comment, 0, 500);
+            }
+            if ($comment === '') {
+                $comment = null;
+            }
+        }
+
         match ($response) {
-            'confirm' => $this->handleConfirm($recipient, $action),
-            'decline' => $this->handleDecline($recipient, $action),
-            'snooze' => $this->handleSnooze($recipient, $action, $preset ?? '1h'),
+            'confirm' => $this->handleConfirm($recipient, $action, $comment),
+            'decline' => $this->handleDecline($recipient, $action, $comment),
+            'snooze' => $this->handleSnooze($recipient, $action, $preset ?? '1h', $comment),
             default => throw new \InvalidArgumentException('Invalid response type.'),
         };
     }
@@ -203,7 +224,8 @@ class ResponseProcessor
         string $response,
         string $responderEmail,
         ?string $snoozePreset = null,
-        ?string $nextReminderAt = null
+        ?string $nextReminderAt = null,
+        ?string $comment = null
     ): void {
         if (! $action->callback_url) {
             return;
@@ -215,7 +237,8 @@ class ResponseProcessor
             $responderEmail,
             1, // First attempt
             $snoozePreset,
-            $nextReminderAt
+            $nextReminderAt,
+            $comment
         );
     }
 }

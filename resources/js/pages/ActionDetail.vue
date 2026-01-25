@@ -148,15 +148,22 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="r in action.recipients" :key="r.id">
-                                        <td>{{ r.email }}</td>
-                                        <td>
-                                            <span :class="['badge', recipientBadgeClass(r.status)]">
-                                                {{ r.status }}
-                                            </span>
-                                        </td>
-                                        <td>{{ r.responded_at ? formatDate(r.responded_at) : '-' }}</td>
-                                    </tr>
+                                    <template v-for="r in action.recipients" :key="r.id">
+                                        <tr>
+                                            <td>{{ r.email }}</td>
+                                            <td>
+                                                <span :class="['badge', recipientBadgeClass(r.status)]">
+                                                    {{ r.status }}
+                                                </span>
+                                            </td>
+                                            <td>{{ r.responded_at ? formatDate(r.responded_at) : '-' }}</td>
+                                        </tr>
+                                        <tr v-if="r.response_comment" class="recipient-comment-row">
+                                            <td colspan="3" class="pt-0 pb-2 ps-4">
+                                                <small class="text-muted fst-italic">"{{ r.response_comment }}"</small>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -530,5 +537,11 @@ export default {
     font-size: 0.85em;
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+/* Recipient comment row */
+.recipient-comment-row td {
+    border-top: none !important;
+    background-color: #f9fafb;
 }
 </style>

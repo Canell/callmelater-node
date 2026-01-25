@@ -51,6 +51,7 @@ class DeliverReminderCallback implements ShouldQueue
         public int $attemptNumber = 1,
         public ?string $snoozePreset = null,
         public ?string $nextReminderAt = null,
+        public ?string $comment = null,
     ) {}
 
     public function handle(UrlValidator $urlValidator, HttpRequestService $httpService): void
@@ -141,6 +142,7 @@ class DeliverReminderCallback implements ShouldQueue
             'action_id' => $this->action->id,
             'action_name' => $this->action->name,
             'response' => $this->response,
+            'comment' => $this->comment,
             'responder_email' => $this->responderEmail,
             'responded_at' => now()->toIso8601String(),
             'action_status' => $this->action->resolution_status,
@@ -183,6 +185,7 @@ class DeliverReminderCallback implements ShouldQueue
             $this->attemptNumber + 1,
             $this->snoozePreset,
             $this->nextReminderAt,
+            $this->comment,
         )->delay(now()->addSeconds($delay));
 
         $this->log('info', 'callback_retry_scheduled', [
