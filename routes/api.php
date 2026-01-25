@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\HeartbeatController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\ResponseController;
+use App\Http\Controllers\Api\ResponseDashboardController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\TeamMemberController;
@@ -105,6 +106,9 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::get('/team-members/{teamMember}', [TeamMemberController::class, 'show']);
         Route::put('/team-members/{teamMember}', [TeamMemberController::class, 'update']);
         Route::delete('/team-members/{teamMember}', [TeamMemberController::class, 'destroy']);
+
+        // Response Dashboard
+        Route::get('/responses', [ResponseDashboardController::class, 'index']);
     });
 
     // Subscription Management

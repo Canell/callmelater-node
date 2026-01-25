@@ -38,6 +38,9 @@
                             <li class="nav-item">
                                 <router-link class="nav-link" to="/dashboard">Dashboard</router-link>
                             </li>
+                            <li class="nav-item">
+                                <router-link class="nav-link" to="/responses">Responses</router-link>
+                            </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                                     Account

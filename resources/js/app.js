@@ -9,6 +9,7 @@ import App from './App.vue';
 // Note: Marketing pages (Home, Pricing, UseCases, Contact, Terms, Privacy, Cookies)
 // are now served by Blade templates for SEO
 import Dashboard from './pages/Dashboard.vue';
+import Responses from './pages/Responses.vue';
 import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
 import CreateAction from './pages/CreateAction.vue';
@@ -39,6 +40,7 @@ const routes = [
 
     // App pages (authenticated)
     { path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { requiresAuth: true } },
+    { path: '/responses', name: 'responses', component: Responses, meta: { requiresAuth: true } },
     { path: '/actions/create', name: 'create-action', component: CreateAction, meta: { requiresAuth: true } },
     { path: '/actions/:id', name: 'action-detail', component: ActionDetail, meta: { requiresAuth: true } },
     { path: '/settings', name: 'settings', component: Settings, meta: { requiresAuth: true } },
