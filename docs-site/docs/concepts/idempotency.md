@@ -12,9 +12,8 @@ Your code schedules a webhook:
 
 ```javascript
 await callmelater.createAction({
-  type: 'http',
   intent: { preset: 'tomorrow' },
-  http_request: { url: 'https://...' }
+  request: { url: 'https://...' }
 });
 ```
 
@@ -32,9 +31,8 @@ Add an `idempotency_key`:
 ```javascript
 await callmelater.createAction({
   idempotency_key: 'trial-end-user-42',
-  type: 'http',
   intent: { preset: 'tomorrow' },
-  http_request: { url: 'https://...' }
+  request: { url: 'https://...' }
 });
 ```
 

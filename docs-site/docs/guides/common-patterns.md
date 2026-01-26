@@ -19,7 +19,7 @@ curl -X POST https://api.callmelater.io/v1/actions \
     "intent": {
       "delay": "14d"
     },
-    "http_request": {
+    "request": {
       "method": "POST",
       "url": "https://api.yourapp.com/webhooks/trial-expired",
       "body": {
@@ -59,19 +59,19 @@ async function requestDeployApproval(version, environment) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      type: 'reminder',
+      mode: 'gated',
       idempotency_key: `deploy-${version}-${environment}`,
       intent: { delay: '0m' }, // Send immediately
-      message: `Approve deployment of ${version} to ${environment}?`,
-      escalation_rules: {
+      gate: {
+        message: `Approve deployment of ${version} to ${environment}?`,
         recipients: ['tech-lead@company.com'],
         escalation_contacts: ['cto@company.com'],
         escalate_after_hours: 1,
-        token_expiry_days: 1
-      },
-      confirmation_mode: environment === 'production'
-        ? 'all_required'
-        : 'first_response'
+        token_expiry_days: 1,
+        confirmation_mode: environment === 'production'
+          ? 'all_required'
+          : 'first_response'
+      }
     })
   });
 
@@ -97,7 +97,7 @@ Delete temporary data after a retention period.
   "intent": {
     "delay": "7d"
   },
-  "http_request": {
+  "request": {
     "method": "DELETE",
     "url": "https://api.yourapp.com/exports/abc123",
     "headers": {
@@ -120,18 +120,18 @@ Ping a backup person only if the primary doesn't respond.
 
 ```json
 {
-  "type": "reminder",
+  "mode": "gated",
   "intent": {
     "delay": "0m"
   },
-  "message": "Server CPU critical on prod-web-01. Please investigate.",
-  "escalation_rules": {
+  "gate": {
+    "message": "Server CPU critical on prod-web-01. Please investigate.",
     "recipients": ["oncall@company.com"],
     "escalation_contacts": ["oncall-backup@company.com", "+1234567890"],
     "escalate_after_hours": 0.5,
-    "channels": ["email", "sms"]
-  },
-  "max_snoozes": 0
+    "channels": ["email", "sms"],
+    "max_snoozes": 0
+  }
 }
 ```
 
@@ -154,7 +154,7 @@ Trigger weekly report generation.
     "preset": "next_monday",
     "timezone": "America/New_York"
   },
-  "http_request": {
+  "request": {
     "method": "POST",
     "url": "https://api.yourapp.com/reports/generate",
     "body": {
@@ -195,7 +195,7 @@ async function scheduleOnboarding(userId, email) {
       body: JSON.stringify({
         idempotency_key: `onboarding-${userId}-${step.template}`,
         intent: { delay: step.delay },
-        http_request: {
+        request: {
           method: 'POST',
           url: 'https://api.yourapp.com/emails/send',
           body: {
@@ -223,13 +223,13 @@ Remind about upcoming payment, escalate if overdue.
 
 ```json
 {
-  "type": "reminder",
+  "mode": "gated",
   "idempotency_key": "invoice-INV-2025-001-reminder",
   "intent": {
     "execute_at": "2025-01-28T09:00:00Z"
   },
-  "message": "Invoice INV-2025-001 ($1,500) is due in 3 days. Click Confirm to mark as scheduled for payment.",
-  "escalation_rules": {
+  "gate": {
+    "message": "Invoice INV-2025-001 ($1,500) is due in 3 days. Click Confirm to mark as scheduled for payment.",
     "recipients": ["billing@customer.com"],
     "escalation_contacts": ["accounts-receivable@yourcompany.com"],
     "escalate_after_hours": 72,

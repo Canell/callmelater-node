@@ -4,10 +4,10 @@ sidebar_position: 2
 
 # Approval Workflows
 
-Use reminders to get human confirmation before proceeding with an action.
+Use gated actions to get human confirmation before proceeding with an action.
 
-:::info How Approval Works in v1
-In v1, approval workflows are implemented by creating a **reminder** action. The reminder *is* the approval request.
+:::info How Approval Works
+Approval workflows are implemented by creating a **gated** action. The reminder *is* the approval request.
 
 Your system is responsible for executing the follow-up logic (e.g., deploying, calling an API) once approval is confirmed. CallMeLater notifies you of the response — it does not automatically chain actions together.
 :::
@@ -24,24 +24,24 @@ You want someone to confirm before proceeding.
 
 ## Basic Approval
 
-Send a reminder and wait for confirmation:
+Send a gated action and wait for confirmation:
 
 ```bash
 curl -X POST https://api.callmelater.io/v1/actions \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "reminder",
+    "mode": "gated",
     "idempotency_key": "deploy-approval-v2.1.0",
     "intent": {
       "delay": "0m"
     },
-    "message": "Please approve deployment of v2.1.0 to production",
-    "escalation_rules": {
+    "gate": {
+      "message": "Please approve deployment of v2.1.0 to production",
       "recipients": ["tech-lead@example.com"],
-      "token_expiry_days": 1
-    },
-    "confirmation_mode": "first_response"
+      "token_expiry_days": 1,
+      "confirmation_mode": "first_response"
+    }
   }'
 ```
 
@@ -56,8 +56,10 @@ Require everyone to approve:
 
 ```json
 {
-  "confirmation_mode": "all_required",
-  "escalation_rules": {
+  "mode": "gated",
+  "gate": {
+    "message": "Please approve the deployment",
+    "confirmation_mode": "all_required",
     "recipients": [
       "cto@example.com",
       "security@example.com",
@@ -75,7 +77,9 @@ If no one responds, escalate to a manager:
 
 ```json
 {
-  "escalation_rules": {
+  "mode": "gated",
+  "gate": {
+    "message": "Please approve",
     "recipients": ["team@example.com"],
     "escalation_contacts": ["manager@example.com"],
     "escalate_after_hours": 2,
@@ -97,10 +101,10 @@ Poll for the action status or configure a webhook:
 // Check action status
 const action = await callmelater.getAction('deploy-approval-v2.1.0');
 
-if (action.resolution_status === 'executed') {
+if (action.status === 'executed') {
   // Approval granted
   await deployToProduction();
-} else if (action.resolution_status === 'failed') {
+} else if (action.status === 'failed') {
   // Declined or expired
   await notifyDeploymentBlocked();
 }
@@ -112,14 +116,14 @@ if (action.resolution_status === 'executed') {
 async function requestDeploymentApproval(version, environment) {
   // Create approval request
   const action = await callmelater.createAction({
-    type: 'reminder',
+    mode: 'gated',
     idempotency_key: `deploy-${version}-${environment}`,
     intent: { delay: '0m' },
-    message: `Approve deployment of ${version} to ${environment}?`,
-    escalation_rules: {
+    gate: {
+      message: `Approve deployment of ${version} to ${environment}?`,
       recipients: getApprovers(environment),
-    },
-    confirmation_mode: environment === 'production' ? 'all_required' : 'first_response',
+      confirmation_mode: environment === 'production' ? 'all_required' : 'first_response'
+    }
   });
 
   // Wait for response (in practice, use webhooks)

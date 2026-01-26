@@ -23,7 +23,7 @@ curl https://api.callmelater.io/v1/actions \
   -H "Content-Type: application/json" \
   -d '{
     "intent": { "preset": "tomorrow" },
-    "http_request": {
+    "request": {
       "url": "https://your-app.com/webhook",
       "body": {
         "event": "scheduled_task",
@@ -33,7 +33,7 @@ curl https://api.callmelater.io/v1/actions \
   }'
 ```
 
-That's the minimal payload. The `type` defaults to `http`, and your webhook secret is used automatically.
+That's the minimal payload. The `mode` defaults to `immediate`, and your webhook secret is used automatically.
 
 ### 3. That's it
 

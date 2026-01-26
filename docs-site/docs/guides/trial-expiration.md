@@ -26,7 +26,7 @@ curl -X POST https://api.callmelater.io/v1/actions \
     "intent": {
       "delay": "14d"
     },
-    "http_request": {
+    "request": {
       "url": "https://your-app.com/webhooks/trial-expired",
       "body": {
         "event": "trial_expired",
@@ -38,7 +38,7 @@ curl -X POST https://api.callmelater.io/v1/actions \
 ```
 
 :::tip Minimal payload
-The `type` field defaults to `http`, and the request will be signed with your account's webhook secret automatically.
+The `mode` field defaults to `immediate`, and the request will be signed with your account's webhook secret automatically.
 :::
 
 ## Handle the Webhook

@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # List Actions
 
-Retrieve a paginated list of your actions.
+Retrieve a paginated list of your actions with optional filtering.
 
 ```
 GET /api/v1/actions
@@ -15,18 +15,22 @@ GET /api/v1/actions
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `status` | string | — | Filter by status |
-| `type` | string | — | Filter by type (`http` or `reminder`) |
+| `mode` | string | — | Filter by mode (`immediate` or `gated`) |
+| `search` | string | — | Search in name and description |
+| `coordination_key` | string | — | Filter by coordination key |
 | `per_page` | integer | 25 | Results per page (max 100) |
 | `page` | integer | 1 | Page number |
 
 ### Status Values
 
-- `pending_resolution`
-- `resolved`
-- `awaiting_response`
-- `executed`
-- `failed`
-- `cancelled`
+- `pending_resolution` - Waiting for time resolution
+- `resolved` - Scheduled, waiting for execution time
+- `executing` - Currently being processed
+- `awaiting_response` - Waiting for human response (gated only)
+- `executed` - Successfully completed
+- `failed` - Failed after all retries
+- `cancelled` - Manually or automatically cancelled
+- `expired` - Reminder expired without response
 
 ## Examples
 
@@ -40,21 +44,35 @@ curl https://api.callmelater.io/v1/actions \
 ### Filter by Status
 
 ```bash
-curl "https://api.callmelater.io/v1/actions?status=resolved" \
+curl "https://api.callmelater.io/v1/actions?status=failed" \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-### Filter by Type
+### Filter by Mode
 
 ```bash
-curl "https://api.callmelater.io/v1/actions?type=reminder" \
+curl "https://api.callmelater.io/v1/actions?mode=gated" \
   -H "Authorization: Bearer sk_live_..."
 ```
 
-### Pagination
+### Search by Name
 
 ```bash
-curl "https://api.callmelater.io/v1/actions?per_page=50&page=2" \
+curl "https://api.callmelater.io/v1/actions?search=deployment" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+### Filter by Coordination Key
+
+```bash
+curl "https://api.callmelater.io/v1/actions?coordination_key=deploy:api-service" \
+  -H "Authorization: Bearer sk_live_..."
+```
+
+### Combined Filters
+
+```bash
+curl "https://api.callmelater.io/v1/actions?status=resolved&mode=immediate&per_page=50" \
   -H "Authorization: Bearer sk_live_..."
 ```
 
@@ -65,21 +83,33 @@ curl "https://api.callmelater.io/v1/actions?per_page=50&page=2" \
   "data": [
     {
       "id": "01234567-89ab-cdef-0123-456789abcdef",
-      "type": "http",
+      "name": "Trial expiration webhook",
+      "description": null,
+      "mode": "immediate",
+      "status": "resolved",
+      "timezone": "America/New_York",
+      "execute_at": "2025-01-08T09:00:00Z",
       "idempotency_key": "trial-end-user-42",
-      "resolution_status": "resolved",
-      "execute_at_utc": "2025-01-08T09:00:00Z",
+      "coordination_keys": ["user:42"],
       "attempt_count": 0,
       "max_attempts": 5,
-      "created_at": "2025-01-05T10:30:00Z"
+      "retry_strategy": "exponential",
+      "created_at": "2025-01-05T10:30:00Z",
+      "updated_at": "2025-01-05T10:30:00Z"
     },
     {
       "id": "fedcba98-7654-3210-fedc-ba9876543210",
-      "type": "reminder",
+      "name": "Production deployment approval",
+      "description": "Requires ops team approval",
+      "mode": "gated",
+      "status": "awaiting_response",
+      "timezone": "UTC",
+      "execute_at": "2025-01-05T14:00:00Z",
       "idempotency_key": null,
-      "resolution_status": "awaiting_response",
-      "execute_at_utc": "2025-01-05T14:00:00Z",
-      "created_at": "2025-01-05T09:00:00Z"
+      "coordination_keys": [],
+      "snooze_count": 1,
+      "created_at": "2025-01-05T09:00:00Z",
+      "updated_at": "2025-01-05T14:30:00Z"
     }
   ],
   "links": {
@@ -107,15 +137,43 @@ curl "https://api.callmelater.io/v1/actions?per_page=50&page=2" \
 | `links` | Pagination URLs |
 | `meta` | Pagination metadata |
 
-### Action Object
+### Action Object (Summary)
 
-| Field | Description |
-|-------|-------------|
-| `id` | Unique action ID (UUID) |
-| `type` | `http` or `reminder` |
-| `idempotency_key` | Your idempotency key (if set) |
-| `resolution_status` | Current state |
-| `execute_at_utc` | Scheduled execution time |
-| `attempt_count` | Number of delivery attempts |
-| `max_attempts` | Maximum attempts allowed |
-| `created_at` | When the action was created |
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique action ID (UUID) |
+| `name` | string | Display name |
+| `description` | string | Optional description |
+| `mode` | string | `immediate` or `gated` |
+| `status` | string | Current state |
+| `timezone` | string | Timezone used for scheduling |
+| `execute_at` | string | Scheduled execution time (ISO 8601) |
+| `executed_at` | string | Actual execution time (if completed) |
+| `idempotency_key` | string | Your idempotency key (if set) |
+| `coordination_keys` | array | Coordination keys for grouping |
+| `attempt_count` | integer | Number of delivery attempts (immediate) |
+| `max_attempts` | integer | Maximum attempts allowed (immediate) |
+| `retry_strategy` | string | `exponential` or `linear` (immediate) |
+| `snooze_count` | integer | Number of snoozes used (gated) |
+| `failure_reason` | string | Failure description (if failed) |
+| `created_at` | string | Creation timestamp |
+| `updated_at` | string | Last update timestamp |
+
+## History Limits
+
+The list endpoint respects your plan's history retention:
+
+| Plan | History |
+|------|---------|
+| Free | 7 days |
+| Pro | 90 days |
+| Business | 1 year |
+| Enterprise | Custom |
+
+Actions older than your plan's retention are not returned, but non-terminal actions (pending, scheduled, etc.) are always visible regardless of age.
+
+## Notes
+
+- Results are ordered by `created_at` descending (newest first)
+- Use [Get Action](/api/get-action) for full details including delivery attempts and events
+- Terminal actions (executed, failed, cancelled, expired) are hidden after history retention period

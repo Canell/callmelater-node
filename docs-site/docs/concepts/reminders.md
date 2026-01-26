@@ -2,39 +2,39 @@
 sidebar_position: 4
 ---
 
-# Reminders
+# Gated Actions (Reminders)
 
-Reminders let you collect human responses (confirm, decline, or snooze). When someone responds, CallMeLater notifies your system via a callback URL — your system then decides what action to take.
+Gated actions let you collect human responses (confirm, decline, or snooze). When someone responds, CallMeLater notifies your system via a callback URL — your system then decides what action to take.
 
-## How Reminders Work
+## How Gated Actions Work
 
-1. You create a reminder action with recipients
+1. You create a gated action with recipients
 2. At the scheduled time, CallMeLater sends the reminder (email/SMS)
 3. Recipients see a simple interface: **Confirm**, **Decline**, or **Snooze**
 4. Their response triggers your callback URL with response details
 
-:::info Reminders vs HTTP Actions
-**HTTP actions** execute your webhook directly at the scheduled time.
+:::info Gated vs Immediate Mode
+**Immediate mode** executes your webhook directly at the scheduled time.
 
-**Reminders** collect a human response, then call your callback URL with the response details. Your system receives the response and decides what to do next — CallMeLater doesn't automatically execute any business logic.
+**Gated mode** collects a human response, then optionally calls your HTTP endpoint with the response details. Your system receives the response and decides what to do next — CallMeLater doesn't automatically execute any business logic.
 :::
 
-## Creating a Reminder
+## Creating a Gated Action
 
 ```json
 {
-  "type": "reminder",
+  "mode": "gated",
   "intent": {
     "preset": "tomorrow"
   },
-  "message": "Please confirm the production deployment",
-  "escalation_rules": {
+  "gate": {
+    "message": "Please confirm the production deployment",
     "recipients": ["ops@example.com", "+1234567890"],
     "channels": ["email", "sms"],
-    "token_expiry_days": 1
-  },
-  "confirmation_mode": "first_response",
-  "max_snoozes": 3
+    "token_expiry_days": 1,
+    "confirmation_mode": "first_response",
+    "max_snoozes": 3
+  }
 }
 ```
 
@@ -75,11 +75,16 @@ Recipients can:
 
 ## Snoozing
 
-Configure snooze behavior:
+Configure snooze behavior in the gate:
 
 ```json
 {
-  "max_snoozes": 5
+  "mode": "gated",
+  "gate": {
+    "message": "Please confirm",
+    "recipients": ["user@example.com"],
+    "max_snoozes": 5
+  }
 }
 ```
 
@@ -93,8 +98,10 @@ Set when response links should expire:
 
 ```json
 {
-  "escalation_rules": {
+  "mode": "gated",
+  "gate": {
     "recipients": ["user@example.com"],
+    "message": "Please confirm",
     "token_expiry_days": 7
   }
 }
@@ -112,7 +119,9 @@ Configure escalation for critical reminders:
 
 ```json
 {
-  "escalation_rules": {
+  "mode": "gated",
+  "gate": {
+    "message": "Please confirm",
     "recipients": ["team@example.com"],
     "escalation_contacts": ["manager@example.com"],
     "escalate_after_hours": 4

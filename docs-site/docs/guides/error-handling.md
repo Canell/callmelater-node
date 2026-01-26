@@ -116,7 +116,7 @@ app.post('/webhook', async (req, res) => {
 ```javascript
 const action = await callmelater.getAction(actionId);
 
-if (action.resolution_status === 'failed') {
+if (action.status === 'failed') {
   console.log('Failed after', action.attempt_count, 'attempts');
   console.log('Last error:', action.delivery_attempts.at(-1).error_message);
 }

@@ -30,7 +30,6 @@ Delays increase exponentially:
 
 ```json
 {
-  "type": "http",
   "retry_strategy": "exponential",
   "max_attempts": 5,
   ...
@@ -52,7 +51,6 @@ Fixed delay between attempts:
 
 ```json
 {
-  "type": "http",
   "retry_strategy": "linear",
   "max_attempts": 5,
   ...

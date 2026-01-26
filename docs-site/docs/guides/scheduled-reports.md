@@ -13,13 +13,12 @@ Schedule a daily summary to be generated every morning:
 ```javascript
 async function scheduleDailyReport(userId) {
   await callmelater.createAction({
-    type: 'http',
     idempotency_key: `daily-report-${userId}-${today()}`,
     intent: {
       preset: 'tomorrow',
       timezone: 'America/New_York'
     },
-    http_request: {
+    request: {
       method: 'POST',
       url: 'https://your-app.com/webhooks/generate-report',
       body: {
@@ -84,8 +83,10 @@ function scheduleMonthlyReport(userId) {
 
   return callmelater.createAction({
     idempotency_key: `monthly-${userId}-${lastDay.toISOString().slice(0, 7)}`,
-    execute_at: lastDay.toISOString(),
-    http_request: {
+    intent: {
+      execute_at: lastDay.toISOString()
+    },
+    request: {
       url: 'https://your-app.com/webhooks/generate-report',
       body: {
         type: 'monthly_summary',

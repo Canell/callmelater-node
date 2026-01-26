@@ -11,25 +11,28 @@ Everything in CallMeLater is an **action** — something scheduled to happen in 
 Every action moves through these states:
 
 ```
-pending_resolution → resolved → executed
-                           ↘ awaiting_response → executed | failed
-                           ↘ cancelled
+pending_resolution → resolved → executing → executed
+                                         ↘ failed
+                            ↘ awaiting_response → executed | failed | expired
+                            ↘ cancelled
 ```
 
 For full details, see [Action States](./states).
 
-## Types of Actions
+## Modes
 
-### HTTP Actions
+Actions have two modes:
 
-An HTTP action triggers a webhook at a scheduled time. The `type` defaults to `http`, so you can omit it.
+### Immediate Mode (default)
+
+An immediate action triggers a webhook at a scheduled time. This is the default mode.
 
 ```json
 {
   "intent": {
     "preset": "tomorrow"
   },
-  "http_request": {
+  "request": {
     "method": "POST",
     "url": "https://api.example.com/webhook",
     "headers": {
@@ -43,33 +46,33 @@ An HTTP action triggers a webhook at a scheduled time. The `type` defaults to `h
 }
 ```
 
-Use HTTP actions for:
+Use immediate mode for:
 - Trial expirations
 - Delayed notifications
 - Scheduled API calls
 - Cleanup tasks
 - Follow-up triggers
 
-### Reminder Actions
+### Gated Mode
 
-A reminder action sends a message to one or more recipients, asking them to respond.
+A gated action sends a message to one or more recipients, asking them to respond before any HTTP request is made.
 
 ```json
 {
-  "type": "reminder",
+  "mode": "gated",
   "intent": {
     "delay": "2h"
   },
-  "message": "Please confirm the deployment",
-  "escalation_rules": {
+  "gate": {
+    "message": "Please confirm the deployment",
     "recipients": ["ops@example.com", "+1234567890"],
-    "channels": ["email", "sms"]
-  },
-  "confirmation_mode": "first_response"
+    "channels": ["email", "sms"],
+    "confirmation_mode": "first_response"
+  }
 }
 ```
 
-Use reminder actions for:
+Use gated mode for:
 - Approval workflows
 - Human confirmations
 - Check-ins
@@ -138,7 +141,6 @@ Use `idempotency_key` to prevent duplicate actions:
 ```json
 {
   "idempotency_key": "trial-end-user-42",
-  "type": "http",
   ...
 }
 ```
