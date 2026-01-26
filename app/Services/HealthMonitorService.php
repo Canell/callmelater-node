@@ -341,7 +341,7 @@ class HealthMonitorService
         $systemUser = $this->getSystemUser();
 
         try {
-            $action = $this->actionService->create($systemUser, [
+            $result = $this->actionService->create($systemUser, [
                 'mode' => 'gated',
                 'name' => "Alert: {$component->name} degraded",
                 'intent' => ['delay' => '15m'], // Follow up in 15 min if still degraded
@@ -351,6 +351,7 @@ class HealthMonitorService
                     'channels' => ['email'],
                 ],
             ]);
+            $action = $result['action'];
 
             $tracking->update([
                 'reminder_action_id' => $action->id,
@@ -512,7 +513,7 @@ MSG;
         $heartbeatId = uniqid('hb_');
 
         try {
-            $action = $this->actionService->create($systemUser, [
+            $result = $this->actionService->create($systemUser, [
                 'mode' => 'immediate',
                 'name' => 'Health Monitor Heartbeat',
                 'intent' => ['delay' => '1m'],
@@ -531,6 +532,7 @@ MSG;
                 ],
                 'max_attempts' => 3,
             ]);
+            $action = $result['action'];
 
             Log::info('Health monitor: Heartbeat action created', [
                 'action_id' => $action->id,

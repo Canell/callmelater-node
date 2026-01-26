@@ -30,6 +30,7 @@ class ActionResource extends JsonResource
             'execute_at' => $this->execute_at_utc?->toIso8601String(),
             'executed_at' => $this->executed_at_utc?->toIso8601String(),
             'failure_reason' => $this->when($this->resolution_status === 'failed', $this->failure_reason),
+            'replaced_by_action_id' => $this->when($this->replaced_by_action_id !== null, $this->replaced_by_action_id),
 
             // Gate (gated mode)
             'gate' => $this->when($isGated, $this->gate),
@@ -69,6 +70,32 @@ class ActionResource extends JsonResource
 
             // Metadata
             'idempotency_key' => $this->idempotency_key,
+            'coordination_keys' => $this->coordination_keys,
+            'coordination_config' => $this->when($this->coordination_config, $this->coordination_config),
+            'coordination_reschedule_count' => $this->when(
+                $this->coordination_reschedule_count > 0,
+                $this->coordination_reschedule_count
+            ),
+
+            // Coordination relationships
+            'replaced_by' => $this->when(
+                $this->relationLoaded('replacedBy') && $this->replacedBy,
+                fn () => [
+                    'id' => $this->replacedBy->id,
+                    'name' => $this->replacedBy->name,
+                    'status' => $this->replacedBy->resolution_status,
+                ]
+            ),
+            'related_actions' => $this->when(
+                $this->relationLoaded('relatedActions'),
+                fn () => $this->relatedActions->map(fn ($a) => [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'status' => $a->resolution_status,
+                    'created_at' => $a->created_at->toIso8601String(),
+                ])
+            ),
+
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
         ];

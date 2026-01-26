@@ -50,6 +50,12 @@
                     <option value="immediate">Immediate</option>
                     <option value="gated">Gated</option>
                 </select>
+                <select v-if="coordinationKeys.length" class="form-select" v-model="coordinationKeyFilter" style="max-width: 200px;">
+                    <option value="">All groups</option>
+                    <option v-for="key in coordinationKeys" :key="key" :value="key">
+                        {{ key }}
+                    </option>
+                </select>
             </div>
         </div>
 
@@ -62,7 +68,7 @@
 
         <!-- Empty state -->
         <div v-else-if="actions.length === 0" class="text-center py-5">
-            <template v-if="searchQuery || statusFilter || modeFilter">
+            <template v-if="searchQuery || statusFilter || modeFilter || coordinationKeyFilter">
                 <h5 class="text-muted mb-2">No actions found</h5>
                 <p class="text-muted mb-4">Try adjusting your search or filters.</p>
                 <button class="btn btn-outline-secondary" @click="clearFilters">
@@ -197,6 +203,8 @@ export default {
             searchQuery: '',
             statusFilter: '',
             modeFilter: '',
+            coordinationKeyFilter: '',
+            coordinationKeys: [],
             // Auto-refresh (runs silently in background)
             refreshInterval: null,
             refreshSeconds: 30,
@@ -251,6 +259,7 @@ export default {
     },
     mounted() {
         this.loadActions();
+        this.loadCoordinationKeys();
         this.startAutoRefresh();
     },
     beforeUnmount() {
@@ -269,6 +278,9 @@ export default {
         },
         modeFilter() {
             this.loadActions();
+        },
+        coordinationKeyFilter() {
+            this.loadActions();
         }
     },
     methods: {
@@ -283,6 +295,7 @@ export default {
                 if (this.searchQuery) params.search = this.searchQuery;
                 if (this.statusFilter) params.status = this.statusFilter;
                 if (this.modeFilter) params.mode = this.modeFilter;
+                if (this.coordinationKeyFilter) params.coordination_key = this.coordinationKeyFilter;
 
                 const response = await axios.get('/api/v1/actions', { params });
                 this.actions = response.data.data;
@@ -305,6 +318,14 @@ export default {
             if (this.refreshInterval) {
                 clearInterval(this.refreshInterval);
                 this.refreshInterval = null;
+            }
+        },
+        async loadCoordinationKeys() {
+            try {
+                const response = await axios.get('/api/v1/coordination-keys');
+                this.coordinationKeys = response.data.keys || [];
+            } catch (err) {
+                console.error('Failed to load coordination keys:', err);
             }
         },
         confirmCancelAction(action) {
@@ -337,6 +358,7 @@ export default {
             this.searchQuery = '';
             this.statusFilter = '';
             this.modeFilter = '';
+            this.coordinationKeyFilter = '';
             this.loadActions();
         }
     }

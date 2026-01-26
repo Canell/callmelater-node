@@ -93,6 +93,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::delete('/actions/{id}', [ActionController::class, 'destroy']);
         Route::post('/actions/{id}/retry', [ActionController::class, 'retry']);
         Route::get('/quota', [ActionController::class, 'quota']);
+        Route::get('/coordination-keys', [ActionController::class, 'coordinationKeys']);
 
         // Domain Verification
         Route::get('/domains', [DomainController::class, 'index']);

@@ -49,6 +49,24 @@ class CreateActionRequest extends FormRequest
             'idempotency_key' => ['nullable', 'string', 'max:255'],
             'callback_url' => ['nullable', 'url:http,https'],
 
+            // Coordination keys (for grouping/filtering related actions)
+            'coordination_keys' => ['nullable', 'array', 'max:10'],
+            'coordination_keys.*' => ['string', 'max:255', 'regex:/^[a-zA-Z0-9_:.\-]+$/'],
+
+            // Coordination behavior on create
+            'coordination' => ['nullable', 'array'],
+            'coordination.on_create' => ['nullable', 'string', Rule::in(['replace_existing', 'cancel_existing', 'skip_if_exists'])],
+
+            // Coordination behavior on execute
+            'coordination.on_execute' => ['nullable', 'array'],
+            'coordination.on_execute.condition' => [
+                'nullable', 'string',
+                Rule::in(['skip_if_previous_pending', 'execute_if_previous_failed', 'execute_if_previous_succeeded', 'wait_for_previous']),
+            ],
+            'coordination.on_execute.on_condition_not_met' => ['nullable', 'string', Rule::in(['cancel', 'reschedule', 'fail'])],
+            'coordination.on_execute.reschedule_delay' => ['nullable', 'integer', 'min:60', 'max:86400'],
+            'coordination.on_execute.max_reschedules' => ['nullable', 'integer', 'min:1', 'max:100'],
+
             // Scheduling - either execute_at or intent
             'execute_at' => ['nullable', 'date', 'after:now'],
             'intent' => ['nullable', 'array'],
@@ -102,6 +120,11 @@ class CreateActionRequest extends FormRequest
             'gate.message.required_with' => 'A message is required for the gate.',
             'gate.recipients.required_with' => 'At least one recipient is required for the gate.',
             'gate.timeout.regex' => 'Timeout must be a number followed by h (hours), d (days), or w (weeks). Example: 4h, 7d, 1w',
+            'coordination_keys.max' => 'You can specify up to 10 coordination keys per action.',
+            'coordination_keys.*.regex' => 'Coordination keys may only contain letters, numbers, underscores, colons, dots, and dashes.',
+            'coordination.on_create.in' => 'The on_create value must be one of: replace_existing, cancel_existing, skip_if_exists.',
+            'coordination.on_execute.condition.in' => 'The on_execute condition must be one of: skip_if_previous_pending, execute_if_previous_failed, execute_if_previous_succeeded, wait_for_previous.',
+            'coordination.on_execute.on_condition_not_met.in' => 'The on_condition_not_met value must be one of: cancel, reschedule, fail.',
         ];
     }
 
@@ -114,6 +137,16 @@ class CreateActionRequest extends FormRequest
             // Ensure either execute_at or intent is provided
             if (! $this->filled('execute_at') && ! $this->filled('intent')) {
                 $validator->errors()->add('execute_at', 'Either execute_at or intent must be provided.');
+            }
+
+            // Coordination on_create requires at least one coordination_key
+            if ($this->filled('coordination.on_create') && ! $this->filled('coordination_keys')) {
+                $validator->errors()->add('coordination_keys', 'At least one coordination_key is required when using coordination.on_create.');
+            }
+
+            // Coordination on_execute requires at least one coordination_key
+            if ($this->filled('coordination.on_execute.condition') && ! $this->filled('coordination_keys')) {
+                $validator->errors()->add('coordination_keys', 'At least one coordination_key is required when using coordination.on_execute.');
             }
 
             // Validate timezone if provided

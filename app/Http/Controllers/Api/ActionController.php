@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\CreateActionRequest;
 use App\Http\Resources\ActionCollection;
 use App\Http\Resources\ActionResource;
+use App\Models\ActionCoordinationKey;
 use App\Models\ScheduledAction;
 use App\Services\ActionService;
 use App\Services\HttpRequestService;
@@ -62,6 +63,13 @@ class ActionController extends Controller
             $query->where('mode', $request->input('mode'));
         }
 
+        // Filter by coordination key
+        if ($request->filled('coordination_key')) {
+            $query->whereHas('coordinationKeyRecords', function ($q) use ($request) {
+                $q->where('coordination_key', $request->input('coordination_key'));
+            });
+        }
+
         $actions = $query->paginate($request->input('per_page', 25));
 
         return new ActionCollection($actions);
@@ -69,18 +77,32 @@ class ActionController extends Controller
 
     public function store(CreateActionRequest $request): ActionResource
     {
-        $action = $this->actionService->create(
+        $result = $this->actionService->create(
             $request->user(),
             $request->validated()
         );
 
-        return new ActionResource($action);
+        $resource = new ActionResource($result['action']);
+
+        // Add coordination meta if present
+        if (! empty($result['meta'])) {
+            $resource->additional(['meta' => $result['meta']]);
+        }
+
+        return $resource;
     }
 
     public function show(Request $request, string $id): ActionResource|JsonResponse
     {
         $user = $request->user();
-        $action = ScheduledAction::with(['deliveryAttempts', 'reminderEvents', 'recipients.teamMember', 'executionCycles.triggeredByUser'])
+        $action = ScheduledAction::with([
+            'deliveryAttempts',
+            'reminderEvents',
+            'recipients.teamMember',
+            'executionCycles.triggeredByUser',
+            'coordinationKeyRecords',
+            'replacedBy:id,name,resolution_status,created_at',
+        ])
             ->where('account_id', $user->account_id)
             ->find($id);
 
@@ -88,7 +110,28 @@ class ActionController extends Controller
             return response()->json(['message' => 'Action not found'], 404);
         }
 
+        // Load related actions if the action has coordination keys
+        if ($action->coordination_keys) {
+            $action->setRelation('relatedActions', $this->getRelatedActions($action));
+        }
+
         return new ActionResource($action);
+    }
+
+    /**
+     * Get related actions (actions sharing coordination keys).
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, ScheduledAction>
+     */
+    private function getRelatedActions(ScheduledAction $action)
+    {
+        return ScheduledAction::query()
+            ->where('account_id', $action->account_id)
+            ->where('id', '!=', $action->id)
+            ->whereHas('coordinationKeyRecords', fn ($q) => $q->whereIn('coordination_key', $action->coordination_keys))
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get(['id', 'name', 'resolution_status', 'created_at']);
     }
 
     public function destroy(Request $request, string $id): JsonResponse
@@ -255,5 +298,23 @@ class ActionController extends Controller
             'sms' => $usage['sms'],
             'plan' => $account->getPlan(),
         ]);
+    }
+
+    /**
+     * List all unique coordination keys for the account.
+     *
+     * GET /v1/coordination-keys
+     */
+    public function coordinationKeys(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $keys = ActionCoordinationKey::query()
+            ->whereHas('action', fn ($q) => $q->where('account_id', $user->account_id))
+            ->distinct()
+            ->orderBy('coordination_key')
+            ->pluck('coordination_key');
+
+        return response()->json(['keys' => $keys]);
     }
 }

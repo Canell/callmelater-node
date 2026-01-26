@@ -38,6 +38,14 @@
                 </span>
             </div>
 
+            <!-- Replaced notice -->
+            <div v-if="action.replaced_by" class="alert alert-warning mb-4">
+                <strong>This action was replaced.</strong>
+                <router-link :to="`/actions/${action.replaced_by.id}`" class="alert-link ms-2">
+                    View {{ action.replaced_by.name }} &rarr;
+                </router-link>
+            </div>
+
             <div class="row">
                 <!-- Left column: Details -->
                 <div class="col-lg-6">
@@ -62,10 +70,57 @@
                                 <small class="text-muted d-block">Displayed In</small>
                                 <strong>{{ displayTimezone }}</strong>
                             </div>
+                            <div v-if="action.coordination_keys?.length" class="mb-3">
+                                <small class="text-muted d-block">Coordination Keys</small>
+                                <span v-for="key in action.coordination_keys" :key="key" class="badge bg-secondary me-1">
+                                    {{ key }}
+                                </span>
+                            </div>
+                            <div v-if="action.coordination_config" class="mb-3">
+                                <small class="text-muted d-block">Coordination</small>
+                                <div class="bg-light p-2 rounded small">
+                                    <div v-if="action.coordination_config.on_create">
+                                        On Create: <code>{{ action.coordination_config.on_create }}</code>
+                                    </div>
+                                    <div v-if="action.coordination_config.on_execute">
+                                        On Execute: <code>{{ action.coordination_config.on_execute.condition }}</code>
+                                        <span v-if="action.coordination_config.on_execute.on_condition_not_met && action.coordination_config.on_execute.on_condition_not_met !== 'cancel'" class="text-muted">
+                                            ({{ action.coordination_config.on_execute.on_condition_not_met }})
+                                        </span>
+                                    </div>
+                                    <div v-if="action.coordination_reschedule_count" class="text-muted">
+                                        Rescheduled {{ action.coordination_reschedule_count }} time(s)
+                                    </div>
+                                </div>
+                            </div>
                             <div v-if="action.failure_reason" class="alert alert-danger mb-0">
                                 <small class="d-block">Failure Reason</small>
                                 {{ action.failure_reason }}
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Related Actions -->
+                    <div v-if="action.related_actions?.length" class="card card-cml mb-4">
+                        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Related Actions</h5>
+                            <span class="badge bg-secondary">{{ action.related_actions.length }}</span>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            <router-link
+                                v-for="related in action.related_actions"
+                                :key="related.id"
+                                :to="`/actions/${related.id}`"
+                                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                            >
+                                <div>
+                                    <span class="fw-medium">{{ related.name }}</span>
+                                    <small class="text-muted d-block">{{ formatDate(related.created_at) }}</small>
+                                </div>
+                                <span :class="['badge', statusBadgeClass(related.status)]">
+                                    {{ formatStatus(related.status) }}
+                                </span>
+                            </router-link>
                         </div>
                     </div>
 

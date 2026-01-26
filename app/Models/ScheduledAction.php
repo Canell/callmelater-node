@@ -40,9 +40,14 @@ use Illuminate\Support\Facades\Mail;
  * @property string|null $current_execution_cycle_id
  * @property int $manual_retry_count
  * @property Carbon|null $last_manual_retry_at
+ * @property string|null $replaced_by_action_id
+ * @property array<string, mixed>|null $coordination_config
+ * @property int $coordination_reschedule_count
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Account|null $account
+ * @property-read array<string> $coordination_keys
+ * @property-read ScheduledAction|null $replacedBy
  */
 class ScheduledAction extends Model
 {
@@ -129,6 +134,9 @@ class ScheduledAction extends Model
         'current_execution_cycle_id',
         'manual_retry_count',
         'last_manual_retry_at',
+        'replaced_by_action_id',
+        'coordination_config',
+        'coordination_reschedule_count',
     ];
 
     protected function casts(): array
@@ -137,6 +145,7 @@ class ScheduledAction extends Model
             'intent_payload' => 'array',
             'request' => 'array',
             'gate' => 'array',
+            'coordination_config' => 'array',
             'execute_at_utc' => 'datetime',
             'executed_at_utc' => 'datetime',
             'gate_passed_at' => 'datetime',
@@ -199,6 +208,37 @@ class ScheduledAction extends Model
     public function currentExecutionCycle(): BelongsTo
     {
         return $this->belongsTo(ExecutionCycle::class, 'current_execution_cycle_id');
+    }
+
+    public function coordinationKeyRecords(): HasMany
+    {
+        return $this->hasMany(ActionCoordinationKey::class, 'action_id');
+    }
+
+    /**
+     * The action that replaced this one (if cancelled via coordination).
+     */
+    public function replacedBy(): BelongsTo
+    {
+        return $this->belongsTo(ScheduledAction::class, 'replaced_by_action_id');
+    }
+
+    /**
+     * Actions that this one replaced (cancelled via coordination).
+     */
+    public function replacements(): HasMany
+    {
+        return $this->hasMany(ScheduledAction::class, 'replaced_by_action_id');
+    }
+
+    /**
+     * Get the coordination keys as an array of strings.
+     *
+     * @return array<string>
+     */
+    public function getCoordinationKeysAttribute(): array
+    {
+        return $this->coordinationKeyRecords->pluck('coordination_key')->toArray();
     }
 
     // Scopes
@@ -501,6 +541,24 @@ class ScheduledAction extends Model
     }
 
     /**
+     * Cancel this action and mark it as replaced by another action.
+     *
+     * @throws \InvalidArgumentException if action cannot be cancelled
+     */
+    public function cancelAndReplace(string $replacementActionId): void
+    {
+        if (! $this->canBeCancelled()) {
+            throw new \InvalidArgumentException(
+                "Cannot cancel action in '{$this->resolution_status}' state"
+            );
+        }
+
+        $this->transitionTo(self::STATUS_CANCELLED);
+        $this->replaced_by_action_id = $replacementActionId;
+        $this->save();
+    }
+
+    /**
      * Mark the gate as passed and prepare for HTTP execution.
      */
     public function passGate(): void
@@ -595,5 +653,49 @@ class ScheduledAction extends Model
         }
 
         return 7; // Default to 7 days
+    }
+
+    // ========================================
+    // Coordination Helpers
+    // ========================================
+
+    /**
+     * Get the on_execute condition from coordination config.
+     */
+    public function getOnExecuteCondition(): ?string
+    {
+        return $this->coordination_config['on_execute']['condition'] ?? null;
+    }
+
+    /**
+     * Get the behavior when on_execute condition is not met.
+     */
+    public function getOnConditionNotMet(): string
+    {
+        return $this->coordination_config['on_execute']['on_condition_not_met'] ?? 'cancel';
+    }
+
+    /**
+     * Get the reschedule delay in seconds.
+     */
+    public function getRescheduleDelay(): int
+    {
+        return $this->coordination_config['on_execute']['reschedule_delay'] ?? 300; // 5 minutes default
+    }
+
+    /**
+     * Get the max reschedules limit.
+     */
+    public function getMaxReschedules(): int
+    {
+        return $this->coordination_config['on_execute']['max_reschedules'] ?? 10;
+    }
+
+    /**
+     * Check if this action has coordination keys loaded.
+     */
+    public function hasCoordinationKeys(): bool
+    {
+        return ! empty($this->coordination_keys);
     }
 }

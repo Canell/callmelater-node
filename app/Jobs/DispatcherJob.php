@@ -60,7 +60,9 @@ class DispatcherJob implements ShouldQueue
         return DB::transaction(function () {
             // Use FOR UPDATE SKIP LOCKED for concurrent dispatcher safety
             // This allows multiple workers to process different actions
+            // Eager load coordinationKeyRecords for on_execute condition evaluation
             $actions = ScheduledAction::query()
+                ->with('coordinationKeyRecords')
                 ->where('resolution_status', ScheduledAction::STATUS_RESOLVED)
                 ->where(function ($query) {
                     $query->where('execute_at_utc', '<=', now())
@@ -82,6 +84,13 @@ class DispatcherJob implements ShouldQueue
                     continue;
                 }
 
+                // Evaluate on_execute coordination condition
+                if (! $this->evaluateOnExecuteCondition($action)) {
+                    $this->handleConditionNotMet($action);
+
+                    continue;
+                }
+
                 // Clear retry flag before transitioning (markAsExecuting saves)
                 $action->next_retry_at = null;
                 $action->markAsExecuting();
@@ -90,6 +99,115 @@ class DispatcherJob implements ShouldQueue
             // Return only actions that were successfully transitioned
             return $actions->filter(fn ($a) => $a->isExecuting());
         });
+    }
+
+    /**
+     * Evaluate the on_execute coordination condition.
+     *
+     * @return bool True if condition is met (action should execute), false otherwise
+     */
+    private function evaluateOnExecuteCondition(ScheduledAction $action): bool
+    {
+        $condition = $action->getOnExecuteCondition();
+        if (! $condition) {
+            return true; // No condition, proceed
+        }
+
+        // Coordination keys are eager loaded in fetchDueActions
+        $keys = $action->coordination_keys;
+        if (empty($keys)) {
+            return true; // No keys, proceed
+        }
+
+        // Find other actions with same key(s) that were created before or at the same time
+        // We use <= to handle actions created within the same second, and exclude self by id
+        $previous = ScheduledAction::query()
+            ->where('account_id', $action->account_id)
+            ->where('id', '!=', $action->id)
+            ->where('created_at', '<=', $action->created_at)
+            ->whereHas('coordinationKeyRecords', fn ($q) => $q->whereIn('coordination_key', $keys))
+            ->orderBy('created_at', 'desc')
+            ->first(['id', 'resolution_status']);
+
+        return match ($condition) {
+            'skip_if_previous_pending' => ! $previous || $previous->isTerminal(),
+            'execute_if_previous_failed' => $previous && $previous->resolution_status === ScheduledAction::STATUS_FAILED,
+            'execute_if_previous_succeeded' => $previous && $previous->resolution_status === ScheduledAction::STATUS_EXECUTED,
+            'wait_for_previous' => ! $previous || $previous->isTerminal(),
+            default => true,
+        };
+    }
+
+    /**
+     * Handle when on_execute condition is not met.
+     */
+    private function handleConditionNotMet(ScheduledAction $action): void
+    {
+        $behavior = $action->getOnConditionNotMet();
+        $condition = $action->getOnExecuteCondition();
+
+        match ($behavior) {
+            'cancel' => $this->cancelForCondition($action, $condition),
+            'reschedule' => $this->rescheduleForCondition($action, $condition),
+            'fail' => $this->failForCondition($action, $condition),
+            default => $this->cancelForCondition($action, $condition),
+        };
+    }
+
+    /**
+     * Cancel action because coordination condition was not met.
+     */
+    private function cancelForCondition(ScheduledAction $action, ?string $condition): void
+    {
+        $action->resolution_status = ScheduledAction::STATUS_CANCELLED;
+        $action->failure_reason = "Coordination condition not met: {$condition}";
+        $action->save();
+
+        Log::info('Action cancelled due to coordination condition', [
+            'action_id' => $action->id,
+            'condition' => $condition,
+        ]);
+    }
+
+    /**
+     * Reschedule action because coordination condition was not met.
+     */
+    private function rescheduleForCondition(ScheduledAction $action, ?string $condition): void
+    {
+        $maxReschedules = $action->getMaxReschedules();
+
+        if ($action->coordination_reschedule_count >= $maxReschedules) {
+            $this->cancelForCondition($action, "{$condition} (max reschedules reached)");
+
+            return;
+        }
+
+        $delay = $action->getRescheduleDelay();
+        $action->execute_at_utc = now()->addSeconds($delay);
+        $action->coordination_reschedule_count++;
+        $action->save();
+
+        Log::info('Action rescheduled due to coordination condition', [
+            'action_id' => $action->id,
+            'condition' => $condition,
+            'reschedule_count' => $action->coordination_reschedule_count,
+            'next_execute_at' => $action->execute_at_utc,
+        ]);
+    }
+
+    /**
+     * Fail action because coordination condition was not met.
+     */
+    private function failForCondition(ScheduledAction $action, ?string $condition): void
+    {
+        $action->resolution_status = ScheduledAction::STATUS_FAILED;
+        $action->failure_reason = "Coordination condition not met: {$condition}";
+        $action->save();
+
+        Log::info('Action failed due to coordination condition', [
+            'action_id' => $action->id,
+            'condition' => $condition,
+        ]);
     }
 
     private function dispatchAction(ScheduledAction $action): void
