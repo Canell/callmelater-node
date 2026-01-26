@@ -19,20 +19,35 @@ class DomainController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $domains = $this->verificationService->getDomainsForUser($request->user());
+        $user = $request->user();
+        $domains = $this->verificationService->getDomainsForUser($user);
 
         return response()->json([
-            'data' => $domains->map(fn (VerifiedDomain $domain) => [
-                'id' => $domain->id,
-                'domain' => $domain->domain,
-                'verified' => $domain->isVerified(),
-                'verified_at' => $domain->verified_at?->toIso8601String(),
-                'expires_at' => $domain->expires_at?->toIso8601String(),
-                'days_until_expiry' => $domain->daysUntilExpiry(),
-                'in_grace_period' => $domain->isInGracePeriod(),
-                'method' => $domain->method,
-                'verification_token' => $domain->verification_token,
-            ]),
+            'data' => $domains->map(function (VerifiedDomain $domain) use ($user) {
+                $usage = $this->verificationService->getDomainUsage($user, $domain->domain);
+
+                return [
+                    'id' => $domain->id,
+                    'domain' => $domain->domain,
+                    'verified' => $domain->isVerified(),
+                    'verified_at' => $domain->verified_at?->toIso8601String(),
+                    'expires_at' => $domain->expires_at?->toIso8601String(),
+                    'days_until_expiry' => $domain->daysUntilExpiry(),
+                    'in_grace_period' => $domain->isInGracePeriod(),
+                    'method' => $domain->method,
+                    'verification_token' => $domain->verification_token,
+                    'usage' => [
+                        'daily' => $usage['daily'],
+                        'monthly' => $usage['monthly'],
+                        'daily_threshold' => DomainVerificationService::DAILY_THRESHOLD,
+                        'monthly_threshold' => DomainVerificationService::MONTHLY_THRESHOLD,
+                    ],
+                ];
+            }),
+            'thresholds' => [
+                'daily' => DomainVerificationService::DAILY_THRESHOLD,
+                'monthly' => DomainVerificationService::MONTHLY_THRESHOLD,
+            ],
         ]);
     }
 

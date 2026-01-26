@@ -36,6 +36,16 @@
         color: #4338ca;
     }
 
+    .section-badge-tertiary {
+        background-color: #fef3c7;
+        color: #b45309;
+    }
+
+    .use-case-icon-tertiary {
+        background-color: #fef3c7;
+        color: #b45309;
+    }
+
     /* Use Case Cards */
     .use-case-card {
         background: white;
@@ -310,6 +320,85 @@
                             <li>Schedule a follow-up check</li>
                             <li>Reschedule automatically if unresolved</li>
                             <li>No polling infrastructure required</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Coordination Use Cases -->
+    <section class="py-5 bg-light">
+        <div class="container">
+            <div class="section-header text-center mb-5">
+                <span class="section-badge section-badge-tertiary">Coordination</span>
+                <h2 class="fw-bold mt-3">Smarter action management</h2>
+                <p class="text-muted">Group related actions and control how they interact</p>
+            </div>
+
+            <div class="row g-4">
+                <!-- Replace Existing -->
+                <div class="col-lg-6">
+                    <div class="use-case-card h-100">
+                        <div class="use-case-icon use-case-icon-tertiary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                        </div>
+                        <h4 class="fw-semibold mb-2">Replace Previous Deployments</h4>
+                        <p class="text-muted mb-3">
+                            When a new deployment is scheduled, automatically cancel the previous one.
+                        </p>
+                        <div class="scenario mb-3">
+                            <strong class="small text-uppercase text-muted">Scenario</strong>
+                            <p class="small mb-0">CI/CD triggers multiple deployments — only the latest should run.</p>
+                        </div>
+                        <ul class="benefits-list">
+                            <li>Group actions with <code>coordination_keys</code></li>
+                            <li>Use <code>replace_existing</code> to cancel old actions</li>
+                            <li>No duplicates, no race conditions</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Skip Duplicates -->
+                <div class="col-lg-6">
+                    <div class="use-case-card h-100">
+                        <div class="use-case-icon use-case-icon-tertiary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+                        </div>
+                        <h4 class="fw-semibold mb-2">Prevent Duplicate Notifications</h4>
+                        <p class="text-muted mb-3">
+                            Don't send the same reminder twice if one is already scheduled.
+                        </p>
+                        <div class="scenario mb-3">
+                            <strong class="small text-uppercase text-muted">Scenario</strong>
+                            <p class="small mb-0">User triggers an action multiple times — only one should be scheduled.</p>
+                        </div>
+                        <ul class="benefits-list">
+                            <li>Use <code>skip_if_exists</code> to prevent duplicates</li>
+                            <li>Returns existing action instead of creating new</li>
+                            <li>Safe for idempotent retry logic</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Related Actions -->
+                <div class="col-lg-6 offset-lg-3">
+                    <div class="use-case-card h-100">
+                        <div class="use-case-icon use-case-icon-tertiary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                        </div>
+                        <h4 class="fw-semibold mb-2">Track Related Actions</h4>
+                        <p class="text-muted mb-3">
+                            See the history of all actions in a workflow or deployment chain.
+                        </p>
+                        <div class="scenario mb-3">
+                            <strong class="small text-uppercase text-muted">Scenario</strong>
+                            <p class="small mb-0">Debug why a deployment was cancelled or see all actions for a user.</p>
+                        </div>
+                        <ul class="benefits-list">
+                            <li>Filter actions by coordination key</li>
+                            <li>See which action replaced another</li>
+                            <li>Full audit trail for compliance</li>
                         </ul>
                     </div>
                 </div>

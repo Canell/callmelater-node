@@ -6,9 +6,8 @@ $codeExamples = [
   -H "Content-Type: application/json" \\
   -d \'{
     "name": "Trial expiration webhook",
-    "type": "http",
     "intent": { "delay": "14d" },
-    "http_request": {
+    "request": {
       "url": "https://your-app.com/webhook",
       "method": "POST",
       "body": { "event": "trial_expired", "user_id": 42 }
@@ -25,9 +24,8 @@ $response = $client->post(\'https://api.callmelater.io/v1/actions\', [
     ],
     \'json\' => [
         \'name\' => \'Trial expiration webhook\',
-        \'type\' => \'http\',
         \'intent\' => [\'delay\' => \'14d\'],
-        \'http_request\' => [
+        \'request\' => [
             \'url\' => \'https://your-app.com/webhook\',
             \'method\' => \'POST\',
             \'body\' => [
@@ -49,9 +47,8 @@ response = requests.post(
     },
     json={
         "name": "Trial expiration webhook",
-        "type": "http",
         "intent": {"delay": "14d"},
-        "http_request": {
+        "request": {
             "url": "https://your-app.com/webhook",
             "method": "POST",
             "body": {"event": "trial_expired", "user_id": 42},
@@ -68,9 +65,8 @@ action = response.json()',
   },
   body: JSON.stringify({
     name: \'Trial expiration webhook\',
-    type: \'http\',
     intent: { delay: \'14d\' },
-    http_request: {
+    request: {
       url: \'https://your-app.com/webhook\',
       method: \'POST\',
       body: { event: \'trial_expired\', user_id: 42 },
@@ -85,9 +81,8 @@ const response = await axios.post(
   \'https://api.callmelater.io/v1/actions\',
   {
     name: \'Trial expiration webhook\',
-    type: \'http\',
     intent: { delay: \'14d\' },
-    http_request: {
+    request: {
       url: \'https://your-app.com/webhook\',
       method: \'POST\',
       body: { event: \'trial_expired\', user_id: 42 },
@@ -110,9 +105,8 @@ HttpClient client = HttpClient.newHttpClient();
 String json = """
   {
     "name": "Trial expiration webhook",
-    "type": "http",
     "intent": { "delay": "14d" },
-    "http_request": {
+    "request": {
       "url": "https://your-app.com/webhook",
       "method": "POST",
       "body": { "event": "trial_expired", "user_id": 42 }
@@ -141,9 +135,8 @@ import (
 func createAction() {
     payload := map[string]interface{}{
         "name": "Trial expiration webhook",
-        "type": "http",
         "intent": map[string]string{"delay": "14d"},
-        "http_request": map[string]interface{}{
+        "request": map[string]interface{}{
             "url":    "https://your-app.com/webhook",
             "method": "POST",
             "body":   map[string]interface{}{"event": "trial_expired", "user_id": 42},
@@ -171,9 +164,8 @@ request[\'Authorization\'] = \'Bearer sk_live_...\'
 request[\'Content-Type\'] = \'application/json\'
 request.body = {
   name: \'Trial expiration webhook\',
-  type: \'http\',
   intent: { delay: \'14d\' },
-  http_request: {
+  request: {
     url: \'https://your-app.com/webhook\',
     method: \'POST\',
     body: { event: \'trial_expired\', user_id: 42 }

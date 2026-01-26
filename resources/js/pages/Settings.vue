@@ -421,6 +421,197 @@
                         </div>
                     </div>
 
+                    <!-- Domains -->
+                    <div v-show="activeTab === 'domains'" class="card card-cml">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">Domain Verification</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Verify ownership of domains you send webhooks to. Verification is required after
+                                <strong>{{ domainThresholds.daily }} actions/day</strong> or
+                                <strong>{{ domainThresholds.monthly }} actions/month</strong> to the same domain.
+                            </p>
+
+                            <!-- Add domain form -->
+                            <div class="bg-light p-3 rounded mb-4">
+                                <h6 class="mb-3">Add Domain for Verification</h6>
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Domain</label>
+                                        <input
+                                            type="text"
+                                            class="form-control"
+                                            v-model="newDomain"
+                                            placeholder="api.example.com"
+                                            @keyup.enter="addDomain"
+                                        >
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-cml-primary" @click="addDomain" :disabled="!newDomain || addingDomain">
+                                            {{ addingDomain ? 'Adding...' : 'Add Domain' }}
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-2 d-block">
+                                    Add domains proactively to verify them before reaching thresholds.
+                                </small>
+                            </div>
+
+                            <!-- Loading -->
+                            <div v-if="loadingDomains" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
+                            </div>
+
+                            <!-- Empty state -->
+                            <div v-else-if="domains.length === 0" class="text-center py-4 text-muted">
+                                <p>No domains tracked yet. Domains are automatically added when you create actions targeting them.</p>
+                            </div>
+
+                            <!-- Domains list -->
+                            <div v-else>
+                                <div v-for="domain in domains" :key="domain.id" class="card mb-3" :class="getDomainCardClass(domain)">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <strong>{{ domain.domain }}</strong>
+                                                    <span v-if="domain.verified" class="badge bg-success ms-2">Verified</span>
+                                                    <span v-else class="badge bg-warning text-dark ms-2">Unverified</span>
+                                                    <span v-if="domain.in_grace_period" class="badge bg-danger ms-1">Grace Period</span>
+                                                </h6>
+                                                <div class="small text-muted">
+                                                    <span v-if="domain.verified && domain.method">
+                                                        Verified via {{ domain.method === 'dns' ? 'DNS' : 'File' }}
+                                                    </span>
+                                                    <span v-if="domain.verified_at">
+                                                        on {{ formatDate(domain.verified_at) }}
+                                                    </span>
+                                                    <span v-if="domain.expires_at && domain.days_until_expiry !== null">
+                                                        <span v-if="domain.days_until_expiry > 0">
+                                                            &bull; Expires in {{ domain.days_until_expiry }} days
+                                                        </span>
+                                                        <span v-else class="text-danger">
+                                                            &bull; Expired
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <button
+                                                    v-if="!domain.verified"
+                                                    class="btn btn-sm btn-cml-primary"
+                                                    @click="verifyDomain(domain)"
+                                                    :disabled="verifyingDomain === domain.domain"
+                                                >
+                                                    {{ verifyingDomain === domain.domain ? 'Verifying...' : 'Verify Now' }}
+                                                </button>
+                                                <button
+                                                    v-if="domain.in_grace_period || (domain.expires_at && domain.days_until_expiry <= 30)"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    @click="verifyDomain(domain)"
+                                                    :disabled="verifyingDomain === domain.domain"
+                                                >
+                                                    Re-verify
+                                                </button>
+                                                <button
+                                                    class="btn btn-sm btn-outline-secondary"
+                                                    @click="toggleDomainInstructions(domain)"
+                                                >
+                                                    {{ showDomainInstructions === domain.domain ? 'Hide' : 'Instructions' }}
+                                                </button>
+                                                <button
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @click="confirmDeleteDomain(domain)"
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Usage stats with warnings -->
+                                        <div class="mt-3">
+                                            <div class="row g-3">
+                                                <div class="col-md-6">
+                                                    <div class="d-flex align-items-center">
+                                                        <small class="text-muted me-2">Daily:</small>
+                                                        <div class="progress flex-grow-1" style="height: 8px;">
+                                                            <div
+                                                                class="progress-bar"
+                                                                :class="getUsageBarClass(domain.usage.daily, domainThresholds.daily)"
+                                                                :style="{ width: getUsagePercent(domain.usage.daily, domainThresholds.daily) + '%' }"
+                                                            ></div>
+                                                        </div>
+                                                        <small class="ms-2" :class="getUsageTextClass(domain.usage.daily, domainThresholds.daily)">
+                                                            {{ domain.usage.daily }}/{{ domainThresholds.daily }}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="d-flex align-items-center">
+                                                        <small class="text-muted me-2">Monthly:</small>
+                                                        <div class="progress flex-grow-1" style="height: 8px;">
+                                                            <div
+                                                                class="progress-bar"
+                                                                :class="getUsageBarClass(domain.usage.monthly, domainThresholds.monthly)"
+                                                                :style="{ width: getUsagePercent(domain.usage.monthly, domainThresholds.monthly) + '%' }"
+                                                            ></div>
+                                                        </div>
+                                                        <small class="ms-2" :class="getUsageTextClass(domain.usage.monthly, domainThresholds.monthly)">
+                                                            {{ domain.usage.monthly }}/{{ domainThresholds.monthly }}
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Warning alert -->
+                                            <div v-if="shouldShowUsageWarning(domain) && !domain.verified" class="alert alert-warning mt-3 mb-0 py-2">
+                                                <strong>Approaching limit!</strong>
+                                                You're close to the verification threshold. Please verify this domain to continue sending actions.
+                                            </div>
+                                            <div v-else-if="isOverThreshold(domain) && !domain.verified" class="alert alert-danger mt-3 mb-0 py-2">
+                                                <strong>Verification required!</strong>
+                                                This domain has exceeded the threshold. New actions will be blocked until verified.
+                                            </div>
+                                        </div>
+
+                                        <!-- Verification instructions (expandable) -->
+                                        <div v-if="showDomainInstructions === domain.domain" class="mt-3 p-3 bg-light rounded">
+                                            <h6 class="mb-3">Verification Methods</h6>
+                                            <p class="small text-muted mb-3">Choose one of the following methods to verify domain ownership:</p>
+
+                                            <!-- DNS Method -->
+                                            <div class="mb-3">
+                                                <strong class="d-block mb-2">Option 1: DNS TXT Record (Recommended)</strong>
+                                                <p class="small text-muted mb-2">Add this TXT record to your domain's DNS settings:</p>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="text" class="form-control font-monospace" :value="`callmelater-verification=${domain.verification_token}`" readonly>
+                                                    <button class="btn btn-outline-secondary" @click="copyToClipboard(`callmelater-verification=${domain.verification_token}`)">
+                                                        Copy
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- File Method -->
+                                            <div>
+                                                <strong class="d-block mb-2">Option 2: Verification File</strong>
+                                                <p class="small text-muted mb-2">
+                                                    Create a file at <code>https://{{ domain.domain }}/.well-known/callmelater.txt</code> with this content:
+                                                </p>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="text" class="form-control font-monospace" :value="`callmelater-verification=${domain.verification_token}`" readonly>
+                                                    <button class="btn btn-outline-secondary" @click="copyToClipboard(`callmelater-verification=${domain.verification_token}`)">
+                                                        Copy
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Usage -->
                     <div v-show="activeTab === 'usage'" class="card card-cml">
                         <div class="card-header bg-transparent">
@@ -731,6 +922,7 @@ export default {
                 { id: 'contacts', label: 'Contacts' },
                 { id: 'teams', label: 'Members', businessOnly: true },
                 { id: 'api', label: 'API & Security' },
+                { id: 'domains', label: 'Domains' },
                 { id: 'usage', label: 'Usage & Limits' },
                 { id: 'billing', label: 'Billing' },
                 { id: 'notifications', label: 'Notifications' },
@@ -856,6 +1048,15 @@ export default {
             savingAdminNotifications: false,
             adminNotificationsSaved: false,
 
+            // Domains
+            domains: [],
+            domainThresholds: { daily: 10, monthly: 100 },
+            loadingDomains: false,
+            newDomain: '',
+            addingDomain: false,
+            verifyingDomain: null,
+            showDomainInstructions: null,
+
             // Confirm Modal
             confirmModal: {
                 show: false,
@@ -957,6 +1158,9 @@ export default {
 
                 // Load contacts
                 await this.loadContacts();
+
+                // Load domains
+                await this.loadDomains();
 
                 // Load admin notifications for admin users
                 if (this.user.is_admin) {
@@ -1400,6 +1604,123 @@ export default {
             } catch (err) {
                 this.toast.error(err.response?.data?.message || 'Failed to delete contact');
             }
+        },
+
+        // Domain methods
+        async loadDomains() {
+            this.loadingDomains = true;
+            try {
+                const response = await axios.get('/api/v1/domains');
+                this.domains = response.data.data || [];
+                if (response.data.thresholds) {
+                    this.domainThresholds = response.data.thresholds;
+                }
+            } catch (err) {
+                console.error('Failed to load domains:', err);
+            } finally {
+                this.loadingDomains = false;
+            }
+        },
+        async addDomain() {
+            if (!this.newDomain) return;
+            this.addingDomain = true;
+            try {
+                // Getting verification instructions will create the domain record
+                const response = await axios.get(`/api/v1/domains/${encodeURIComponent(this.newDomain)}`);
+                // Reload domains to get full list with usage
+                await this.loadDomains();
+                this.newDomain = '';
+                this.toast.success('Domain added. Follow the verification instructions.');
+                // Show instructions for the new domain
+                this.showDomainInstructions = response.data.domain;
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to add domain');
+            } finally {
+                this.addingDomain = false;
+            }
+        },
+        async verifyDomain(domain) {
+            this.verifyingDomain = domain.domain;
+            try {
+                const response = await axios.post(`/api/v1/domains/${encodeURIComponent(domain.domain)}/verify`);
+                if (response.data.verified) {
+                    this.toast.success('Domain verified successfully!');
+                    await this.loadDomains();
+                    this.showDomainInstructions = null;
+                } else {
+                    this.toast.error('Verification failed. Please check your DNS record or verification file.');
+                }
+            } catch (err) {
+                const message = err.response?.data?.message || 'Verification failed';
+                this.toast.error(message);
+            } finally {
+                this.verifyingDomain = null;
+            }
+        },
+        toggleDomainInstructions(domain) {
+            if (this.showDomainInstructions === domain.domain) {
+                this.showDomainInstructions = null;
+            } else {
+                this.showDomainInstructions = domain.domain;
+            }
+        },
+        confirmDeleteDomain(domain) {
+            this.showConfirm({
+                title: 'Remove Domain',
+                message: `Remove "${domain.domain}" from verification tracking? This will not affect existing actions.`,
+                confirmText: 'Remove',
+                variant: 'danger',
+                action: 'doDeleteDomain',
+                data: domain,
+            });
+        },
+        async doDeleteDomain(domain) {
+            try {
+                await axios.delete(`/api/v1/domains/${encodeURIComponent(domain.domain)}`);
+                this.domains = this.domains.filter(d => d.id !== domain.id);
+                this.toast.success('Domain removed.');
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to remove domain');
+            }
+        },
+        getUsagePercent(current, max) {
+            return Math.min((current / max) * 100, 100);
+        },
+        getUsageBarClass(current, max) {
+            const percent = (current / max) * 100;
+            if (percent >= 100) return 'bg-danger';
+            if (percent >= 80) return 'bg-warning';
+            return 'bg-success';
+        },
+        getUsageTextClass(current, max) {
+            const percent = (current / max) * 100;
+            if (percent >= 100) return 'text-danger fw-bold';
+            if (percent >= 80) return 'text-warning fw-bold';
+            return '';
+        },
+        getDomainCardClass(domain) {
+            if (!domain.verified && this.isOverThreshold(domain)) {
+                return 'border-danger';
+            }
+            if (!domain.verified && this.shouldShowUsageWarning(domain)) {
+                return 'border-warning';
+            }
+            if (domain.in_grace_period) {
+                return 'border-warning';
+            }
+            return '';
+        },
+        shouldShowUsageWarning(domain) {
+            const dailyPercent = (domain.usage.daily / this.domainThresholds.daily) * 100;
+            const monthlyPercent = (domain.usage.monthly / this.domainThresholds.monthly) * 100;
+            return (dailyPercent >= 80 && dailyPercent < 100) || (monthlyPercent >= 80 && monthlyPercent < 100);
+        },
+        isOverThreshold(domain) {
+            return domain.usage.daily >= this.domainThresholds.daily || domain.usage.monthly >= this.domainThresholds.monthly;
+        },
+        copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            this.toast.success('Copied to clipboard');
         },
     },
 };

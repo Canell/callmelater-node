@@ -8,9 +8,8 @@ export const createHttpAction = {
   -H "Content-Type: application/json" \\
   -d '{
     "name": "Trial expiration webhook",
-    "type": "http",
     "intent": { "delay": "14d" },
-    "http_request": {
+    "request": {
       "url": "https://your-app.com/webhook",
       "method": "POST",
       "body": { "event": "trial_expired", "user_id": 42 }
@@ -28,9 +27,8 @@ $response = $client->post('https://api.callmelater.io/v1/actions', [
     ],
     'json' => [
         'name' => 'Trial expiration webhook',
-        'type' => 'http',
         'intent' => ['delay' => '14d'],
-        'http_request' => [
+        'request' => [
             'url' => 'https://your-app.com/webhook',
             'method' => 'POST',
             'body' => [
@@ -53,9 +51,8 @@ response = requests.post(
     },
     json={
         "name": "Trial expiration webhook",
-        "type": "http",
         "intent": {"delay": "14d"},
-        "http_request": {
+        "request": {
             "url": "https://your-app.com/webhook",
             "method": "POST",
             "body": {"event": "trial_expired", "user_id": 42},
@@ -73,9 +70,8 @@ action = response.json()`,
   },
   body: JSON.stringify({
     name: 'Trial expiration webhook',
-    type: 'http',
     intent: { delay: '14d' },
-    http_request: {
+    request: {
       url: 'https://your-app.com/webhook',
       method: 'POST',
       body: { event: 'trial_expired', user_id: 42 },
@@ -91,9 +87,8 @@ const response = await axios.post(
   'https://api.callmelater.io/v1/actions',
   {
     name: 'Trial expiration webhook',
-    type: 'http',
     intent: { delay: '14d' },
-    http_request: {
+    request: {
       url: 'https://your-app.com/webhook',
       method: 'POST',
       body: { event: 'trial_expired', user_id: 42 },
@@ -117,9 +112,8 @@ HttpClient client = HttpClient.newHttpClient();
 String json = """
   {
     "name": "Trial expiration webhook",
-    "type": "http",
     "intent": { "delay": "14d" },
-    "http_request": {
+    "request": {
       "url": "https://your-app.com/webhook",
       "method": "POST",
       "body": { "event": "trial_expired", "user_id": 42 }
@@ -149,9 +143,8 @@ import (
 func createAction() {
     payload := map[string]interface{}{
         "name": "Trial expiration webhook",
-        "type": "http",
         "intent": map[string]string{"delay": "14d"},
-        "http_request": map[string]interface{}{
+        "request": map[string]interface{}{
             "url":    "https://your-app.com/webhook",
             "method": "POST",
             "body":   map[string]interface{}{"event": "trial_expired", "user_id": 42},
@@ -180,9 +173,8 @@ request['Authorization'] = 'Bearer sk_live_...'
 request['Content-Type'] = 'application/json'
 request.body = {
   name: 'Trial expiration webhook',
-  type: 'http',
   intent: { delay: '14d' },
-  http_request: {
+  request: {
     url: 'https://your-app.com/webhook',
     method: 'POST',
     body: { event: 'trial_expired', user_id: 42 }
@@ -199,10 +191,10 @@ export const createReminderAction = {
   -H "Content-Type: application/json" \\
   -d '{
     "name": "Deployment approval",
-    "type": "reminder",
+    "mode": "gated",
     "intent": { "delay": "30m" },
-    "message": "Please approve the production deployment",
-    "escalation_rules": {
+    "gate": {
+      "message": "Please approve the production deployment",
       "recipients": ["tech-lead@example.com"],
       "channels": ["email"]
     }
@@ -219,10 +211,10 @@ $response = $client->post('https://api.callmelater.io/v1/actions', [
     ],
     'json' => [
         'name' => 'Deployment approval',
-        'type' => 'reminder',
+        'mode' => 'gated',
         'intent' => ['delay' => '30m'],
-        'message' => 'Please approve the production deployment',
-        'escalation_rules' => [
+        'gate' => [
+            'message' => 'Please approve the production deployment',
             'recipients' => ['tech-lead@example.com'],
             'channels' => ['email'],
         ],
@@ -239,10 +231,10 @@ response = requests.post(
     },
     json={
         "name": "Deployment approval",
-        "type": "reminder",
+        "mode": "gated",
         "intent": {"delay": "30m"},
-        "message": "Please approve the production deployment",
-        "escalation_rules": {
+        "gate": {
+            "message": "Please approve the production deployment",
             "recipients": ["tech-lead@example.com"],
             "channels": ["email"],
         },
@@ -257,10 +249,10 @@ response = requests.post(
   },
   body: JSON.stringify({
     name: 'Deployment approval',
-    type: 'reminder',
+    mode: 'gated',
     intent: { delay: '30m' },
-    message: 'Please approve the production deployment',
-    escalation_rules: {
+    gate: {
+      message: 'Please approve the production deployment',
       recipients: ['tech-lead@example.com'],
       channels: ['email'],
     },
@@ -273,10 +265,10 @@ const response = await axios.post(
   'https://api.callmelater.io/v1/actions',
   {
     name: 'Deployment approval',
-    type: 'reminder',
+    mode: 'gated',
     intent: { delay: '30m' },
-    message: 'Please approve the production deployment',
-    escalation_rules: {
+    gate: {
+      message: 'Please approve the production deployment',
       recipients: ['tech-lead@example.com'],
       channels: ['email'],
     },
@@ -290,10 +282,9 @@ const response = await axios.post(
 };
 
 export const httpActionJson = `{
-  "type": "http",
   "name": "Expire trial subscription",
   "intent": { "delay": "14d" },
-  "http_request": {
+  "request": {
     "method": "POST",
     "url": "https://api.example.com/subscriptions/expire",
     "headers": { "X-Custom": "value" },
@@ -304,13 +295,13 @@ export const httpActionJson = `{
 }`;
 
 export const reminderActionJson = `{
-  "type": "reminder",
+  "mode": "gated",
   "name": "Approve deployment",
   "intent": { "delay": "30m" },
-  "message": "Please approve the production deployment for v2.1",
-  "escalation_rules": {
+  "gate": {
+    "message": "Please approve the production deployment for v2.1",
     "recipients": ["tech-lead@example.com", "+1234567890"],
-    "channels": ["email", "sms"]
-  },
-  "max_snoozes": 3
+    "channels": ["email", "sms"],
+    "max_snoozes": 3
+  }
 }`;

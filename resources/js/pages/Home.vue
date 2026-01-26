@@ -125,6 +125,52 @@
             </div>
           </div>
         </div>
+        <div class="row g-4 mt-2">
+          <div class="col-md-6 col-lg-3">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
+              <h5>Coordination Keys</h5>
+              <p>Group related actions. Replace old deployments, skip duplicates, or chain workflows.</p>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-3">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h5>Team Reminders</h5>
+              <p>Send to multiple recipients. First response or all required. Built-in escalation.</p>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-3">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h5>Timezone Aware</h5>
+              <p>Schedule in any timezone. Presets like "tomorrow" or "next Monday" just work.</p>
+            </div>
+          </div>
+          <div class="col-md-6 col-lg-3">
+            <div class="feature-card">
+              <div class="feature-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <h5>Manual Retry</h5>
+              <p>Failed actions can be retried with one click. No data loss, no re-creation needed.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -149,10 +195,9 @@
           <div class="col-lg-7">
             <div class="code-block">
               <pre><code>{
-  "type": "http",
   "name": "Expire trial subscription",
   "intent": { "delay": "14d" },
-  "http_request": {
+  "request": {
     "method": "POST",
     "url": "https://api.example.com/subscriptions/expire",
     "headers": { "X-API-Key": "..." },
@@ -183,16 +228,16 @@
           <div class="col-lg-7">
             <div class="code-block">
               <pre><code>{
-  "type": "reminder",
+  "mode": "gated",
   "name": "Approve production deploy",
   "intent": { "delay": "1h" },
-  "message": "Ready to deploy v2.1 to production?",
-  "escalation_rules": {
+  "gate": {
+    "message": "Ready to deploy v2.1 to production?",
     "recipients": ["ops@example.com", "+1234567890"],
-    "channels": ["email", "sms"]
-  },
-  "confirmation_mode": "first_response",
-  "max_snoozes": 3
+    "channels": ["email", "sms"],
+    "confirmation_mode": "first_response",
+    "max_snoozes": 3
+  }
 }</code></pre>
             </div>
           </div>
