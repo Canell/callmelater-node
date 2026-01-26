@@ -104,6 +104,7 @@ return [
             'optin_emails_per_day' => 10,
             'sms_per_month' => 0, // No SMS for free plan
             'history_days' => 7,
+            'max_templates' => 2,
         ],
         'pro' => [
             'max_actions_per_month' => 5000,
@@ -115,6 +116,7 @@ return [
             'optin_emails_per_day' => 100,
             'sms_per_month' => 15, // Critical approvals & escalations
             'history_days' => 30,
+            'max_templates' => 20,
         ],
         'business' => [
             'max_actions_per_month' => 50000,
@@ -126,6 +128,7 @@ return [
             'optin_emails_per_day' => 500,
             'sms_per_month' => 50, // On-call & team escalations
             'history_days' => 365,
+            'max_templates' => 200,
         ],
     ],
 

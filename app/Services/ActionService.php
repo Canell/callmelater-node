@@ -63,6 +63,7 @@ class ActionService
             $action = new ScheduledAction;
             $action->account_id = $user->account_id;
             $action->created_by_user_id = $user->id;
+            $action->template_id = $data['template_id'] ?? null;
             $action->name = $data['name'] ?? ($mode === ScheduledAction::MODE_IMMEDIATE ? 'HTTP Action' : 'Gated Action');
             $action->description = $data['description'] ?? null;
             $action->mode = $mode;
@@ -161,7 +162,7 @@ class ActionService
             return ['skip' => true, 'existing_action' => $existingActions->first()];
         }
 
-        // replace_existing or cancel_existing - cancel all matching actions
+        // replace_existing - cancel all matching actions
         $cancelledActions = [];
         foreach ($existingActions as $action) {
             if ($action->canBeCancelled()) {

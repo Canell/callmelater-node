@@ -108,6 +108,7 @@ class ScheduledAction extends Model
     protected $fillable = [
         'account_id',
         'created_by_user_id',
+        'template_id',
         'name',
         'description',
         'mode',
@@ -162,6 +163,14 @@ class ScheduledAction extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    /**
+     * The template this action was created from (if any).
+     */
+    public function template(): BelongsTo
+    {
+        return $this->belongsTo(ActionTemplate::class, 'template_id');
     }
 
     /**

@@ -55,7 +55,7 @@ class CreateActionRequest extends FormRequest
 
             // Coordination behavior on create
             'coordination' => ['nullable', 'array'],
-            'coordination.on_create' => ['nullable', 'string', Rule::in(['replace_existing', 'cancel_existing', 'skip_if_exists'])],
+            'coordination.on_create' => ['nullable', 'string', Rule::in(['replace_existing', 'skip_if_exists'])],
 
             // Coordination behavior on execute
             'coordination.on_execute' => ['nullable', 'array'],
@@ -122,7 +122,7 @@ class CreateActionRequest extends FormRequest
             'gate.timeout.regex' => 'Timeout must be a number followed by h (hours), d (days), or w (weeks). Example: 4h, 7d, 1w',
             'coordination_keys.max' => 'You can specify up to 10 coordination keys per action.',
             'coordination_keys.*.regex' => 'Coordination keys may only contain letters, numbers, underscores, colons, dots, and dashes.',
-            'coordination.on_create.in' => 'The on_create value must be one of: replace_existing, cancel_existing, skip_if_exists.',
+            'coordination.on_create.in' => 'The on_create value must be one of: replace_existing, skip_if_exists.',
             'coordination.on_execute.condition.in' => 'The on_execute condition must be one of: skip_if_previous_pending, execute_if_previous_failed, execute_if_previous_succeeded, wait_for_previous.',
             'coordination.on_execute.on_condition_not_met.in' => 'The on_condition_not_met value must be one of: cancel, reschedule, fail.',
         ];

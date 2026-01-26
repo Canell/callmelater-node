@@ -41,7 +41,8 @@ class UpdateTeamMemberRequest extends FormRequest
             /** @var \App\Models\User $user */
             $user = $this->user();
             $accountId = $user->account_id;
-            $teamMemberId = $this->route('teamMember')?->id ?? $this->route('teamMember');
+            $routeParam = $this->route('teamMember');
+            $teamMemberId = $routeParam instanceof TeamMember ? $routeParam->id : $routeParam;
 
             // Check that at least one contact method will remain after update
             $currentMember = TeamMember::find($teamMemberId);

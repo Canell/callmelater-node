@@ -18,7 +18,7 @@ class ResponseResource extends JsonResource
         return [
             'id' => $this->id,
             'action_id' => $this->action_id,
-            'action_name' => $this->action?->name,
+            'action_name' => $this->action->name,
             'responder' => $this->display_name,
             'responder_email' => $this->email,
             'response_type' => $this->status,

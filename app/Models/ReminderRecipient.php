@@ -73,7 +73,7 @@ class ReminderRecipient extends Model
     protected function displayName(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->teamMember?->full_name ?? $this->email
+            get: fn () => $this->teamMember ? $this->teamMember->full_name : $this->email
         );
     }
 

@@ -137,5 +137,18 @@ class AppServiceProvider extends ServiceProvider
             // Allow 30 per minute from any IP (health checks run every 5 min)
             return Limit::perMinute(30)->by($request->ip());
         });
+
+        // Template trigger rate limit - per token
+        RateLimiter::for('template-trigger', function (Request $request) {
+            // Rate limit by token (from route parameter) + IP
+            $token = $request->route('token') ?? '';
+
+            return [
+                // Per token: 60 per minute
+                Limit::perMinute(60)->by('token:'.$token),
+                // Per IP: 120 per minute (allows multiple different templates)
+                Limit::perMinute(120)->by($request->ip()),
+            ];
+        });
     }
 }

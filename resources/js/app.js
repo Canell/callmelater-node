@@ -14,6 +14,8 @@ import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
 import CreateAction from './pages/CreateAction.vue';
 import ActionDetail from './pages/ActionDetail.vue';
+import Templates from './pages/Templates.vue';
+import CreateTemplate from './pages/CreateTemplate.vue';
 import Admin from './pages/Admin.vue';
 import AdminStatus from './pages/AdminStatus.vue';
 import Status from './pages/Status.vue';
@@ -43,6 +45,9 @@ const routes = [
     { path: '/responses', name: 'responses', component: Responses, meta: { requiresAuth: true } },
     { path: '/actions/create', name: 'create-action', component: CreateAction, meta: { requiresAuth: true } },
     { path: '/actions/:id', name: 'action-detail', component: ActionDetail, meta: { requiresAuth: true } },
+    { path: '/templates', name: 'templates', component: Templates, meta: { requiresAuth: true } },
+    { path: '/templates/create', name: 'create-template', component: CreateTemplate, meta: { requiresAuth: true } },
+    { path: '/templates/:id/edit', name: 'edit-template', component: CreateTemplate, meta: { requiresAuth: true } },
     { path: '/settings', name: 'settings', component: Settings, meta: { requiresAuth: true } },
 
     // Admin pages (requires admin role - API enforces)

@@ -79,7 +79,7 @@ Group related actions and control their behavior:
 |-------|------|----------|-------------|
 | `coordination_keys` | array | No | Keys for grouping (max 10, alphanumeric with `_:.-`) |
 | `coordination` | object | No | Coordination behavior configuration |
-| `coordination.on_create` | string | No | Behavior when creating: `replace_existing`, `cancel_existing`, `skip_if_exists` |
+| `coordination.on_create` | string | No | Behavior when creating: `replace_existing`, `skip_if_exists` |
 | `coordination.on_execute` | object | No | Execution-time conditions |
 | `coordination.on_execute.condition` | string | No | `skip_if_previous_pending`, `execute_if_previous_failed`, `execute_if_previous_succeeded`, `wait_for_previous` |
 | `coordination.on_execute.on_condition_not_met` | string | No | `cancel` (default), `reschedule`, `fail` |
@@ -88,7 +88,6 @@ Group related actions and control their behavior:
 
 **on_create behaviors:**
 - `replace_existing`: Cancel existing non-terminal actions with matching keys and link them to the new action
-- `cancel_existing`: Cancel existing non-terminal actions with matching keys
 - `skip_if_exists`: Return existing action instead of creating new one (returns 200 with `meta.skipped: true`)
 
 **on_execute conditions:**

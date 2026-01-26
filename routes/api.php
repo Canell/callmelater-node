@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\ResponseDashboardController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\TeamMemberController;
+use App\Http\Controllers\Api\TemplateController;
+use App\Http\Controllers\Api\TemplateTriggerController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\PublicStatusController;
@@ -52,6 +54,11 @@ Route::post('/internal/heartbeat', [HeartbeatController::class, 'ping'])
 // Public invitation endpoint (view invitation details)
 Route::get('/invitations/{token}', [InvitationController::class, 'show'])
     ->middleware('throttle:api');
+
+// Public template trigger endpoint (token-based auth)
+Route::post('/t/{token}', [TemplateTriggerController::class, 'trigger'])
+    ->middleware('throttle:template-trigger')
+    ->where('token', '[a-zA-Z0-9_]{53}');
 
 // Authenticated endpoints (Bearer token or SPA cookie)
 Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
@@ -110,6 +117,18 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
         // Response Dashboard
         Route::get('/responses', [ResponseDashboardController::class, 'index']);
+
+        // Action Templates
+        Route::prefix('templates')->group(function () {
+            Route::get('/', [TemplateController::class, 'index']);
+            Route::post('/', [TemplateController::class, 'store']);
+            Route::get('/limits', [TemplateController::class, 'limits']);
+            Route::get('/{id}', [TemplateController::class, 'show']);
+            Route::put('/{id}', [TemplateController::class, 'update']);
+            Route::delete('/{id}', [TemplateController::class, 'destroy']);
+            Route::post('/{id}/regenerate-token', [TemplateController::class, 'regenerateToken']);
+            Route::post('/{id}/toggle-active', [TemplateController::class, 'toggleActive']);
+        });
     });
 
     // Subscription Management

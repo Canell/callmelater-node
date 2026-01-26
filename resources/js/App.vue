@@ -36,7 +36,10 @@
                     <ul class="navbar-nav">
                         <template v-if="isAuthenticated">
                             <li class="nav-item">
-                                <router-link class="nav-link" to="/dashboard">Dashboard</router-link>
+                                <router-link class="nav-link" to="/dashboard">Actions</router-link>
+                            </li>
+                            <li class="nav-item">
+                                <router-link class="nav-link" to="/templates">Templates</router-link>
                             </li>
                             <li class="nav-item">
                                 <router-link class="nav-link" to="/responses">Responses</router-link>

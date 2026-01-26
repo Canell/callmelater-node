@@ -68,10 +68,13 @@ class ActionResource extends JsonResource
             'recipients' => ReminderRecipientResource::collection($this->whenLoaded('recipients')),
             'execution_cycles' => ExecutionCycleResource::collection($this->whenLoaded('executionCycles')),
 
+            // Template
+            'template_id' => $this->when($this->template_id !== null, $this->template_id),
+
             // Metadata
             'idempotency_key' => $this->idempotency_key,
             'coordination_keys' => $this->coordination_keys,
-            'coordination_config' => $this->when($this->coordination_config, $this->coordination_config),
+            'coordination_config' => $this->when(! empty($this->coordination_config), $this->coordination_config),
             'coordination_reschedule_count' => $this->when(
                 $this->coordination_reschedule_count > 0,
                 $this->coordination_reschedule_count
@@ -87,8 +90,8 @@ class ActionResource extends JsonResource
                 ]
             ),
             'related_actions' => $this->when(
-                $this->relationLoaded('relatedActions'),
-                fn () => $this->relatedActions->map(fn ($a) => [
+                $this->resource->relationLoaded('relatedActions'),
+                fn () => $this->resource->getRelation('relatedActions')->map(fn ($a) => [
                     'id' => $a->id,
                     'name' => $a->name,
                     'status' => $a->resolution_status,

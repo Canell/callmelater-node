@@ -291,30 +291,6 @@ class CoordinationOnCreateTest extends TestCase
         $this->assertEquals(ScheduledAction::STATUS_RESOLVED, $otherAction->resolution_status);
     }
 
-    // ==================== ON_CREATE: CANCEL_EXISTING ====================
-
-    public function test_cancel_existing_cancels_previous_without_linking(): void
-    {
-        // Create first action
-        $first = $this->createActionWithKey('deploy:prod', ScheduledAction::STATUS_RESOLVED);
-
-        // Create second action with cancel_existing
-        $response = $this->postJson('/api/v1/actions', [
-            'name' => 'New Action',
-            'intent' => ['delay' => '1h'],
-            'coordination_keys' => ['deploy:prod'],
-            'coordination' => ['on_create' => 'cancel_existing'],
-            'request' => ['url' => 'https://example.com/webhook'],
-        ]);
-
-        $response->assertStatus(201);
-
-        // First action should be cancelled but not linked
-        $first->refresh();
-        $this->assertEquals(ScheduledAction::STATUS_CANCELLED, $first->resolution_status);
-        // cancel_existing does not create replaced_by link (that's the difference from replace_existing)
-    }
-
     // ==================== ON_CREATE: SKIP_IF_EXISTS ====================
 
     public function test_skip_if_exists_returns_existing_action(): void

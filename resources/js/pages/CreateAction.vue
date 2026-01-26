@@ -20,43 +20,10 @@
 
                 <form v-if="!cloning" @submit.prevent="submit">
                     <!-- Mode Selection -->
-                    <div class="card card-cml mb-4">
-                        <div class="card-header bg-transparent">
-                            <h5 class="mb-0">How should this action execute?</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-6">
-                                    <div
-                                        class="card h-100 cursor-pointer"
-                                        :class="{ 'border-primary border-2': form.mode === 'immediate' }"
-                                        @click="form.mode = 'immediate'; executeOnApproval = false"
-                                        role="button"
-                                    >
-                                        <div class="card-body text-center py-4">
-                                            <div class="fs-2 mb-2">&#9889;</div>
-                                            <h5 class="mb-1">Immediate</h5>
-                                            <p class="text-muted mb-0 small">Execute automatically at scheduled time</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div
-                                        class="card h-100 cursor-pointer"
-                                        :class="{ 'border-primary border-2': form.mode === 'gated' }"
-                                        @click="form.mode = 'gated'"
-                                        role="button"
-                                    >
-                                        <div class="card-body text-center py-4">
-                                            <div class="fs-2 mb-2">&#128275;</div>
-                                            <h5 class="mb-1">Gated</h5>
-                                            <p class="text-muted mb-0 small">Requires human approval first</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <ModeSelector
+                        :model-value="form.mode"
+                        @update:model-value="onModeChange"
+                    />
 
                     <!-- Basic Info -->
                     <div class="card card-cml mb-4">
@@ -83,6 +50,14 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Coordination (optional, collapsible) -->
+                    <CoordinationForm
+                        v-model:keysText="coordinationKeysText"
+                        :coordination="coordination"
+                        @update:coordination="coordination = $event"
+                        :initial-expanded="showCoordination"
+                    />
 
                     <!-- Schedule -->
                     <div class="card card-cml mb-4">
@@ -192,15 +167,27 @@
                                     <div v-if="otherAccountMembers.length > 0" class="mb-2">
                                         <small class="text-muted d-block mb-1">Quick add account members:</small>
                                         <div class="d-flex flex-wrap gap-1">
-                                            <button
-                                                v-for="member in availableMembers"
-                                                :key="member.id"
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary"
-                                                @click="addRecipient(member.email)"
-                                            >
-                                                <span class="me-1">+</span>{{ member.name || member.email }}
-                                            </button>
+                                            <div v-for="member in availableMembers" :key="member.id" class="btn-group btn-group-sm">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-secondary"
+                                                    @click="addRecipient(member.email || member.phone)"
+                                                >
+                                                    <span class="me-1">+</span>{{ member.name || member.email || member.phone }}
+                                                </button>
+                                                <button
+                                                    v-if="member.email && member.phone"
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
+                                                    data-bs-toggle="dropdown"
+                                                >
+                                                    <span class="visually-hidden">Toggle Dropdown</span>
+                                                </button>
+                                                <ul v-if="member.email && member.phone" class="dropdown-menu dropdown-menu-end">
+                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addRecipient(member.email)">Email: {{ member.email }}</a></li>
+                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addRecipient(member.phone)">Phone: {{ member.phone }}</a></li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
                                     <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="ops@example.com&#10;+32499123456"></textarea>
@@ -246,12 +233,14 @@
                             </div>
 
                             <!-- Execute HTTP on approval checkbox -->
-                            <div class="form-check mt-4 p-3 bg-light rounded">
-                                <input type="checkbox" class="form-check-input" id="executeOnApproval" v-model="executeOnApproval">
-                                <label class="form-check-label" for="executeOnApproval">
-                                    <strong>Execute HTTP request on approval</strong>
-                                    <div class="text-muted small">When approved, automatically fire a webhook to your specified URL</div>
-                                </label>
+                            <div class="mt-4 p-3 bg-light rounded">
+                                <div class="form-check mb-0">
+                                    <input type="checkbox" class="form-check-input" id="executeOnApproval" v-model="executeOnApproval">
+                                    <label class="form-check-label" for="executeOnApproval">
+                                        <strong>Execute HTTP request on approval</strong>
+                                        <div class="text-muted small">When approved, automatically fire a webhook to your specified URL</div>
+                                    </label>
+                                </div>
                             </div>
 
                             <!-- Escalation Settings -->
@@ -285,15 +274,27 @@
                                     <div v-if="otherAccountMembers.length > 0 && escalation.hours" class="mb-2">
                                         <small class="text-muted d-block mb-1">Quick add:</small>
                                         <div class="d-flex flex-wrap gap-1">
-                                            <button
-                                                v-for="member in availableEscalationMembers"
-                                                :key="member.id"
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary"
-                                                @click="addEscalationContact(member.email)"
-                                            >
-                                                <span class="me-1">+</span>{{ member.name || member.email }}
-                                            </button>
+                                            <div v-for="member in availableEscalationMembers" :key="member.id" class="btn-group btn-group-sm">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-secondary"
+                                                    @click="addEscalationContact(member.email || member.phone)"
+                                                >
+                                                    <span class="me-1">+</span>{{ member.name || member.email || member.phone }}
+                                                </button>
+                                                <button
+                                                    v-if="member.email && member.phone"
+                                                    type="button"
+                                                    class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
+                                                    data-bs-toggle="dropdown"
+                                                >
+                                                    <span class="visually-hidden">Toggle Dropdown</span>
+                                                </button>
+                                                <ul v-if="member.email && member.phone" class="dropdown-menu dropdown-menu-end">
+                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addEscalationContact(member.email)">Email: {{ member.email }}</a></li>
+                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addEscalationContact(member.phone)">Phone: {{ member.phone }}</a></li>
+                                                </ul>
+                                            </div>
                                         </div>
                                     </div>
                                     <textarea
@@ -335,98 +336,22 @@
                     </div>
 
                     <!-- HTTP Request Config (Immediate mode OR Gated + Execute on approval) -->
-                    <div v-if="showRequestConfig" class="card card-cml mb-4">
-                        <div class="card-header bg-transparent">
-                            <h5 class="mb-0">HTTP Request</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-md-3">
-                                    <label class="form-label">Method</label>
-                                    <select class="form-select" v-model="request.method">
-                                        <option>GET</option>
-                                        <option>POST</option>
-                                        <option>PUT</option>
-                                        <option>PATCH</option>
-                                        <option>DELETE</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-9">
-                                    <label class="form-label">URL *</label>
-                                    <div class="position-relative">
-                                        <input
-                                            type="url"
-                                            class="form-control"
-                                            :class="{ 'is-invalid': urlError }"
-                                            v-model="request.url"
-                                            required
-                                            placeholder="https://api.example.com/webhook"
-                                            @blur="validateUrl"
-                                        >
-                                        <div v-if="urlValidating" class="position-absolute top-50 end-0 translate-middle-y pe-3">
-                                            <span class="spinner-border spinner-border-sm text-muted"></span>
-                                        </div>
-                                    </div>
-                                    <div v-if="urlError" class="invalid-feedback d-block">{{ urlError }}</div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Headers (JSON)</label>
-                                <textarea
-                                    class="form-control font-monospace"
-                                    :class="{ 'is-invalid': headersJsonError }"
-                                    v-model="headersJson"
-                                    rows="3"
-                                    placeholder='{"Authorization": "Bearer YOUR_API_TOKEN"}'
-                                ></textarea>
-                                <div v-if="headersJsonError" class="invalid-feedback">{{ headersJsonError }}</div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Body (JSON)</label>
-                                <textarea
-                                    class="form-control font-monospace"
-                                    :class="{ 'is-invalid': bodyJsonError }"
-                                    v-model="bodyJson"
-                                    rows="4"
-                                    placeholder='{"event": "deploy", "version": "2.1"}'
-                                ></textarea>
-                                <div v-if="bodyJsonError" class="invalid-feedback">{{ bodyJsonError }}</div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <label class="form-label">Max Attempts</label>
-                                    <input type="number" class="form-control" v-model="form.max_attempts" min="1" max="10">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">
-                                        Retry Strategy
-                                        <span
-                                            class="text-muted ms-1"
-                                            role="button"
-                                            data-bs-toggle="tooltip"
-                                            data-bs-placement="top"
-                                            data-bs-html="true"
-                                            :title="retryTooltip"
-                                            @mouseenter="initTooltip"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <circle cx="12" cy="12" r="10"></circle>
-                                                <line x1="12" y1="16" x2="12" y2="12"></line>
-                                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                            </svg>
-                                        </span>
-                                    </label>
-                                    <select class="form-select" v-model="form.retry_strategy">
-                                        <option value="exponential">Exponential Backoff</option>
-                                        <option value="linear">Linear</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted">Retries only occur when the request fails or times out.</small>
-                                <a href="https://docs.callmelater.io/reference/retry-behavior" target="_blank" class="small ms-2">Learn more</a>
-                            </div>
-
+                    <RequestConfigForm
+                        v-if="showRequestConfig"
+                        :request="request"
+                        @update:request="request = $event"
+                        v-model:headersJson="headersJson"
+                        v-model:bodyJson="bodyJson"
+                        v-model:maxAttempts="form.max_attempts"
+                        v-model:retryStrategy="form.retry_strategy"
+                        :url-error="urlError"
+                        :headers-error="headersJsonError"
+                        :body-error="bodyJsonError"
+                        :url-validating="urlValidating"
+                        :show-retry-tooltip="true"
+                        @validate-url="validateUrl"
+                    >
+                        <template #test-request>
                             <!-- Test Request -->
                             <div class="mt-4 pt-3 border-top">
                                 <div class="d-flex align-items-center justify-content-between">
@@ -482,8 +407,8 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
+                        </template>
+                    </RequestConfigForm>
 
                     <!-- Callback URL (for gated without request) -->
                     <div v-if="form.mode === 'gated' && !executeOnApproval" class="card card-cml mb-4">
@@ -531,9 +456,17 @@
 
 <script>
 import axios from 'axios';
+import ModeSelector from '../components/ModeSelector.vue';
+import CoordinationForm from '../components/CoordinationForm.vue';
+import RequestConfigForm from '../components/RequestConfigForm.vue';
 
 export default {
     name: 'CreateAction',
+    components: {
+        ModeSelector,
+        CoordinationForm,
+        RequestConfigForm,
+    },
     data() {
         return {
             form: {
@@ -580,6 +513,14 @@ export default {
             escalation: {
                 hours: '',
                 contacts: '',
+            },
+            // Coordination
+            showCoordination: false,
+            coordinationKeysText: '',
+            coordination: {
+                on_create: '',
+                on_execute_condition: '',
+                on_condition_not_met: 'cancel',
             },
             timezones: [
                 'UTC',
@@ -722,6 +663,12 @@ export default {
         }
     },
     methods: {
+        onModeChange(mode) {
+            this.form.mode = mode;
+            if (mode === 'immediate') {
+                this.executeOnApproval = false;
+            }
+        },
         async loadServerInfo() {
             try {
                 const response = await axios.get('/api/public/server-info');
@@ -824,6 +771,19 @@ export default {
                 }
 
                 this.form.callback_url = action.callback_url || '';
+
+                // Coordination keys
+                if (action.coordination_keys && action.coordination_keys.length > 0) {
+                    this.coordinationKeysText = action.coordination_keys.join(', ');
+                    this.showCoordination = true;
+                    if (action.coordination_config?.on_create) {
+                        this.coordination.on_create = action.coordination_config.on_create;
+                    }
+                    if (action.coordination_config?.on_execute?.condition) {
+                        this.coordination.on_execute_condition = action.coordination_config.on_execute.condition;
+                        this.coordination.on_condition_not_met = action.coordination_config.on_execute.on_condition_not_met || 'cancel';
+                    }
+                }
             } catch (err) {
                 console.error('Failed to load action for cloning:', err);
                 this.error = 'Failed to load the action to clone. Please try again.';
@@ -1092,6 +1052,29 @@ export default {
                 // Callback URL (for gated without request)
                 if (this.form.mode === 'gated' && !this.executeOnApproval && this.form.callback_url?.trim()) {
                     payload.callback_url = this.form.callback_url.trim();
+                }
+
+                // Coordination keys
+                if (this.coordinationKeysText.trim()) {
+                    payload.coordination_keys = this.coordinationKeysText
+                        .split(',')
+                        .map(k => k.trim())
+                        .filter(k => k);
+
+                    // Build coordination config
+                    const coordConfig = {};
+                    if (this.coordination.on_create) {
+                        coordConfig.on_create = this.coordination.on_create;
+                    }
+                    if (this.coordination.on_execute_condition) {
+                        coordConfig.on_execute = {
+                            condition: this.coordination.on_execute_condition,
+                            on_condition_not_met: this.coordination.on_condition_not_met || 'cancel',
+                        };
+                    }
+                    if (Object.keys(coordConfig).length > 0) {
+                        payload.coordination = coordConfig;
+                    }
                 }
 
                 await axios.post('/api/v1/actions', payload);

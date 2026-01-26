@@ -216,19 +216,24 @@
                 <!-- Free -->
                 <div class="col-md-6 col-lg-3">
                     <div class="card pricing-card h-100">
-                        <div class="card-body">
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-muted text-uppercase small fw-semibold">Free</h5>
-                            <div class="price-display mb-3">&euro;0<span class="price-period">/month</span></div>
+                            <div class="price-display mb-1">&euro;0<span class="price-period">/month</span></div>
+                            <div class="annual-note mb-3">&nbsp;</div>
                             <p class="text-muted small mb-4">For trying things out</p>
                             <ul class="feature-list mb-4">
                                 <li class="included">100 actions/month</li>
                                 <li class="included">3 retry attempts</li>
                                 <li class="included">Email reminders</li>
                                 <li class="included">7-day history</li>
+                                <li class="included">2 action templates</li>
                                 <li class="included">Webhook signatures</li>
                                 <li class="excluded">0 SMS/month</li>
+                                <li class="excluded">No callback webhooks</li>
+                                <li class="excluded">No team workspaces</li>
+                                <li class="excluded">Community support</li>
                             </ul>
-                            <a href="/register" class="btn btn-outline-cml w-100">Get Started</a>
+                            <a href="/register" class="btn btn-outline-cml w-100 mt-auto">Get Started</a>
                         </div>
                     </div>
                 </div>
@@ -237,7 +242,7 @@
                 <div class="col-md-6 col-lg-3">
                     <div class="card pricing-card pricing-card-featured h-100">
                         <div class="card-badge">Most Popular</div>
-                        <div class="card-body">
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-muted text-uppercase small fw-semibold">Pro</h5>
                             <div class="price-display mb-1">
                                 <span class="price-amount" data-monthly="19" data-annual="16">&euro;19</span>
@@ -255,10 +260,13 @@
                                 <li class="included">Email reminders</li>
                                 <li class="included">15 SMS/month</li>
                                 <li class="included">90-day history</li>
+                                <li class="included">20 action templates</li>
                                 <li class="included">Webhook signatures</li>
                                 <li class="included">Callback webhooks</li>
+                                <li class="excluded">No team workspaces</li>
+                                <li class="excluded">Standard support</li>
                             </ul>
-                            <button type="button" class="btn btn-cml-primary w-100 subscribe-btn" data-plan="pro">Subscribe</button>
+                            <button type="button" class="btn btn-cml-primary w-100 mt-auto subscribe-btn" data-plan="pro">Subscribe</button>
                         </div>
                     </div>
                 </div>
@@ -266,7 +274,7 @@
                 <!-- Business -->
                 <div class="col-md-6 col-lg-3">
                     <div class="card pricing-card h-100">
-                        <div class="card-body">
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-muted text-uppercase small fw-semibold">Business</h5>
                             <div class="price-display mb-1">
                                 <span class="price-amount" data-monthly="79" data-annual="66">&euro;79</span>
@@ -284,12 +292,13 @@
                                 <li class="included">Email reminders</li>
                                 <li class="included">50 SMS/month</li>
                                 <li class="included">1-year history</li>
+                                <li class="included">200 action templates</li>
                                 <li class="included">Webhook signatures</li>
                                 <li class="included">Callback webhooks</li>
                                 <li class="included">Team workspaces</li>
                                 <li class="included">Priority email support</li>
                             </ul>
-                            <button type="button" class="btn btn-outline-cml w-100 subscribe-btn" data-plan="business">Subscribe</button>
+                            <button type="button" class="btn btn-outline-cml w-100 mt-auto subscribe-btn" data-plan="business">Subscribe</button>
                         </div>
                     </div>
                 </div>
@@ -297,19 +306,24 @@
                 <!-- Enterprise -->
                 <div class="col-md-6 col-lg-3">
                     <div class="card pricing-card h-100">
-                        <div class="card-body">
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-muted text-uppercase small fw-semibold">Enterprise</h5>
-                            <div class="price-display mb-3">Custom</div>
+                            <div class="price-display mb-1">Custom</div>
+                            <div class="annual-note mb-3">&nbsp;</div>
                             <p class="text-muted small mb-4">For large organizations</p>
                             <ul class="feature-list mb-4">
                                 <li class="included">Everything in Business</li>
                                 <li class="included">Unlimited actions</li>
                                 <li class="included">Custom SMS quota</li>
                                 <li class="included">Custom retention</li>
+                                <li class="included">Unlimited templates</li>
+                                <li class="included">Webhook signatures</li>
+                                <li class="included">Callback webhooks</li>
+                                <li class="included">Team workspaces</li>
                                 <li class="included">Dedicated support</li>
                                 <li class="included">Custom SLA available</li>
                             </ul>
-                            <a href="/contact" class="btn btn-outline-secondary w-100">Contact Sales</a>
+                            <a href="/contact" class="btn btn-outline-secondary w-100 mt-auto">Contact Sales</a>
                         </div>
                     </div>
                 </div>

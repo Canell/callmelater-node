@@ -778,6 +778,17 @@
                         <p>Failed actions can be retried with one click. No data loss, no re-creation needed.</p>
                     </div>
                 </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                            </svg>
+                        </div>
+                        <h5>Action Templates</h5>
+                        <p>Create reusable configurations with unique URLs. Trigger from CI/CD without API keys.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

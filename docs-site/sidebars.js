@@ -27,6 +27,7 @@ const sidebars = {
         'api/list-actions',
         'api/get-action',
         'api/cancel-action',
+        'api/templates',
         'api/webhooks',
       ],
     },
