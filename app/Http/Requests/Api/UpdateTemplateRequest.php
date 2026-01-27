@@ -53,6 +53,7 @@ class UpdateTemplateRequest extends FormRequest
 
             // Coordination
             'coordination_config' => ['nullable', 'array'],
+            'coordination_config.on_create' => ['nullable', 'string', Rule::in(['replace_existing', 'skip_if_exists'])],
             'default_coordination_keys' => ['nullable', 'array', 'max:10'],
             'default_coordination_keys.*' => ['string', 'max:255'], // Validated in withValidator to allow {{placeholders}}
 

@@ -104,7 +104,7 @@ class TemplateTriggerController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            // Check for domain verification errors
+            // Check for domain verification errors (safe to expose to user)
             if (str_contains($e->getMessage(), 'domain verification')) {
                 return response()->json([
                     'error' => 'domain_verification_required',
@@ -112,9 +112,25 @@ class TemplateTriggerController extends Controller
                 ], 403);
             }
 
+            // Check for validation errors (safe to expose to user)
+            if ($e instanceof \Illuminate\Validation\ValidationException) {
+                return response()->json([
+                    'error' => 'validation_error',
+                    'message' => 'Action data validation failed.',
+                    'errors' => $e->errors(),
+                ], 422);
+            }
+
+            // Log the full exception for debugging, but return generic message to client
+            \Log::error('Template trigger failed', [
+                'template_id' => $template->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'error' => 'creation_failed',
-                'message' => 'Failed to create action: '.$e->getMessage(),
+                'message' => 'Failed to create action. Please check your template configuration and try again.',
             ], 500);
         }
     }
