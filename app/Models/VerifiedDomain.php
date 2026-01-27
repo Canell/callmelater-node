@@ -15,9 +15,7 @@ class VerifiedDomain extends Model
 
     public const METHOD_FILE = 'file';
 
-    public const VALIDITY_MONTHS = 12;
-
-    public const GRACE_PERIOD_DAYS = 30;
+    // Domain verification is now permanent (no expiration)
 
     protected $fillable = [
         'account_id',
@@ -64,67 +62,29 @@ class VerifiedDomain extends Model
     }
 
     /**
-     * Check if this domain is verified and not expired.
+     * Check if this domain is verified.
      */
     public function isVerified(): bool
     {
-        return $this->verified_at !== null && ! $this->isExpired();
+        return $this->verified_at !== null;
     }
 
     /**
-     * Check if the verification has expired.
-     */
-    public function isExpired(): bool
-    {
-        if ($this->expires_at === null) {
-            return false;
-        }
-
-        return $this->expires_at->isPast();
-    }
-
-    /**
-     * Check if the domain is in grace period.
-     */
-    public function isInGracePeriod(): bool
-    {
-        if (! $this->isExpired()) {
-            return false;
-        }
-
-        $graceEnd = $this->expires_at->addDays(self::GRACE_PERIOD_DAYS);
-
-        return now()->isBefore($graceEnd);
-    }
-
-    /**
-     * Check if actions can be executed (verified or in grace period).
+     * Check if actions can be executed.
      */
     public function canExecuteActions(): bool
     {
-        return $this->isVerified() || $this->isInGracePeriod();
+        return $this->isVerified();
     }
 
     /**
-     * Mark domain as verified.
+     * Mark domain as verified (permanent, no expiration).
      */
     public function markAsVerified(string $method): void
     {
         $this->method = $method;
         $this->verified_at = now();
-        $this->expires_at = now()->addMonths(self::VALIDITY_MONTHS);
+        $this->expires_at = null;
         $this->save();
-    }
-
-    /**
-     * Days until expiry (negative if expired).
-     */
-    public function daysUntilExpiry(): ?int
-    {
-        if ($this->expires_at === null) {
-            return null;
-        }
-
-        return (int) now()->diffInDays($this->expires_at, false);
     }
 }

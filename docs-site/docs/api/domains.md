@@ -30,7 +30,6 @@ GET /api/v1/domains
       "domain": "api.example.com",
       "verified": true,
       "verified_at": "2025-01-01T10:00:00Z",
-      "expires_at": "2026-01-01T10:00:00Z",
       "method": "dns",
       "verification_token": "cml_abc123..."
     },
@@ -39,7 +38,6 @@ GET /api/v1/domains
       "domain": "hooks.myapp.io",
       "verified": false,
       "verified_at": null,
-      "expires_at": null,
       "method": null,
       "verification_token": "cml_def456..."
     }
@@ -103,10 +101,8 @@ curl -X POST https://api.callmelater.io/v1/domains/api.example.com/verify \
 
 ```json
 {
-  "domain": "api.example.com",
   "verified": true,
-  "verified_at": "2025-01-08T10:00:00Z",
-  "expires_at": "2026-01-08T10:00:00Z",
+  "message": "Domain verified successfully.",
   "method": "dns"
 }
 ```
@@ -176,13 +172,6 @@ DELETE /api/v1/domains/{domain}
 
 4. Call the verify endpoint
 
-## Domain Expiration
-
-- Verified domains expire after 12 months
-- You'll receive email reminders before expiration
-- Re-verify using the same process before expiry
-- A 7-day grace period allows continued usage while re-verifying
-
 ## Error Responses
 
 ### Domain Verification Required (422)
@@ -200,6 +189,7 @@ When creating an action without verified domain:
 
 ## Notes
 
+- **Domain verification is permanent** — once verified, domains never expire
 - Admin users bypass domain verification requirements
 - Subdomains are verified separately (api.example.com ≠ www.example.com)
 - Wildcard verification is not supported

@@ -478,7 +478,6 @@
                                                     <strong>{{ domain.domain }}</strong>
                                                     <span v-if="domain.verified" class="badge bg-success ms-2">Verified</span>
                                                     <span v-else class="badge bg-warning text-dark ms-2">Unverified</span>
-                                                    <span v-if="domain.in_grace_period" class="badge bg-danger ms-1">Grace Period</span>
                                                 </h6>
                                                 <div class="small text-muted">
                                                     <span v-if="domain.verified && domain.method">
@@ -486,14 +485,6 @@
                                                     </span>
                                                     <span v-if="domain.verified_at">
                                                         on {{ formatDate(domain.verified_at) }}
-                                                    </span>
-                                                    <span v-if="domain.expires_at && domain.days_until_expiry !== null">
-                                                        <span v-if="domain.days_until_expiry > 0">
-                                                            &bull; Expires in {{ domain.days_until_expiry }} days
-                                                        </span>
-                                                        <span v-else class="text-danger">
-                                                            &bull; Expired
-                                                        </span>
                                                     </span>
                                                 </div>
                                             </div>
@@ -505,14 +496,6 @@
                                                     :disabled="verifyingDomain === domain.domain"
                                                 >
                                                     {{ verifyingDomain === domain.domain ? 'Verifying...' : 'Verify Now' }}
-                                                </button>
-                                                <button
-                                                    v-if="domain.in_grace_period || (domain.expires_at && domain.days_until_expiry <= 30)"
-                                                    class="btn btn-sm btn-outline-primary"
-                                                    @click="verifyDomain(domain)"
-                                                    :disabled="verifyingDomain === domain.domain"
-                                                >
-                                                    Re-verify
                                                 </button>
                                                 <button
                                                     class="btn btn-sm btn-outline-secondary"
@@ -1703,9 +1686,6 @@ export default {
                 return 'border-danger';
             }
             if (!domain.verified && this.shouldShowUsageWarning(domain)) {
-                return 'border-warning';
-            }
-            if (domain.in_grace_period) {
                 return 'border-warning';
             }
             return '';

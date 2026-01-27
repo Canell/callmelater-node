@@ -157,27 +157,7 @@ class DomainVerificationApiTest extends TestCase
             ]);
     }
 
-    public function test_verify_expired_domain_attempts_reverification(): void
-    {
-        $domain = VerifiedDomain::create([
-            'account_id' => $this->user->account_id,
-            'domain' => 'expired.com',
-            'verification_token' => VerifiedDomain::generateToken(),
-            'verified_at' => now()->subMonths(13),
-            'expires_at' => now()->subMonth(),
-            'method' => VerifiedDomain::METHOD_DNS,
-        ]);
-
-        // Mock the verification service to return false
-        $this->mock(DomainVerificationService::class, function ($mock) {
-            $mock->shouldReceive('verify')->andReturn(false);
-        });
-
-        $response = $this->postJson('/api/v1/domains/expired.com/verify');
-
-        $response->assertStatus(400)
-            ->assertJson(['verified' => false]);
-    }
+    // Domain verification is now permanent (no expiration), so no test for expired domains needed
 
     // ==================== DELETE DOMAIN ====================
 

@@ -31,9 +31,6 @@ class DomainController extends Controller
                     'domain' => $domain->domain,
                     'verified' => $domain->isVerified(),
                     'verified_at' => $domain->verified_at?->toIso8601String(),
-                    'expires_at' => $domain->expires_at?->toIso8601String(),
-                    'days_until_expiry' => $domain->daysUntilExpiry(),
-                    'in_grace_period' => $domain->isInGracePeriod(),
                     'method' => $domain->method,
                     'verification_token' => $domain->verification_token,
                     'usage' => [
@@ -67,8 +64,6 @@ class DomainController extends Controller
             'domain' => $verification->domain,
             'verified' => $verification->isVerified(),
             'verified_at' => $verification->verified_at?->toIso8601String(),
-            'expires_at' => $verification->expires_at?->toIso8601String(),
-            'days_until_expiry' => $verification->daysUntilExpiry(),
             'verification_token' => $verification->verification_token,
             'verification_methods' => [
                 'dns' => [
@@ -103,12 +98,11 @@ class DomainController extends Controller
             ], 404);
         }
 
-        // Already verified and not expired
+        // Already verified
         if ($verification->isVerified()) {
             return response()->json([
                 'verified' => true,
                 'message' => 'Domain is already verified.',
-                'expires_at' => $verification->expires_at?->toIso8601String(),
             ]);
         }
 
@@ -120,7 +114,6 @@ class DomainController extends Controller
                 'verified' => true,
                 'message' => 'Domain verified successfully.',
                 'method' => $verification->method,
-                'expires_at' => $verification->expires_at?->toIso8601String(),
             ]);
         }
 

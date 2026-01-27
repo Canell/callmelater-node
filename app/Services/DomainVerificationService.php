@@ -62,7 +62,6 @@ class DomainVerificationService
             'domain' => $domain,
             'token' => $verification->verification_token,
             'reason' => $reason,
-            'expires_warning' => $verified?->isInGracePeriod() ? true : null,
         ];
     }
 
@@ -212,31 +211,4 @@ class DomainVerificationService
             ->get();
     }
 
-    /**
-     * Get domains that will expire soon (within 30 days).
-     *
-     * @return \Illuminate\Database\Eloquent\Collection<int, VerifiedDomain>
-     */
-    public function getExpiringDomains(int $daysUntilExpiry = 30)
-    {
-        return VerifiedDomain::whereNotNull('expires_at')
-            ->where('expires_at', '<=', now()->addDays($daysUntilExpiry))
-            ->where('expires_at', '>', now())
-            ->get();
-    }
-
-    /**
-     * Get domains in grace period.
-     *
-     * @return \Illuminate\Database\Eloquent\Collection<int, VerifiedDomain>
-     */
-    public function getDomainsInGracePeriod()
-    {
-        $graceEnd = now()->subDays(VerifiedDomain::GRACE_PERIOD_DAYS);
-
-        return VerifiedDomain::whereNotNull('expires_at')
-            ->where('expires_at', '<', now())
-            ->where('expires_at', '>', $graceEnd)
-            ->get();
-    }
 }
