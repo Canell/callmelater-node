@@ -369,7 +369,7 @@ class ActionTemplateTest extends TestCase
         $this->postJson("/api/v1/templates/{$template->id}/regenerate-token");
 
         // Old token should not work
-        $response = $this->postJson("/api/t/{$oldToken}", [
+        $response = $this->postJson("/t/{$oldToken}", [
             'intent' => ['delay' => '1h'],
         ]);
 
@@ -415,7 +415,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
         ]);
 
@@ -443,7 +443,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'service' => 'api-gateway',
             'intent' => ['delay' => '1h'],
         ]);
@@ -473,7 +473,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'service' => 'users',
             'token' => 'abc123',
             'intent' => ['delay' => '1m'],
@@ -505,7 +505,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'service' => 'api',
             'version' => '2.0.1',
             'intent' => ['delay' => '1m'],
@@ -535,7 +535,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'service' => 'api-gateway',
             'version' => '3.0',
             'env' => 'production',
@@ -563,7 +563,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
             // Missing 'service' parameter
         ]);
@@ -585,7 +585,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
             // Not providing 'env' - should use default
         ]);
@@ -610,7 +610,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'service' => 'api',
             // Missing 'version'
             'intent' => ['delay' => '1h'],
@@ -632,7 +632,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $this->postJson("/api/t/{$template->trigger_token}", [
+        $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
         ]);
 
@@ -651,7 +651,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $this->postJson("/api/t/{$template->trigger_token}", [
+        $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
         ]);
 
@@ -681,7 +681,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
         ]);
 
@@ -700,7 +700,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $this->postJson("/api/t/{$template->trigger_token}", [
+        $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
         ]);
 
@@ -725,7 +725,7 @@ class ActionTemplateTest extends TestCase
             'default_coordination_keys' => ['deployment:api', 'env:prod'],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '1h'],
         ]);
 
@@ -751,7 +751,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'service' => 'api-gateway',
             'env' => 'production',
             'intent' => ['delay' => '1h'],
@@ -776,7 +776,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             // No intent specified - should default to 1s
         ]);
 
@@ -793,7 +793,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'intent' => ['delay' => '2h'],
         ]);
 
@@ -859,7 +859,7 @@ class ActionTemplateTest extends TestCase
             ],
         ]);
 
-        $response = $this->postJson("/api/t/{$template->trigger_token}", [
+        $response = $this->postJson("/t/{$template->trigger_token}", [
             'idbooking' => 12345,
             'name' => 'Test Booking',
         ]);

@@ -97,11 +97,15 @@
                             </td>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
-                                    <code class="small text-truncate" style="max-width: 200px;" :title="template.trigger_url">
-                                        {{ template.trigger_url }}
-                                    </code>
+                                    <input
+                                        type="text"
+                                        class="form-control form-control-sm trigger-url-input"
+                                        :value="formatTriggerUrl(template.trigger_url)"
+                                        :title="template.trigger_url"
+                                        readonly
+                                    >
                                     <button
-                                        class="btn btn-sm btn-outline-secondary py-0 px-1"
+                                        class="btn btn-sm btn-outline-secondary py-0 px-1 flex-shrink-0"
                                         @click="copyTriggerUrl(template)"
                                         title="Copy to clipboard"
                                     >
@@ -291,6 +295,10 @@ export default {
                 console.error('Failed to load limits:', err);
             }
         },
+        formatTriggerUrl(url) {
+            // Remove https:// prefix for display
+            return url.replace(/^https?:\/\//, '');
+        },
         copyTriggerUrl(template) {
             navigator.clipboard.writeText(template.trigger_url);
             this.toast?.success('Trigger URL copied to clipboard');
@@ -375,5 +383,18 @@ export default {
 
 .dropdown-menu {
     z-index: 1050;
+}
+
+/* Trigger URL input styling */
+.trigger-url-input {
+    width: 220px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    background-color: #f8f9fa;
+    cursor: text;
+}
+
+.trigger-url-input:focus {
+    background-color: #f8f9fa;
 }
 </style>
