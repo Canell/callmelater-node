@@ -11,35 +11,53 @@ export function getUserTimezone() {
 }
 
 /**
- * Format a date string to locale string (date + time).
+ * Format a date string to locale string (date + time, no seconds).
  * Displays in user's preferred timezone (from profile settings).
  * @param {string|null} dateStr - ISO date string
  * @returns {string} Formatted date or '-' if null
  */
 export function formatDate(dateStr) {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleString(undefined, { timeZone: getUserTimezone() });
+    return new Date(dateStr).toLocaleString(undefined, {
+        timeZone: getUserTimezone(),
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 /**
- * Format a date string in a specific timezone.
+ * Format a date string in a specific timezone (no seconds).
  * @param {string|null} dateStr - ISO date string
  * @param {string} timezone - IANA timezone (e.g., 'UTC', 'America/New_York')
  * @returns {string} Formatted date or '-' if null
  */
 export function formatDateInTimezone(dateStr, timezone = 'UTC') {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleString(undefined, { timeZone: timezone });
+    return new Date(dateStr).toLocaleString(undefined, {
+        timeZone: timezone,
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 /**
- * Format a date string to time only.
+ * Format a date string to time only (no seconds).
  * @param {string|null} dateStr - ISO date string
  * @returns {string} Formatted time or '-' if null
  */
 export function formatTime(dateStr) {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleTimeString(undefined, { timeZone: getUserTimezone() });
+    return new Date(dateStr).toLocaleTimeString(undefined, {
+        timeZone: getUserTimezone(),
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 /**

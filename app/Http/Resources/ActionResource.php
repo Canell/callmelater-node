@@ -11,6 +11,24 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ActionResource extends JsonResource
 {
     /**
+     * Round a timestamp up to the next minute.
+     * This reflects when the action will actually execute (dispatcher runs every minute).
+     */
+    private function roundUpToNextMinute(?\Carbon\Carbon $timestamp): ?string
+    {
+        if (! $timestamp) {
+            return null;
+        }
+
+        // If already at :00 seconds, don't add a minute
+        if ($timestamp->second === 0) {
+            return $timestamp->toIso8601String();
+        }
+
+        return $timestamp->copy()->addMinute()->startOfMinute()->toIso8601String();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -26,8 +44,8 @@ class ActionResource extends JsonResource
             'status' => $this->resolution_status,
             'timezone' => $this->timezone,
 
-            // Scheduling
-            'execute_at' => $this->execute_at_utc?->toIso8601String(),
+            // Scheduling - rounded up to next minute (when dispatcher actually runs)
+            'execute_at' => $this->roundUpToNextMinute($this->execute_at_utc),
             'executed_at' => $this->executed_at_utc?->toIso8601String(),
             'failure_reason' => $this->when($this->resolution_status === 'failed', $this->failure_reason),
             'replaced_by_action_id' => $this->when($this->replaced_by_action_id !== null, $this->replaced_by_action_id),
@@ -41,7 +59,7 @@ class ActionResource extends JsonResource
             'attempt_count' => $this->when($hasRequest, $this->attempt_count),
             'max_attempts' => $this->when($hasRequest, $this->max_attempts),
             'retry_strategy' => $this->when($hasRequest, $this->retry_strategy),
-            'next_retry_at' => $this->when($this->next_retry_at !== null, fn () => $this->next_retry_at?->toIso8601String()),
+            'next_retry_at' => $this->when($this->next_retry_at !== null, fn () => $this->roundUpToNextMinute($this->next_retry_at)),
 
             // Gated-specific
             'snooze_count' => $this->when($isGated, $this->snooze_count),
