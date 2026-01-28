@@ -96,6 +96,14 @@ class Account extends Model
     }
 
     /**
+     * All chat integrations (Teams, Slack) for this account.
+     */
+    public function chatConnections(): HasMany
+    {
+        return $this->hasMany(ChatConnection::class, 'account_id');
+    }
+
+    /**
      * Get the account's current plan name.
      *
      * Priority:

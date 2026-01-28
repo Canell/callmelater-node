@@ -232,6 +232,47 @@
                                 <input type="number" class="form-control" v-model="gate.max_snoozes" min="0" max="10" style="max-width: 100px;">
                             </div>
 
+                            <!-- Additional Notification Channels (Teams/Slack) -->
+                            <div class="mb-3">
+                                <label class="form-label">Additional Channels <span class="text-muted fw-normal">(optional)</span></label>
+                                <div class="d-flex flex-wrap gap-3">
+                                    <div class="form-check">
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input"
+                                            id="channel-teams"
+                                            value="teams"
+                                            v-model="gate.channels"
+                                            :disabled="!hasActiveTeamsIntegration"
+                                        >
+                                        <label class="form-check-label" for="channel-teams">
+                                            Microsoft Teams
+                                            <span v-if="!hasActiveTeamsIntegration" class="text-muted small">
+                                                (<router-link to="/settings?tab=integrations">Setup</router-link>)
+                                            </span>
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="channel-slack" value="slack" v-model="gate.channels" disabled>
+                                        <label class="form-check-label text-muted" for="channel-slack">Slack <span class="small">(Coming Soon)</span></label>
+                                    </div>
+                                </div>
+                                <div class="form-text">
+                                    Email/SMS is automatic based on recipient type. Use this to also post to a Teams or Slack channel.
+                                </div>
+                            </div>
+
+                            <!-- Notify creator on response -->
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="notifyCreator" v-model="notify_creator_on_response">
+                                    <label class="form-check-label" for="notifyCreator">
+                                        Notify me when someone responds
+                                    </label>
+                                </div>
+                                <div class="form-text">Receive an email notification when a recipient confirms, declines, or snoozes.</div>
+                            </div>
+
                             <!-- Execute HTTP on approval checkbox -->
                             <div class="mt-4 p-3 bg-light rounded">
                                 <div class="form-check mb-0">
@@ -488,7 +529,10 @@ export default {
                 on_timeout: 'expire',
                 confirmation_mode: 'first_response',
                 max_snoozes: 5,
+                channels: [], // Only for Teams/Slack - email/SMS auto-detected from recipients
             },
+            notify_creator_on_response: false,
+            chatIntegrations: [],
             // Request configuration (for immediate or gated+execute)
             request: {
                 method: 'POST',
@@ -589,6 +633,12 @@ export default {
             const lines = this.recipientsText.split('\n').map(l => l.trim()).filter(l => l);
             return lines.some(line => /^\+?[\d\s\-()]+$/.test(line) && line.replace(/\D/g, '').length >= 10);
         },
+        hasActiveTeamsIntegration() {
+            return this.chatIntegrations.some(i => i.provider === 'teams' && i.is_active);
+        },
+        hasActiveSlackIntegration() {
+            return this.chatIntegrations.some(i => i.provider === 'slack' && i.is_active);
+        },
         currentRecipientEmails() {
             if (!this.recipientsText) return [];
             return this.recipientsText
@@ -680,17 +730,19 @@ export default {
         async loadUserPlanAndTeams() {
             try {
                 // Check user's plan and get current user email
-                const [subResponse, accountResponse, teamsResponse, teamMembersResponse] = await Promise.all([
+                const [subResponse, accountResponse, teamsResponse, teamMembersResponse, integrationsResponse] = await Promise.all([
                     axios.get('/api/subscription/status'),
                     axios.get('/api/account'),
                     axios.get('/api/teams'),
                     axios.get('/api/v1/team-members'),
+                    axios.get('/api/v1/integrations').catch(() => ({ data: { data: [] } })),
                 ]);
 
                 this.userPlan = subResponse.data.plan || 'free';
                 this.currentUserEmail = subResponse.data.user?.email || null;
                 this.teams = teamsResponse.data.data || [];
                 this.teamMembers = teamMembersResponse.data.data || [];
+                this.chatIntegrations = (integrationsResponse.data.data || []).filter(i => i.is_active);
 
                 // Combine members from account and all teams (deduplicated by email)
                 const accountMembers = accountResponse.data.data?.members || [];
@@ -1026,6 +1078,23 @@ export default {
                     const teamMemberIds = this.selectedTeamMembers.map(m => m.id);
                     const allRecipients = [...teamMemberIds, ...manualRecipients];
 
+                    // Auto-detect channels from recipient types
+                    const autoChannels = [];
+                    const hasEmailRecipients = manualRecipients.some(r => r.includes('@'));
+                    const hasPhoneRecipients = manualRecipients.some(r => /^\+?[\d\s\-()]+$/.test(r) && r.replace(/\D/g, '').length >= 10);
+                    const hasTeamMembers = teamMemberIds.length > 0;
+
+                    if (hasEmailRecipients || hasTeamMembers) {
+                        autoChannels.push('email');
+                    }
+                    if (hasPhoneRecipients) {
+                        autoChannels.push('sms');
+                    }
+
+                    // Add additional channels (Teams/Slack) from user selection
+                    const additionalChannels = this.gate.channels.filter(c => ['teams', 'slack'].includes(c));
+                    const allChannels = [...new Set([...autoChannels, ...additionalChannels])];
+
                     payload.gate = {
                         message: this.gate.message,
                         recipients: allRecipients,
@@ -1033,7 +1102,13 @@ export default {
                         on_timeout: this.gate.on_timeout,
                         confirmation_mode: this.gate.confirmation_mode,
                         max_snoozes: parseInt(this.gate.max_snoozes),
+                        channels: allChannels.length > 0 ? allChannels : undefined,
                     };
+
+                    // Add notify_creator_on_response
+                    if (this.notify_creator_on_response) {
+                        payload.notify_creator_on_response = true;
+                    }
 
                     // Add escalation settings if configured
                     if (this.escalation.hours && parseFloat(this.escalation.hours) > 0) {

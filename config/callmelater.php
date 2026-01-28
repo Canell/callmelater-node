@@ -105,6 +105,7 @@ return [
             'sms_per_month' => 0, // No SMS for free plan
             'history_days' => 7,
             'max_templates' => 2,
+            'chat_integrations' => false, // No Teams/Slack for free plan
         ],
         'pro' => [
             'max_actions_per_month' => 5000,
@@ -117,6 +118,7 @@ return [
             'sms_per_month' => 15, // Critical approvals & escalations
             'history_days' => 30,
             'max_templates' => 20,
+            'chat_integrations' => true, // Teams/Slack available
         ],
         'business' => [
             'max_actions_per_month' => 50000,
@@ -129,6 +131,7 @@ return [
             'sms_per_month' => 50, // On-call & team escalations
             'history_days' => 365,
             'max_templates' => 200,
+            'chat_integrations' => true, // Teams/Slack available
         ],
     ],
 

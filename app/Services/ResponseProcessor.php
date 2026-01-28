@@ -8,12 +8,14 @@ use App\Mail\ReminderDeclinedMail;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
+use App\Services\CreatorNotificationService;
 use Illuminate\Support\Facades\Mail;
 
 class ResponseProcessor
 {
     public function __construct(
-        private ActionService $actionService
+        private ActionService $actionService,
+        private CreatorNotificationService $creatorNotificationService
     ) {}
 
     /**
@@ -152,6 +154,9 @@ class ResponseProcessor
             'snooze' => $this->handleSnooze($recipient, $action, $preset ?? '1h', $comment),
             default => throw new \InvalidArgumentException('Invalid response type.'),
         };
+
+        // Notify creator if enabled
+        $this->creatorNotificationService->notifyCreator($action, $response, $recipient);
     }
 
     /**

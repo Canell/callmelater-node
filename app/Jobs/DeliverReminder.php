@@ -2,13 +2,16 @@
 
 namespace App\Jobs;
 
+use App\Contracts\ChatIntegration;
 use App\Mail\ReminderMail;
 use App\Models\BlockedRecipient;
+use App\Models\ChatConnection;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
 use App\Models\TeamMember;
 use App\Services\BrevoService;
+use App\Services\Chat\TeamsIntegration;
 use App\Services\QuotaService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -47,6 +50,15 @@ class DeliverReminder implements ShouldQueue
 
         // Get recipients from gate configuration
         $recipients = $this->action->getGateRecipients();
+        $configuredChannels = $this->action->getGateChannels();
+        $hasChatChannel = ! empty(array_intersect($configuredChannels, ['teams', 'slack']));
+
+        // Handle Teams/Slack-only mode (no email/phone recipients)
+        if (count($recipients) === 0 && $hasChatChannel) {
+            $this->sendChatOnly($configuredChannels, $quotaService);
+
+            return;
+        }
 
         if (count($recipients) === 0) {
             Log::error('No recipients configured for gated action', ['action_id' => $this->action->id]);
@@ -129,12 +141,28 @@ class DeliverReminder implements ShouldQueue
                 continue;
             }
 
+            // Get configured channels for chat integrations (Teams/Slack)
+            // Email/SMS are auto-detected from recipient type
+            $configuredChannels = $this->action->getGateChannels();
+
             // Auto-detect channel from recipient type and send
             if ($isEmail) {
+                // Always send email for email recipients (auto-detected)
                 $this->sendEmail($recipientRecord);
+                $channelsUsed['email'] = true;
+
+                // Also send to chat channels if explicitly configured
+                foreach (['teams', 'slack'] as $chatProvider) {
+                    if (in_array($chatProvider, $configuredChannels, true)) {
+                        $chatSent = $this->sendChat($recipientRecord, $chatProvider);
+                        if ($chatSent) {
+                            $channelsUsed[$chatProvider] = true;
+                        }
+                    }
+                }
+
                 $recipientRecord->update(['status' => ReminderRecipient::STATUS_SENT]);
                 $sentCount++;
-                $channelsUsed['email'] = true;
             } elseif ($isPhone) {
                 // Check SMS quota before sending
                 $account = $this->action->account;
@@ -220,6 +248,202 @@ class DeliverReminder implements ShouldQueue
             $this->action->getGateMessage(),
             $responseUrl
         );
+    }
+
+    /**
+     * Handle chat-only mode (no email/phone recipients, only Teams/Slack).
+     *
+     * @param  array<string>  $channels
+     */
+    private function sendChatOnly(array $channels, QuotaService $quotaService): void
+    {
+        $tokenExpiryDays = ScheduledAction::parseTimeoutToDays($this->action->getGateTimeout());
+        $sentCount = 0;
+
+        foreach (['teams', 'slack'] as $provider) {
+            if (! in_array($provider, $channels, true)) {
+                continue;
+            }
+
+            // Get all active connections for this provider
+            $connections = ChatConnection::where('account_id', $this->action->account_id)
+                ->where('provider', $provider)
+                ->where('is_active', true)
+                ->get();
+
+            foreach ($connections as $connection) {
+                $webhookUrl = $connection->teams_webhook_url ?? $connection->slack_bot_token;
+                if (! $webhookUrl) {
+                    continue;
+                }
+
+                // Create a recipient record for this chat channel
+                $recipientRecord = ReminderRecipient::firstOrCreate(
+                    [
+                        'action_id' => $this->action->id,
+                        'chat_destination' => $webhookUrl,
+                    ],
+                    [
+                        'email' => "{$provider}:{$connection->id}", // Placeholder identifier
+                        'chat_provider' => $provider,
+                        'status' => ReminderRecipient::STATUS_PENDING,
+                        'response_token' => Str::random(20),
+                    ]
+                );
+
+                if ($recipientRecord->status !== ReminderRecipient::STATUS_PENDING) {
+                    continue;
+                }
+
+                // Get the integration service
+                $integration = $this->getChatIntegration($provider);
+                if (! $integration) {
+                    continue;
+                }
+
+                try {
+                    $result = $integration->sendDecisionCard(
+                        $this->action,
+                        $recipientRecord,
+                        $recipientRecord->response_token
+                    );
+
+                    $recipientRecord->update([
+                        'status' => ReminderRecipient::STATUS_SENT,
+                        'chat_message_id' => $result['message_id'],
+                    ]);
+
+                    $sentCount++;
+
+                    Log::info('Chat reminder sent', [
+                        'action_id' => $this->action->id,
+                        'provider' => $provider,
+                        'connection_id' => $connection->id,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send chat reminder', [
+                        'action_id' => $this->action->id,
+                        'provider' => $provider,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // Leave as pending - don't have a FAILED status
+                }
+            }
+        }
+
+        if ($sentCount === 0) {
+            Log::error('No chat messages sent for gated action', ['action_id' => $this->action->id]);
+            $this->action->markAsFailed('Failed to send to any chat channel');
+
+            return;
+        }
+
+        // Mark as awaiting response
+        $this->action->markAsAwaitingResponse($tokenExpiryDays);
+
+        // Record the sent event
+        ReminderEvent::create([
+            'reminder_id' => $this->action->id,
+            'event_type' => ReminderEvent::TYPE_SENT,
+            'captured_timezone' => $this->action->timezone,
+            'notes' => "Sent to {$sentCount} chat channel(s): ".implode(', ', $channels),
+        ]);
+
+        Log::info('Chat-only reminder delivered', [
+            'action_id' => $this->action->id,
+            'sent_count' => $sentCount,
+        ]);
+    }
+
+    /**
+     * Send reminder via chat integration (Teams/Slack).
+     *
+     * @return bool Whether the message was sent successfully
+     */
+    private function sendChat(ReminderRecipient $recipient, string $provider): bool
+    {
+        try {
+            // Get the chat connection for this account
+            $connection = ChatConnection::where('account_id', $this->action->account_id)
+                ->where('provider', $provider)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $connection) {
+                Log::warning('No active chat connection found', [
+                    'action_id' => $this->action->id,
+                    'provider' => $provider,
+                ]);
+
+                return false;
+            }
+
+            // Get the webhook URL for Teams (stored in the connection)
+            // For individual recipient targeting, we'd need user mapping
+            // For now, we use the account's default webhook
+            $webhookUrl = $connection->teams_webhook_url;
+            if (! $webhookUrl) {
+                Log::warning('No webhook URL configured for chat connection', [
+                    'action_id' => $this->action->id,
+                    'provider' => $provider,
+                    'connection_id' => $connection->id,
+                ]);
+
+                return false;
+            }
+
+            // Store the webhook URL as the chat destination
+            $recipient->chat_provider = $provider;
+            $recipient->chat_destination = $webhookUrl;
+            $recipient->save();
+
+            // Get the integration service
+            $integration = $this->getChatIntegration($provider);
+            if (! $integration) {
+                return false;
+            }
+
+            // Send the decision card
+            $result = $integration->sendDecisionCard(
+                $this->action,
+                $recipient,
+                $recipient->response_token
+            );
+
+            // Store the message ID for potential updates
+            $recipient->chat_message_id = $result['message_id'];
+            $recipient->save();
+
+            Log::info('Chat notification sent', [
+                'action_id' => $this->action->id,
+                'provider' => $provider,
+                'recipient' => $recipient->email,
+                'message_id' => $result['message_id'],
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to send chat notification', [
+                'action_id' => $this->action->id,
+                'provider' => $provider,
+                'recipient' => $recipient->email,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Get the chat integration service for a provider.
+     */
+    private function getChatIntegration(string $provider): ?ChatIntegration
+    {
+        return match ($provider) {
+            'teams' => app(TeamsIntegration::class),
+            // 'slack' => app(SlackIntegration::class), // Phase 2
+            default => null,
+        };
     }
 
     private function isPhoneNumber(string $value): bool

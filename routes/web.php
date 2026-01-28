@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\TemplateTriggerController;
 use App\Http\Controllers\Auth\MagicLinkController;
+use App\Http\Controllers\ChatWebhookController;
 use App\Http\Controllers\Web\ResponseController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,11 @@ Route::get('/r/{token}', [ResponseController::class, 'showShort'])->name('remind
 Route::post('/t/{token}', [TemplateTriggerController::class, 'trigger'])
     ->middleware('throttle:template-trigger')
     ->where('token', '[a-zA-Z0-9_]{53}');
+
+// Chat integration webhooks (Teams, Slack button callbacks)
+Route::post('/webhooks/chat/{provider}', [ChatWebhookController::class, 'webhook'])
+    ->name('chat.webhook')
+    ->where('provider', 'teams|slack');
 
 // Magic link authentication routes
 Route::prefix('auth/magic-link')->group(function () {
@@ -44,4 +50,4 @@ Route::get('/cookies', fn () => view('pages.cookies'))->name('cookies');
 // SPA catch-all route - Vue Router handles authenticated routes
 Route::get('/{any?}', function () {
     return view('app');
-})->where('any', '^(?!api|sanctum|respond|r/|t/|stripe|auth).*$');
+})->where('any', '^(?!api|sanctum|respond|r/|t/|stripe|auth|webhooks).*$');

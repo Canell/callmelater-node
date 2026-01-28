@@ -73,10 +73,21 @@ class ScheduledActionTest extends TestCase
         $this->assertEquals(['test@example.com'], $action->getGateRecipients());
     }
 
-    public function test_get_gate_channels_defaults_to_email(): void
+    public function test_get_gate_channels_defaults_to_empty(): void
     {
+        // Channels default to empty - email/SMS are auto-detected from recipient types
         $action = $this->createGatedAction(['gate' => ['message' => 'Test', 'recipients' => ['a@b.com']]]);
-        $this->assertEquals(['email'], $action->getGateChannels());
+        $this->assertEquals([], $action->getGateChannels());
+    }
+
+    public function test_get_gate_channels_returns_configured_channels(): void
+    {
+        $action = $this->createGatedAction(['gate' => [
+            'message' => 'Test',
+            'recipients' => ['a@b.com'],
+            'channels' => ['teams', 'slack'],
+        ]]);
+        $this->assertEquals(['teams', 'slack'], $action->getGateChannels());
     }
 
     public function test_get_gate_timeout_defaults_to_7d(): void

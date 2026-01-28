@@ -33,6 +33,16 @@ return [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
+        // Chat integration (for reminder delivery)
+        'client_id' => env('SLACK_CLIENT_ID'),
+        'client_secret' => env('SLACK_CLIENT_SECRET'),
+        'signing_secret' => env('SLACK_SIGNING_SECRET'),
+    ],
+
+    'teams' => [
+        'app_id' => env('TEAMS_APP_ID'),
+        'app_secret' => env('TEAMS_APP_SECRET'),
+        'tenant_id' => env('TEAMS_TENANT_ID'), // For single-tenant apps
     ],
 
     'stripe' => [

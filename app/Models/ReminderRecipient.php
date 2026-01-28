@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $action_id
  * @property string|null $team_member_id
  * @property string $email
+ * @property string|null $chat_provider
+ * @property string|null $chat_destination
+ * @property string|null $chat_message_id
  * @property string $status
  * @property string|null $response_token
  * @property Carbon|null $responded_at
@@ -43,6 +46,9 @@ class ReminderRecipient extends Model
         'action_id',
         'team_member_id',
         'email',
+        'chat_provider',
+        'chat_destination',
+        'chat_message_id',
         'status',
         'response_token',
         'responded_at',

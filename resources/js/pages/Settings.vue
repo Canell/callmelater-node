@@ -595,6 +595,176 @@
                         </div>
                     </div>
 
+                    <!-- Integrations -->
+                    <div v-show="activeTab === 'integrations'" class="card card-cml">
+                        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Chat Integrations</h5>
+                            <button
+                                v-if="canCreateIntegration"
+                                class="btn btn-cml-primary btn-sm"
+                                @click="openIntegrationModal()"
+                            >
+                                Add Integration
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Connect Microsoft Teams or Slack to receive gated action reminders directly in your chat channels.
+                                Recipients can respond with buttons right from the chat message.
+                            </p>
+
+                            <!-- Loading -->
+                            <div v-if="loadingIntegrations" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
+                            </div>
+
+                            <!-- Empty state -->
+                            <div v-else-if="integrations.length === 0" class="text-center py-4">
+                                <div class="text-muted mb-3">
+                                    <i class="bi bi-chat-dots fs-1"></i>
+                                </div>
+                                <p class="text-muted mb-3">No integrations configured yet.</p>
+                                <button
+                                    v-if="canCreateIntegration"
+                                    class="btn btn-cml-primary"
+                                    @click="openIntegrationModal()"
+                                >
+                                    Add Your First Integration
+                                </button>
+                            </div>
+
+                            <!-- Integrations list -->
+                            <div v-else class="row g-3">
+                                <div v-for="integration in integrations" :key="integration.id" class="col-md-6">
+                                    <div class="card" :class="{ 'border-success': integration.is_active, 'border-secondary': !integration.is_active }">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <h6 class="mb-1">
+                                                        <i :class="getProviderIcon(integration.provider)" class="me-1"></i>
+                                                        {{ integration.name }}
+                                                    </h6>
+                                                    <small class="text-muted">{{ getProviderLabel(integration.provider) }}</small>
+                                                </div>
+                                                <span :class="integration.is_active ? 'badge bg-success' : 'badge bg-secondary'">
+                                                    {{ integration.is_active ? 'Active' : 'Disabled' }}
+                                                </span>
+                                            </div>
+                                            <div class="d-flex gap-2 mt-3">
+                                                <button
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    @click="testIntegration(integration)"
+                                                    :disabled="testingIntegration === integration.id || !integration.is_active"
+                                                >
+                                                    {{ testingIntegration === integration.id ? 'Testing...' : 'Test' }}
+                                                </button>
+                                                <button
+                                                    class="btn btn-sm"
+                                                    :class="integration.is_active ? 'btn-outline-secondary' : 'btn-outline-success'"
+                                                    @click="toggleIntegration(integration)"
+                                                >
+                                                    {{ integration.is_active ? 'Disable' : 'Enable' }}
+                                                </button>
+                                                <button
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @click="confirmDeleteIntegration(integration)"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Integration Modal -->
+                    <div v-if="showIntegrationModal" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Add Chat Integration</h5>
+                                    <button type="button" class="btn-close" @click="closeIntegrationModal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div v-if="integrationFormError" class="alert alert-danger">{{ integrationFormError }}</div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Provider</label>
+                                        <select class="form-select" v-model="integrationForm.provider">
+                                            <option value="teams">Microsoft Teams</option>
+                                            <option value="slack" disabled>Slack (Coming Soon)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Name *</label>
+                                        <input type="text" class="form-control" v-model="integrationForm.name" placeholder="e.g., DevOps Team Channel">
+                                        <small class="text-muted">A friendly name to identify this connection</small>
+                                    </div>
+
+                                    <!-- Teams configuration -->
+                                    <div v-if="integrationForm.provider === 'teams'">
+                                        <div class="mb-3">
+                                            <label class="form-label">Webhook URL *</label>
+                                            <input
+                                                type="url"
+                                                class="form-control"
+                                                v-model="integrationForm.teams_webhook_url"
+                                                placeholder="Paste your Teams webhook URL here"
+                                            >
+                                            <small class="text-muted">
+                                                See instructions below for how to create a webhook in Teams
+                                            </small>
+                                        </div>
+
+                                        <div class="alert alert-info small">
+                                            <strong>How to get a webhook URL:</strong>
+                                            <p class="mb-2 mt-2"><strong>Option 1: Workflows (Recommended)</strong></p>
+                                            <ol class="mb-2 ps-3">
+                                                <li>Right-click the channel &gt; <strong>Workflows</strong></li>
+                                                <li>Search for "Post to a channel when a webhook request is received"</li>
+                                                <li>Name your workflow, select the channel, and click <strong>Add workflow</strong></li>
+                                                <li>Copy the webhook URL</li>
+                                            </ol>
+                                            <p class="mb-2"><strong>Option 2: Connectors (Legacy)</strong></p>
+                                            <ol class="mb-0 ps-3">
+                                                <li>Right-click the channel &gt; <strong>Manage channel</strong> &gt; <strong>Connectors</strong></li>
+                                                <li>Find "Incoming Webhook" and click <strong>Configure</strong></li>
+                                                <li>Name your webhook and click <strong>Create</strong></li>
+                                                <li>Copy the webhook URL</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+
+                                    <!-- Slack configuration (placeholder for future) -->
+                                    <div v-if="integrationForm.provider === 'slack'">
+                                        <div class="mb-3">
+                                            <label class="form-label">Bot Token *</label>
+                                            <input type="text" class="form-control" v-model="integrationForm.slack_bot_token" placeholder="xoxb-...">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Signing Secret *</label>
+                                            <input type="text" class="form-control" v-model="integrationForm.slack_signing_secret">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" @click="closeIntegrationModal">Cancel</button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-cml-primary"
+                                        @click="saveIntegration"
+                                        :disabled="savingIntegration || !integrationForm.name || (integrationForm.provider === 'teams' && !integrationForm.teams_webhook_url)"
+                                    >
+                                        {{ savingIntegration ? 'Adding...' : 'Add Integration' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Usage -->
                     <div v-show="activeTab === 'usage'" class="card card-cml">
                         <div class="card-header bg-transparent">
@@ -906,6 +1076,7 @@ export default {
                 { id: 'teams', label: 'Members', businessOnly: true },
                 { id: 'api', label: 'API & Security' },
                 { id: 'domains', label: 'Domains' },
+                { id: 'integrations', label: 'Integrations', paidOnly: true },
                 { id: 'usage', label: 'Usage & Limits' },
                 { id: 'billing', label: 'Billing' },
                 { id: 'notifications', label: 'Notifications' },
@@ -1040,6 +1211,23 @@ export default {
             verifyingDomain: null,
             showDomainInstructions: null,
 
+            // Integrations
+            integrations: [],
+            loadingIntegrations: false,
+            showIntegrationModal: false,
+            editingIntegration: null,
+            integrationForm: {
+                provider: 'teams',
+                name: '',
+                teams_webhook_url: '',
+                slack_bot_token: '',
+                slack_signing_secret: '',
+            },
+            savingIntegration: false,
+            integrationFormError: null,
+            testingIntegration: null,
+            canCreateIntegration: false,
+
             // Confirm Modal
             confirmModal: {
                 show: false,
@@ -1058,6 +1246,9 @@ export default {
             return this.tabs.filter(tab => {
                 if (tab.businessOnly) {
                     return this.usage.plan === 'business';
+                }
+                if (tab.paidOnly) {
+                    return this.usage.plan === 'pro' || this.usage.plan === 'business';
                 }
                 if (tab.adminOnly) {
                     return this.user?.is_admin === true;
@@ -1144,6 +1335,11 @@ export default {
 
                 // Load domains
                 await this.loadDomains();
+
+                // Load integrations for paid plans
+                if (this.usage.plan === 'pro' || this.usage.plan === 'business') {
+                    await this.loadIntegrations();
+                }
 
                 // Load admin notifications for admin users
                 if (this.user.is_admin) {
@@ -1701,6 +1897,121 @@ export default {
         copyToClipboard(text) {
             navigator.clipboard.writeText(text);
             this.toast.success('Copied to clipboard');
+        },
+
+        // Integration methods
+        async loadIntegrations() {
+            this.loadingIntegrations = true;
+            try {
+                const response = await axios.get('/api/v1/integrations');
+                this.integrations = response.data.data || [];
+                this.canCreateIntegration = response.data.can_create ?? false;
+            } catch (err) {
+                console.error('Failed to load integrations:', err);
+            } finally {
+                this.loadingIntegrations = false;
+            }
+        },
+        openIntegrationModal(integration = null) {
+            this.editingIntegration = integration;
+            this.integrationFormError = null;
+            if (integration) {
+                this.integrationForm = {
+                    provider: integration.provider,
+                    name: integration.name,
+                    teams_webhook_url: '',
+                    slack_bot_token: '',
+                    slack_signing_secret: '',
+                };
+            } else {
+                this.integrationForm = {
+                    provider: 'teams',
+                    name: '',
+                    teams_webhook_url: '',
+                    slack_bot_token: '',
+                    slack_signing_secret: '',
+                };
+            }
+            this.showIntegrationModal = true;
+        },
+        closeIntegrationModal() {
+            this.showIntegrationModal = false;
+            this.editingIntegration = null;
+            this.integrationFormError = null;
+        },
+        async saveIntegration() {
+            this.savingIntegration = true;
+            this.integrationFormError = null;
+            try {
+                const payload = {
+                    provider: this.integrationForm.provider,
+                    name: this.integrationForm.name,
+                };
+                if (this.integrationForm.provider === 'teams') {
+                    payload.teams_webhook_url = this.integrationForm.teams_webhook_url;
+                } else {
+                    payload.slack_bot_token = this.integrationForm.slack_bot_token;
+                    payload.slack_signing_secret = this.integrationForm.slack_signing_secret;
+                }
+
+                await axios.post('/api/v1/integrations', payload);
+                this.toast.success('Integration added successfully.');
+                this.closeIntegrationModal();
+                await this.loadIntegrations();
+            } catch (err) {
+                this.integrationFormError = err.response?.data?.message || 'Failed to save integration';
+            } finally {
+                this.savingIntegration = false;
+            }
+        },
+        async testIntegration(integration) {
+            this.testingIntegration = integration.id;
+            try {
+                const response = await axios.post(`/api/v1/integrations/${integration.id}/test`);
+                if (response.data.success) {
+                    this.toast.success('Test message sent! Check your channel.');
+                } else {
+                    this.toast.error(response.data.message || 'Test failed');
+                }
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to test integration');
+            } finally {
+                this.testingIntegration = null;
+            }
+        },
+        async toggleIntegration(integration) {
+            try {
+                const response = await axios.post(`/api/v1/integrations/${integration.id}/toggle`);
+                integration.is_active = response.data.is_active;
+                this.toast.success(response.data.message);
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to toggle integration');
+            }
+        },
+        confirmDeleteIntegration(integration) {
+            this.showConfirm({
+                title: 'Delete Integration',
+                message: `Delete "${integration.name}"? This will remove the connection and any pending reminders using this integration may fail.`,
+                confirmText: 'Delete',
+                variant: 'danger',
+                action: 'doDeleteIntegration',
+                data: integration,
+            });
+        },
+        async doDeleteIntegration(integration) {
+            try {
+                await axios.delete(`/api/v1/integrations/${integration.id}`);
+                this.integrations = this.integrations.filter(i => i.id !== integration.id);
+                this.toast.success('Integration deleted.');
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to delete integration');
+            }
+        },
+        getProviderLabel(provider) {
+            return provider === 'teams' ? 'Microsoft Teams' : 'Slack';
+        },
+        getProviderIcon(provider) {
+            return provider === 'teams' ? 'bi-microsoft-teams' : 'bi-slack';
         },
     },
 };

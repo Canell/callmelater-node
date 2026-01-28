@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\HeartbeatController;
+use App\Http\Controllers\Api\IntegrationController;
 use App\Http\Controllers\Api\InvitationController;
 use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\ResponseDashboardController;
@@ -122,6 +123,15 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
             Route::delete('/{id}', [TemplateController::class, 'destroy']);
             Route::post('/{id}/regenerate-token', [TemplateController::class, 'regenerateToken']);
             Route::post('/{id}/toggle-active', [TemplateController::class, 'toggleActive']);
+        });
+
+        // Chat Integrations (Teams, Slack)
+        Route::prefix('integrations')->group(function () {
+            Route::get('/', [IntegrationController::class, 'index']);
+            Route::post('/', [IntegrationController::class, 'store']);
+            Route::delete('/{id}', [IntegrationController::class, 'destroy']);
+            Route::post('/{id}/test', [IntegrationController::class, 'test']);
+            Route::post('/{id}/toggle', [IntegrationController::class, 'toggle']);
         });
     });
 

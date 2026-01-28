@@ -41,7 +41,8 @@
       "Bash(./vendor/bin/pint:*)",
       "Bash(find:*)",
       "Bash(perl -i -pe:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "WebSearch"
     ]
   }
 }

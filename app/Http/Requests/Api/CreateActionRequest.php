@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\ChatConnection;
 use App\Models\ScheduledAction;
 use App\Models\TeamMember;
 use App\Models\UsageCounter;
@@ -89,10 +90,10 @@ class CreateActionRequest extends FormRequest
             // Gate block (required for gated mode)
             'gate' => ['required_if:mode,gated', 'array'],
             'gate.message' => ['required_with:gate', 'string', 'max:5000'],
-            'gate.recipients' => ['required_with:gate', 'array', 'min:1'],
+            'gate.recipients' => ['nullable', 'array'],
             'gate.recipients.*' => ['required', 'string'],
             'gate.channels' => ['nullable', 'array'],
-            'gate.channels.*' => ['string', Rule::in(['email', 'sms'])],
+            'gate.channels.*' => ['string', Rule::in(['email', 'sms', 'teams', 'slack'])],
             'gate.timeout' => ['nullable', 'string', 'regex:/^\d+[hdw]$/'],
             'gate.on_timeout' => ['nullable', 'string', Rule::in(['cancel', 'expire', 'approve'])],
             'gate.max_snoozes' => ['nullable', 'integer', 'min:0', 'max:10'],
@@ -104,6 +105,9 @@ class CreateActionRequest extends FormRequest
             'gate.escalation.after_hours' => ['nullable', 'numeric', 'min:0.5'],
             'gate.escalation.contacts' => ['nullable', 'array'],
             'gate.escalation.contacts.*' => ['email'],
+
+            // Creator notification
+            'notify_creator_on_response' => ['nullable', 'boolean'],
         ];
     }
 
@@ -159,6 +163,19 @@ class CreateActionRequest extends FormRequest
 
             // Validate gate recipients (email, phone, or team member UUID)
             $recipients = $this->input('gate.recipients', []);
+            $channels = $this->input('gate.channels', []);
+            $hasChatChannel = ! empty(array_intersect($channels, ['teams', 'slack']));
+
+            // Must have either recipients OR a chat channel
+            if ($this->input('mode') === ScheduledAction::MODE_GATED) {
+                if (empty($recipients) && ! $hasChatChannel) {
+                    $validator->errors()->add(
+                        'gate.recipients',
+                        'At least one recipient is required, or select Teams/Slack as a notification channel.'
+                    );
+                }
+            }
+
             foreach ($recipients as $index => $recipient) {
                 if (! $this->isValidRecipient($recipient, $user->account_id)) {
                     $validator->errors()->add(
@@ -260,6 +277,31 @@ class CreateActionRequest extends FormRequest
                             'gate.channels',
                             "You have {$remaining} SMS remaining this month (limit: {$smsLimit}). This action requires {$newSmsCount} SMS."
                         );
+                    }
+                }
+            }
+
+            // Check chat channels (Teams/Slack) require Pro/Business plan and active connection
+            $chatChannels = array_intersect($channels, ['teams', 'slack']);
+            if (! empty($chatChannels)) {
+                // Check plan allows chat integrations
+                if (! $user->getPlanLimit('chat_integrations')) {
+                    $validator->errors()->add('gate.channels', 'Teams and Slack notifications require a Pro or Business plan.');
+                } else {
+                    // Check for active connection for each chat channel
+                    foreach ($chatChannels as $chatChannel) {
+                        $hasConnection = ChatConnection::where('account_id', $user->account_id)
+                            ->where('provider', $chatChannel)
+                            ->where('is_active', true)
+                            ->exists();
+
+                        if (! $hasConnection) {
+                            $channelName = ucfirst($chatChannel);
+                            $validator->errors()->add(
+                                'gate.channels',
+                                "No active {$channelName} connection found. Please connect {$channelName} in Settings first."
+                            );
+                        }
                     }
                 }
             }

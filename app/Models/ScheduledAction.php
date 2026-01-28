@@ -27,6 +27,7 @@ use Illuminate\Support\Facades\Mail;
  * @property string|null $failure_reason
  * @property array<string, mixed>|null $request
  * @property array<string, mixed>|null $gate
+ * @property bool $notify_creator_on_response
  * @property string|null $idempotency_key
  * @property int $attempt_count
  * @property int $max_attempts
@@ -122,6 +123,7 @@ class ScheduledAction extends Model
         'failure_reason',
         'request',
         'gate',
+        'notify_creator_on_response',
         'idempotency_key',
         'attempt_count',
         'max_attempts',
@@ -146,6 +148,7 @@ class ScheduledAction extends Model
             'intent_payload' => 'array',
             'request' => 'array',
             'gate' => 'array',
+            'notify_creator_on_response' => 'boolean',
             'coordination_config' => 'array',
             'execute_at_utc' => 'datetime',
             'executed_at_utc' => 'datetime',
@@ -177,6 +180,14 @@ class ScheduledAction extends Model
      * The user who created this action (optional, for audit trail).
      */
     public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * Alias for creator relationship.
+     */
+    public function createdByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
@@ -324,13 +335,14 @@ class ScheduledAction extends Model
     }
 
     /**
-     * Get the gate channels.
+     * Get the gate channels (additional channels like Teams/Slack).
+     * Email/SMS are auto-detected from recipient types, not stored here.
      *
      * @return array<string>
      */
     public function getGateChannels(): array
     {
-        return $this->gate['channels'] ?? ['email'];
+        return $this->gate['channels'] ?? [];
     }
 
     /**
