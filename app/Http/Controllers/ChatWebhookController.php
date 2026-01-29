@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Contracts\ChatIntegration;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
+use App\Services\Chat\SlackIntegration;
 use App\Services\Chat\TeamsIntegration;
 use App\Services\CreatorNotificationService;
 use App\Services\ResponseProcessor;
@@ -24,6 +25,12 @@ class ChatWebhookController extends Controller
      */
     public function webhook(Request $request, string $provider): Response
     {
+        // Handle Slack URL verification challenge
+        if ($provider === 'slack' && $request->input('type') === 'url_verification') {
+            return response($request->input('challenge'), 200)
+                ->header('Content-Type', 'text/plain');
+        }
+
         $integration = $this->getIntegration($provider);
 
         if (! $integration) {
@@ -116,22 +123,8 @@ class ChatWebhookController extends Controller
                 'response' => $payload['response'],
             ]);
 
-            // Try to update the card (may be a no-op for some providers)
-            if ($recipient->chat_message_id && $recipient->chat_destination) {
-                try {
-                    $integration->updateCardWithResponse(
-                        $recipient->chat_message_id,
-                        $recipient->chat_destination,
-                        $payload['response'],
-                        $payload['user_id']
-                    );
-                } catch (\Throwable $e) {
-                    Log::warning('Failed to update chat card', [
-                        'provider' => $provider,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
-            }
+            // Update the chat message to show response status
+            $this->updateChatMessage($integration, $recipient, $action, $payload);
         } catch (\InvalidArgumentException $e) {
             Log::warning('Chat webhook processing failed', [
                 'provider' => $provider,
@@ -146,13 +139,52 @@ class ChatWebhookController extends Controller
     }
 
     /**
+     * Update the chat message after processing the response.
+     */
+    private function updateChatMessage(
+        ChatIntegration $integration,
+        ReminderRecipient $recipient,
+        ScheduledAction $action,
+        array $payload
+    ): void {
+        try {
+            // For Slack, use the response_url if available for better UX
+            if ($integration instanceof SlackIntegration && ! empty($payload['response_url'])) {
+                $integration->updateMessageViaResponseUrl(
+                    $payload['response_url'],
+                    $action,
+                    $payload['response'],
+                    $payload['user_id']
+                );
+
+                return;
+            }
+
+            // Generic card update
+            if ($recipient->chat_message_id && $recipient->chat_destination) {
+                $integration->updateCardWithResponse(
+                    $recipient->chat_message_id,
+                    $recipient->chat_destination,
+                    $payload['response'],
+                    $payload['user_id']
+                );
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Failed to update chat card', [
+                'provider' => $integration->getChannel(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
      * Get the integration service for a provider.
      */
     private function getIntegration(string $provider): ?ChatIntegration
     {
         return match ($provider) {
             'teams' => app(TeamsIntegration::class),
-            // 'slack' => app(SlackIntegration::class), // Phase 2
+            'slack' => app(SlackIntegration::class),
             default => null,
         };
     }

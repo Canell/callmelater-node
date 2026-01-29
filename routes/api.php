@@ -132,6 +132,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
             Route::delete('/{id}', [IntegrationController::class, 'destroy']);
             Route::post('/{id}/test', [IntegrationController::class, 'test']);
             Route::post('/{id}/toggle', [IntegrationController::class, 'toggle']);
+            Route::post('/slack/channels', [IntegrationController::class, 'slackChannels']);
         });
     });
 
@@ -148,6 +149,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
     Route::prefix('account')->group(function () {
         Route::get('/', [AccountController::class, 'show']);
         Route::put('/', [AccountController::class, 'update']);
+        Route::put('/branding', [AccountController::class, 'updateBranding']);
         Route::post('/members', [AccountController::class, 'addMember']);
         Route::delete('/members/{userId}', [AccountController::class, 'removeMember']);
     });

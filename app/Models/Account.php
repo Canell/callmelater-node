@@ -13,6 +13,8 @@ use Laravel\Cashier\Billable;
 /**
  * @property string $id
  * @property string $name
+ * @property string|null $logo_url
+ * @property string|null $brand_color
  * @property int $owner_id
  * @property string|null $manual_plan
  * @property \Carbon\Carbon|null $manual_plan_expires_at
@@ -32,6 +34,8 @@ class Account extends Model
 
     protected $fillable = [
         'name',
+        'logo_url',
+        'brand_color',
         'owner_id',
         'manual_plan',
         'manual_plan_expires_at',

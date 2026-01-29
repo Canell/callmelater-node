@@ -692,9 +692,9 @@
 
                                     <div class="mb-3">
                                         <label class="form-label">Provider</label>
-                                        <select class="form-select" v-model="integrationForm.provider">
+                                        <select class="form-select" v-model="integrationForm.provider" @change="onProviderChange">
                                             <option value="teams">Microsoft Teams</option>
-                                            <option value="slack" disabled>Slack (Coming Soon)</option>
+                                            <option value="slack">Slack</option>
                                         </select>
                                     </div>
 
@@ -738,15 +738,55 @@
                                         </div>
                                     </div>
 
-                                    <!-- Slack configuration (placeholder for future) -->
+                                    <!-- Slack configuration -->
                                     <div v-if="integrationForm.provider === 'slack'">
                                         <div class="mb-3">
                                             <label class="form-label">Bot Token *</label>
-                                            <input type="text" class="form-control" v-model="integrationForm.slack_bot_token" placeholder="xoxb-...">
+                                            <input
+                                                type="text"
+                                                class="form-control"
+                                                v-model="integrationForm.slack_bot_token"
+                                                placeholder="xoxb-..."
+                                                @blur="fetchSlackChannels"
+                                            >
+                                            <small class="text-muted">Your Slack app's Bot User OAuth Token</small>
                                         </div>
+
                                         <div class="mb-3">
-                                            <label class="form-label">Signing Secret *</label>
-                                            <input type="text" class="form-control" v-model="integrationForm.slack_signing_secret">
+                                            <label class="form-label">Channel *</label>
+                                            <div v-if="loadingSlackChannels" class="text-muted small">
+                                                <span class="spinner-border spinner-border-sm me-1"></span> Loading channels...
+                                            </div>
+                                            <select
+                                                v-else
+                                                class="form-select"
+                                                v-model="integrationForm.slack_channel_id"
+                                                :disabled="slackChannels.length === 0"
+                                            >
+                                                <option value="">{{ slackChannels.length === 0 ? 'Enter bot token first' : 'Select a channel' }}</option>
+                                                <option v-for="ch in slackChannels" :key="ch.id" :value="ch.id">
+                                                    {{ ch.is_private ? '🔒 ' : '#' }}{{ ch.name }}
+                                                </option>
+                                            </select>
+                                            <small class="text-muted">The channel where reminders will be posted</small>
+                                        </div>
+
+                                        <div class="alert alert-info small">
+                                            <strong>How to create a Slack App:</strong>
+                                            <ol class="mb-0 ps-3 mt-2">
+                                                <li>Go to <a href="https://api.slack.com/apps" target="_blank">api.slack.com/apps</a> and click <strong>Create New App</strong></li>
+                                                <li>Choose "From scratch", name it (e.g., "CallMeLater"), and select your workspace</li>
+                                                <li>Go to <strong>OAuth & Permissions</strong> and add these Bot Token Scopes:
+                                                    <ul class="mb-1 ps-3">
+                                                        <li><code>chat:write</code> - Send messages</li>
+                                                        <li><code>channels:read</code> - List public channels</li>
+                                                        <li><code>groups:read</code> - List private channels (optional)</li>
+                                                    </ul>
+                                                </li>
+                                                <li>Click <strong>Install to Workspace</strong> and authorize</li>
+                                                <li>Copy the <strong>Bot User OAuth Token</strong> (starts with xoxb-)</li>
+                                                <li><strong>Important:</strong> Invite the bot to your channel: <code>/invite @YourBotName</code></li>
+                                            </ol>
                                         </div>
                                     </div>
                                 </div>
@@ -756,10 +796,100 @@
                                         type="button"
                                         class="btn btn-cml-primary"
                                         @click="saveIntegration"
-                                        :disabled="savingIntegration || !integrationForm.name || (integrationForm.provider === 'teams' && !integrationForm.teams_webhook_url)"
+                                        :disabled="savingIntegration || !integrationForm.name || !isIntegrationFormValid"
                                     >
                                         {{ savingIntegration ? 'Adding...' : 'Add Integration' }}
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Branding (Business only) -->
+                    <div v-show="activeTab === 'branding'" class="card card-cml">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">Email Branding</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Customize reminder emails with your company's branding. Your logo and colors will appear in emails sent to recipients.
+                            </p>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-4">
+                                        <label class="form-label">Logo URL</label>
+                                        <input
+                                            type="url"
+                                            class="form-control"
+                                            v-model="branding.logo_url"
+                                            placeholder="https://example.com/logo.png"
+                                        >
+                                        <small class="text-muted">
+                                            Use a publicly accessible URL. Recommended size: 200x60px, PNG or SVG format.
+                                        </small>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label class="form-label">Brand Color</label>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <input
+                                                type="color"
+                                                class="form-control form-control-color"
+                                                v-model="branding.brand_color"
+                                                title="Choose your brand color"
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control"
+                                                v-model="branding.brand_color"
+                                                placeholder="#22c55e"
+                                                style="max-width: 120px;"
+                                            >
+                                        </div>
+                                        <small class="text-muted">
+                                            Used for the "Confirm" button in emails. Default: green (#22c55e).
+                                        </small>
+                                    </div>
+
+                                    <button
+                                        class="btn btn-cml-primary"
+                                        @click="saveBranding"
+                                        :disabled="savingBranding"
+                                    >
+                                        {{ savingBranding ? 'Saving...' : 'Save Branding' }}
+                                    </button>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="mb-3">Preview</h6>
+                                            <div class="bg-white p-3 rounded border">
+                                                <div class="text-center mb-3 pb-3 border-bottom">
+                                                    <img
+                                                        v-if="branding.logo_url"
+                                                        :src="branding.logo_url"
+                                                        alt="Logo preview"
+                                                        style="max-height: 50px; max-width: 150px;"
+                                                        @error="handleLogoError"
+                                                    >
+                                                    <div v-else class="text-muted small">
+                                                        <i class="bi bi-image fs-2 d-block"></i>
+                                                        No logo set
+                                                    </div>
+                                                </div>
+                                                <div class="text-center">
+                                                    <span
+                                                        class="d-inline-block px-3 py-2 rounded text-white small"
+                                                        :style="{ backgroundColor: branding.brand_color || '#22c55e' }"
+                                                    >
+                                                        Confirm Button
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1074,6 +1204,7 @@ export default {
                 { id: 'profile', label: 'Profile' },
                 { id: 'contacts', label: 'Contacts' },
                 { id: 'teams', label: 'Members', businessOnly: true },
+                { id: 'branding', label: 'Branding', businessOnly: true },
                 { id: 'api', label: 'API & Security' },
                 { id: 'domains', label: 'Domains' },
                 { id: 'integrations', label: 'Integrations', paidOnly: true },
@@ -1222,11 +1353,22 @@ export default {
                 teams_webhook_url: '',
                 slack_bot_token: '',
                 slack_signing_secret: '',
+                slack_channel_id: '',
+                slack_channel_name: '',
             },
             savingIntegration: false,
             integrationFormError: null,
             testingIntegration: null,
             canCreateIntegration: false,
+            slackChannels: [],
+            loadingSlackChannels: false,
+
+            // Branding (Business only)
+            branding: {
+                logo_url: '',
+                brand_color: '#22c55e',
+            },
+            savingBranding: false,
 
             // Confirm Modal
             confirmModal: {
@@ -1255,6 +1397,15 @@ export default {
                 }
                 return true;
             });
+        },
+        isIntegrationFormValid() {
+            if (this.integrationForm.provider === 'teams') {
+                return !!this.integrationForm.teams_webhook_url;
+            }
+            if (this.integrationForm.provider === 'slack') {
+                return !!this.integrationForm.slack_bot_token && !!this.integrationForm.slack_channel_id;
+            }
+            return false;
         },
     },
     mounted() {
@@ -1339,6 +1490,11 @@ export default {
                 // Load integrations for paid plans
                 if (this.usage.plan === 'pro' || this.usage.plan === 'business') {
                     await this.loadIntegrations();
+                }
+
+                // Load branding for business plan
+                if (this.usage.plan === 'business') {
+                    await this.loadBranding();
                 }
 
                 // Load admin notifications for admin users
@@ -1915,6 +2071,7 @@ export default {
         openIntegrationModal(integration = null) {
             this.editingIntegration = integration;
             this.integrationFormError = null;
+            this.slackChannels = [];
             if (integration) {
                 this.integrationForm = {
                     provider: integration.provider,
@@ -1922,6 +2079,8 @@ export default {
                     teams_webhook_url: '',
                     slack_bot_token: '',
                     slack_signing_secret: '',
+                    slack_channel_id: '',
+                    slack_channel_name: '',
                 };
             } else {
                 this.integrationForm = {
@@ -1930,6 +2089,8 @@ export default {
                     teams_webhook_url: '',
                     slack_bot_token: '',
                     slack_signing_secret: '',
+                    slack_channel_id: '',
+                    slack_channel_name: '',
                 };
             }
             this.showIntegrationModal = true;
@@ -1938,6 +2099,32 @@ export default {
             this.showIntegrationModal = false;
             this.editingIntegration = null;
             this.integrationFormError = null;
+            this.slackChannels = [];
+        },
+        onProviderChange() {
+            // Reset slack channels when switching providers
+            this.slackChannels = [];
+            this.integrationForm.slack_channel_id = '';
+            this.integrationForm.slack_channel_name = '';
+        },
+        async fetchSlackChannels() {
+            const token = this.integrationForm.slack_bot_token;
+            if (!token || !token.startsWith('xoxb-')) {
+                return;
+            }
+
+            this.loadingSlackChannels = true;
+            this.slackChannels = [];
+            try {
+                const response = await axios.post('/api/v1/integrations/slack/channels', {
+                    bot_token: token,
+                });
+                this.slackChannels = response.data.channels || [];
+            } catch (err) {
+                this.integrationFormError = err.response?.data?.message || 'Failed to fetch Slack channels. Check your bot token.';
+            } finally {
+                this.loadingSlackChannels = false;
+            }
         },
         async saveIntegration() {
             this.savingIntegration = true;
@@ -1949,9 +2136,14 @@ export default {
                 };
                 if (this.integrationForm.provider === 'teams') {
                     payload.teams_webhook_url = this.integrationForm.teams_webhook_url;
-                } else {
+                } else if (this.integrationForm.provider === 'slack') {
                     payload.slack_bot_token = this.integrationForm.slack_bot_token;
-                    payload.slack_signing_secret = this.integrationForm.slack_signing_secret;
+                    payload.slack_channel_id = this.integrationForm.slack_channel_id;
+                    // Find the channel name from the list
+                    const selectedChannel = this.slackChannels.find(ch => ch.id === this.integrationForm.slack_channel_id);
+                    if (selectedChannel) {
+                        payload.slack_channel_name = selectedChannel.name;
+                    }
                 }
 
                 await axios.post('/api/v1/integrations', payload);
@@ -2012,6 +2204,35 @@ export default {
         },
         getProviderIcon(provider) {
             return provider === 'teams' ? 'bi-microsoft-teams' : 'bi-slack';
+        },
+        // Branding methods
+        async loadBranding() {
+            try {
+                const response = await axios.get('/api/account');
+                const account = response.data.data;
+                this.branding.logo_url = account.logo_url || '';
+                this.branding.brand_color = account.brand_color || '#22c55e';
+            } catch (err) {
+                console.error('Failed to load branding:', err);
+            }
+        },
+        async saveBranding() {
+            this.savingBranding = true;
+            try {
+                await axios.put('/api/account/branding', {
+                    logo_url: this.branding.logo_url || null,
+                    brand_color: this.branding.brand_color || null,
+                });
+                this.toast.success('Branding saved successfully');
+            } catch (err) {
+                this.toast.error(err.response?.data?.error || 'Failed to save branding');
+            } finally {
+                this.savingBranding = false;
+            }
+        },
+        handleLogoError(event) {
+            // Handle logo load errors
+            event.target.style.display = 'none';
         },
     },
 };

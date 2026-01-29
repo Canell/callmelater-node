@@ -19,6 +19,8 @@ class AccountResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'plan' => $this->getPlan(),
+            'logo_url' => $this->logo_url,
+            'brand_color' => $this->brand_color,
             'owner' => [
                 'id' => $this->owner->id,
                 'name' => $this->owner->name,

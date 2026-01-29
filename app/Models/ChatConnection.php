@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $slack_team_id
  * @property string|null $slack_bot_token
  * @property string|null $slack_signing_secret
+ * @property string|null $slack_channel_id
+ * @property string|null $slack_channel_name
  * @property bool $is_active
  * @property Carbon|null $connected_at
  * @property Carbon $created_at
@@ -45,6 +47,8 @@ class ChatConnection extends Model
         'slack_team_id',
         'slack_bot_token',
         'slack_signing_secret',
+        'slack_channel_id',
+        'slack_channel_name',
         'is_active',
         'connected_at',
     ];

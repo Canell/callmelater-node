@@ -44,7 +44,9 @@ class IntegrationController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'teams_webhook_url' => ['required_if:provider,teams', 'nullable', 'url', 'max:2000'],
             'slack_bot_token' => ['required_if:provider,slack', 'nullable', 'string', 'max:500'],
-            'slack_signing_secret' => ['required_if:provider,slack', 'nullable', 'string', 'max:100'],
+            'slack_signing_secret' => ['nullable', 'string', 'max:100'],
+            'slack_channel_id' => ['required_if:provider,slack', 'nullable', 'string', 'max:50'],
+            'slack_channel_name' => ['nullable', 'string', 'max:255'],
         ]);
 
         // Validate Teams webhook URL format
@@ -63,6 +65,20 @@ class IntegrationController extends Controller
             }
         }
 
+        // Validate Slack bot token by testing the API
+        if ($validated['provider'] === 'slack' && ! empty($validated['slack_bot_token'])) {
+            $testResponse = \Http::withToken($validated['slack_bot_token'])
+                ->timeout(10)
+                ->get('https://slack.com/api/auth.test');
+
+            $testData = $testResponse->json();
+            if (! ($testData['ok'] ?? false)) {
+                return response()->json([
+                    'message' => 'Invalid Slack bot token. Please check your token and try again.',
+                ], 422);
+            }
+        }
+
         $connection = ChatConnection::create([
             'account_id' => $request->user()->account_id,
             'provider' => $validated['provider'],
@@ -70,6 +86,8 @@ class IntegrationController extends Controller
             'teams_webhook_url' => $validated['teams_webhook_url'] ?? null,
             'slack_bot_token' => $validated['slack_bot_token'] ?? null,
             'slack_signing_secret' => $validated['slack_signing_secret'] ?? null,
+            'slack_channel_id' => $validated['slack_channel_id'] ?? null,
+            'slack_channel_name' => $validated['slack_channel_name'] ?? null,
             'is_active' => true,
             'connected_at' => now(),
         ]);
@@ -125,9 +143,11 @@ class IntegrationController extends Controller
 
         try {
             if ($connection->isTeams()) {
-                $result = $this->testTeamsConnection($connection);
+                $this->testTeamsConnection($connection);
+            } elseif ($connection->isSlack()) {
+                $this->testSlackConnection($connection);
             } else {
-                return response()->json(['message' => 'Slack testing not yet implemented.'], 501);
+                return response()->json(['message' => 'Unknown provider.'], 501);
             }
 
             return response()->json([
@@ -208,6 +228,94 @@ class IntegrationController extends Controller
     }
 
     /**
+     * Test Slack connection by sending a simple message.
+     */
+    private function testSlackConnection(ChatConnection $connection): bool
+    {
+        if (empty($connection->slack_bot_token) || empty($connection->slack_channel_id)) {
+            throw new \Exception('Slack bot token and channel are required');
+        }
+
+        $response = \Http::withToken($connection->slack_bot_token)
+            ->timeout(10)
+            ->post('https://slack.com/api/chat.postMessage', [
+                'channel' => $connection->slack_channel_id,
+                'text' => 'Test Connection Successful',
+                'blocks' => [
+                    [
+                        'type' => 'header',
+                        'text' => [
+                            'type' => 'plain_text',
+                            'text' => ':white_check_mark: Test Connection Successful',
+                            'emoji' => true,
+                        ],
+                    ],
+                    [
+                        'type' => 'section',
+                        'text' => [
+                            'type' => 'mrkdwn',
+                            'text' => 'Your CallMeLater integration is working correctly. You will receive reminder notifications in this channel.',
+                        ],
+                    ],
+                ],
+            ]);
+
+        $data = $response->json();
+        if (! ($data['ok'] ?? false)) {
+            $error = $data['error'] ?? 'Unknown error';
+            throw new \Exception("Slack error: {$error}");
+        }
+
+        return true;
+    }
+
+    /**
+     * Fetch Slack channels for a bot token (used during setup).
+     */
+    public function slackChannels(Request $request): JsonResponse
+    {
+        if (! $this->canCreateIntegration($request)) {
+            return response()->json(['message' => 'Chat integrations require a Pro or Business plan.'], 403);
+        }
+
+        $validated = $request->validate([
+            'bot_token' => ['required', 'string'],
+        ]);
+
+        try {
+            $response = \Http::withToken($validated['bot_token'])
+                ->timeout(10)
+                ->get('https://slack.com/api/conversations.list', [
+                    'types' => 'public_channel,private_channel',
+                    'exclude_archived' => true,
+                    'limit' => 200,
+                ]);
+
+            $data = $response->json();
+            if (! ($data['ok'] ?? false)) {
+                return response()->json([
+                    'message' => 'Failed to fetch channels: '.($data['error'] ?? 'Unknown error'),
+                ], 422);
+            }
+
+            $channels = collect($data['channels'] ?? [])
+                ->map(fn ($ch) => [
+                    'id' => $ch['id'],
+                    'name' => $ch['name'],
+                    'is_private' => $ch['is_private'] ?? false,
+                ])
+                ->sortBy('name')
+                ->values();
+
+            return response()->json(['channels' => $channels]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to fetch channels: '.$e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
      * Check if the user can create chat integrations based on their plan.
      */
     private function canCreateIntegration(Request $request): bool
@@ -232,6 +340,7 @@ class IntegrationController extends Controller
             // Don't expose full webhook URL or tokens
             'has_webhook_url' => ! empty($connection->teams_webhook_url),
             'has_bot_token' => ! empty($connection->slack_bot_token),
+            'slack_channel_name' => $connection->slack_channel_name,
         ];
     }
 }

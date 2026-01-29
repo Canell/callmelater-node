@@ -1,3 +1,8 @@
+@php
+    $account = $action->account;
+    $hasCustomBranding = $account && $account->logo_url && $account->getPlan() === 'business';
+    $brandColor = $hasCustomBranding && $account->brand_color ? $account->brand_color : '#22c55e';
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,6 +32,11 @@
             padding-bottom: 24px;
             border-bottom: 1px solid #eee;
         }
+        .header-logo {
+            max-height: 60px;
+            max-width: 200px;
+            margin-bottom: 16px;
+        }
         .header h1 {
             margin: 0;
             font-size: 24px;
@@ -53,7 +63,7 @@
             font-size: 16px;
         }
         .btn-confirm {
-            background-color: #22c55e;
+            background-color: {{ $brandColor }};
             color: #ffffff;
         }
         .btn-decline {
@@ -86,6 +96,9 @@
 <body>
     <div class="container">
         <div class="header">
+            @if($hasCustomBranding)
+                <img src="{{ $account->logo_url }}" alt="{{ $account->name }}" class="header-logo">
+            @endif
             <h1>{{ $action->name }}</h1>
         </div>
 

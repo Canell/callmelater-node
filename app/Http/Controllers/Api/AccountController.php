@@ -104,6 +104,44 @@ class AccountController extends Controller
     }
 
     /**
+     * Update account branding (Business plan only).
+     */
+    public function updateBranding(Request $request): JsonResponse
+    {
+        $request->validate([
+            'logo_url' => 'nullable|url|max:2000',
+            'brand_color' => 'nullable|string|regex:/^#[0-9A-Fa-f]{6}$/',
+        ]);
+
+        $user = $request->user();
+        $account = $user->account;
+
+        // Check Business plan
+        if ($account->getPlan() !== 'business') {
+            return response()->json([
+                'error' => 'Custom branding requires a Business plan.',
+                'upgrade_url' => '/pricing',
+            ], 403);
+        }
+
+        // Only owner/admin can update branding
+        if (! $account->userCanManage($user)) {
+            return response()->json(['error' => 'You do not have permission to update branding'], 403);
+        }
+
+        $account->update([
+            'logo_url' => $request->input('logo_url'),
+            'brand_color' => $request->input('brand_color'),
+        ]);
+
+        return response()->json([
+            'message' => 'Branding updated successfully',
+            'logo_url' => $account->logo_url,
+            'brand_color' => $account->brand_color,
+        ]);
+    }
+
+    /**
      * Remove a member from the account.
      */
     public function removeMember(Request $request, string $userId): JsonResponse

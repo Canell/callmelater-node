@@ -11,6 +11,7 @@ use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
 use App\Models\TeamMember;
 use App\Services\BrevoService;
+use App\Services\Chat\SlackIntegration;
 use App\Services\Chat\TeamsIntegration;
 use App\Services\QuotaService;
 use Illuminate\Bus\Queueable;
@@ -441,7 +442,7 @@ class DeliverReminder implements ShouldQueue
     {
         return match ($provider) {
             'teams' => app(TeamsIntegration::class),
-            // 'slack' => app(SlackIntegration::class), // Phase 2
+            'slack' => app(SlackIntegration::class),
             default => null,
         };
     }

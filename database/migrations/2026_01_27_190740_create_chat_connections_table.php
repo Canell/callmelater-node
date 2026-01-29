@@ -23,6 +23,8 @@ return new class extends Migration
             $table->string('slack_team_id')->nullable();
             $table->text('slack_bot_token')->nullable(); // encrypted
             $table->string('slack_signing_secret')->nullable(); // encrypted
+            $table->string('slack_channel_id')->nullable();
+            $table->string('slack_channel_name')->nullable();
 
             $table->boolean('is_active')->default(true);
             $table->timestamp('connected_at')->nullable();

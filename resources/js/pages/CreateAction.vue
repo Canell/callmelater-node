@@ -253,8 +253,20 @@
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input type="checkbox" class="form-check-input" id="channel-slack" value="slack" v-model="gate.channels" disabled>
-                                        <label class="form-check-label text-muted" for="channel-slack">Slack <span class="small">(Coming Soon)</span></label>
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input"
+                                            id="channel-slack"
+                                            value="slack"
+                                            v-model="gate.channels"
+                                            :disabled="!hasActiveSlackIntegration"
+                                        >
+                                        <label class="form-check-label" for="channel-slack">
+                                            Slack
+                                            <span v-if="!hasActiveSlackIntegration" class="text-muted small">
+                                                (<router-link to="/settings?tab=integrations">Setup</router-link>)
+                                            </span>
+                                        </label>
                                     </div>
                                 </div>
                                 <div class="form-text">
