@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,7 +15,10 @@ use Laravel\Sanctum\HasApiTokens;
 /**
  * @property int $id
  * @property string $name
+ * @property string|null $first_name
+ * @property string|null $last_name
  * @property string $email
+ * @property string|null $phone
  * @property string|null $password
  * @property \Carbon\Carbon|null $email_verified_at
  * @property bool $is_admin
@@ -24,6 +28,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $account_id
  * @property \Carbon\Carbon|null $quota_warning_sent_at
  * @property-read Account|null $account
+ * @property-read string $full_name
  */
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -32,7 +37,10 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'email',
+        'phone',
         'password',
         'email_verified_at',
         'is_admin',
@@ -42,6 +50,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'account_id',
         'quota_warning_sent_at',
     ];
+
+    protected $appends = ['full_name'];
 
     protected $hidden = [
         'password',
@@ -58,6 +68,20 @@ class User extends Authenticatable implements MustVerifyEmail
             'notification_preferences' => 'array',
             'quota_warning_sent_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get the full name (first + last name, or fallback to name field).
+     */
+    protected function fullName(): Attribute
+    {
+        return Attribute::make(
+            get: function () {
+                $fullName = trim(($this->first_name ?? '').' '.($this->last_name ?? ''));
+
+                return $fullName ?: $this->name;
+            }
+        );
     }
 
     /**

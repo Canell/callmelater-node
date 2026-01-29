@@ -105,6 +105,92 @@ class IntegrationController extends Controller
     }
 
     /**
+     * Update a chat connection.
+     */
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $connection = ChatConnection::where('account_id', $request->user()->account_id)
+            ->where('id', $id)
+            ->first();
+
+        if (! $connection) {
+            return response()->json(['error' => 'not_found', 'message' => 'Connection not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'teams_webhook_url' => ['nullable', 'url', 'max:2000'],
+            'slack_bot_token' => ['nullable', 'string', 'max:500'],
+            'slack_signing_secret' => ['nullable', 'string', 'max:100'],
+            'slack_channel_id' => ['nullable', 'string', 'max:50'],
+            'slack_channel_name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        // Validate Teams webhook URL format if provided
+        if ($connection->isTeams() && ! empty($validated['teams_webhook_url'])) {
+            $url = $validated['teams_webhook_url'];
+            $isValidTeamsUrl = str_contains($url, 'webhook.office.com')
+                || str_contains($url, 'outlook.office.com')
+                || str_contains($url, '.logic.azure.com');
+
+            if (! $isValidTeamsUrl) {
+                return response()->json([
+                    'message' => 'Invalid Teams webhook URL.',
+                ], 422);
+            }
+        }
+
+        // Validate Slack bot token if provided
+        if ($connection->isSlack() && ! empty($validated['slack_bot_token'])) {
+            $testResponse = \Http::withToken($validated['slack_bot_token'])
+                ->timeout(10)
+                ->get('https://slack.com/api/auth.test');
+
+            $testData = $testResponse->json();
+            if (! ($testData['ok'] ?? false)) {
+                return response()->json([
+                    'message' => 'Invalid Slack bot token.',
+                ], 422);
+            }
+        }
+
+        // Only update fields that were provided
+        $updateData = [];
+        if (isset($validated['name'])) {
+            $updateData['name'] = $validated['name'];
+        }
+        if ($connection->isTeams() && isset($validated['teams_webhook_url'])) {
+            $updateData['teams_webhook_url'] = $validated['teams_webhook_url'];
+        }
+        if ($connection->isSlack()) {
+            if (isset($validated['slack_bot_token'])) {
+                $updateData['slack_bot_token'] = $validated['slack_bot_token'];
+            }
+            if (isset($validated['slack_channel_id'])) {
+                $updateData['slack_channel_id'] = $validated['slack_channel_id'];
+            }
+            if (isset($validated['slack_channel_name'])) {
+                $updateData['slack_channel_name'] = $validated['slack_channel_name'];
+            }
+        }
+
+        if (! empty($updateData)) {
+            $connection->update($updateData);
+        }
+
+        Log::info('Chat connection updated', [
+            'connection_id' => $connection->id,
+            'provider' => $connection->provider,
+            'account_id' => $connection->account_id,
+        ]);
+
+        return response()->json([
+            'message' => 'Connection updated successfully.',
+            'data' => $this->formatConnection($connection),
+        ]);
+    }
+
+    /**
      * Delete a chat connection.
      */
     public function destroy(Request $request, string $id): JsonResponse

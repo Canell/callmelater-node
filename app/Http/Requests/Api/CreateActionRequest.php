@@ -106,6 +106,10 @@ class CreateActionRequest extends FormRequest
             'gate.escalation.contacts' => ['nullable', 'array'],
             'gate.escalation.contacts.*' => ['email'],
 
+            // Integration IDs (specific Teams/Slack connections to use)
+            'gate.integration_ids' => ['nullable', 'array'],
+            'gate.integration_ids.*' => ['string', 'uuid'],
+
             // Creator notification
             'notify_creator_on_response' => ['nullable', 'boolean'],
         ];
@@ -281,9 +285,38 @@ class CreateActionRequest extends FormRequest
                 }
             }
 
+            // Validate integration_ids if provided
+            $integrationIds = $this->input('gate.integration_ids', []);
+            if (! empty($integrationIds)) {
+                // Check plan allows chat integrations
+                if (! $user->getPlanLimit('chat_integrations')) {
+                    $validator->errors()->add('gate.integration_ids', 'Teams and Slack notifications require a Pro or Business plan.');
+                } else {
+                    // Validate each integration ID exists and belongs to the account
+                    foreach ($integrationIds as $index => $integrationId) {
+                        $connection = ChatConnection::where('id', $integrationId)
+                            ->where('account_id', $user->account_id)
+                            ->first();
+
+                        if (! $connection) {
+                            $validator->errors()->add(
+                                "gate.integration_ids.{$index}",
+                                'Invalid integration ID or integration does not belong to your account.'
+                            );
+                        } elseif (! $connection->is_active) {
+                            $validator->errors()->add(
+                                "gate.integration_ids.{$index}",
+                                "Integration '{$connection->name}' is disabled. Please enable it in Settings first."
+                            );
+                        }
+                    }
+                }
+            }
+
             // Check chat channels (Teams/Slack) require Pro/Business plan and active connection
+            // Only validate channels if integration_ids is not provided (legacy support)
             $chatChannels = array_intersect($channels, ['teams', 'slack']);
-            if (! empty($chatChannels)) {
+            if (! empty($chatChannels) && empty($integrationIds)) {
                 // Check plan allows chat integrations
                 if (! $user->getPlanLimit('chat_integrations')) {
                     $validator->errors()->add('gate.channels', 'Teams and Slack notifications require a Pro or Business plan.');

@@ -261,16 +261,24 @@ class DeliverReminder implements ShouldQueue
         $tokenExpiryDays = ScheduledAction::parseTimeoutToDays($this->action->getGateTimeout());
         $sentCount = 0;
 
+        // Get specific integration IDs if provided
+        $integrationIds = $this->action->gate['integration_ids'] ?? [];
+
         foreach (['teams', 'slack'] as $provider) {
             if (! in_array($provider, $channels, true)) {
                 continue;
             }
 
-            // Get all active connections for this provider
-            $connections = ChatConnection::where('account_id', $this->action->account_id)
+            // Get connections - either specific IDs or all active for this provider
+            $query = ChatConnection::where('account_id', $this->action->account_id)
                 ->where('provider', $provider)
-                ->where('is_active', true)
-                ->get();
+                ->where('is_active', true);
+
+            if (! empty($integrationIds)) {
+                $query->whereIn('id', $integrationIds);
+            }
+
+            $connections = $query->get();
 
             foreach ($connections as $connection) {
                 $webhookUrl = $connection->teams_webhook_url ?? $connection->slack_bot_token;
@@ -282,11 +290,12 @@ class DeliverReminder implements ShouldQueue
                 $recipientRecord = ReminderRecipient::firstOrCreate(
                     [
                         'action_id' => $this->action->id,
-                        'chat_destination' => $webhookUrl,
+                        'email' => "{$provider}:{$connection->id}", // Unique identifier per connection
                     ],
                     [
-                        'email' => "{$provider}:{$connection->id}", // Placeholder identifier
                         'chat_provider' => $provider,
+                        'chat_destination' => $webhookUrl,
+                        'slack_channel_id' => $connection->slack_channel_id,
                         'status' => ReminderRecipient::STATUS_PENDING,
                         'response_token' => Str::random(20),
                     ]
@@ -364,13 +373,21 @@ class DeliverReminder implements ShouldQueue
     private function sendChat(ReminderRecipient $recipient, string $provider): bool
     {
         try {
-            // Get the chat connection for this account
-            $connection = ChatConnection::where('account_id', $this->action->account_id)
-                ->where('provider', $provider)
-                ->where('is_active', true)
-                ->first();
+            // Get specific integration IDs if provided
+            $integrationIds = $this->action->gate['integration_ids'] ?? [];
 
-            if (! $connection) {
+            // Get the chat connections for this account
+            $query = ChatConnection::where('account_id', $this->action->account_id)
+                ->where('provider', $provider)
+                ->where('is_active', true);
+
+            if (! empty($integrationIds)) {
+                $query->whereIn('id', $integrationIds);
+            }
+
+            $connections = $query->get();
+
+            if ($connections->isEmpty()) {
                 Log::warning('No active chat connection found', [
                     'action_id' => $this->action->id,
                     'provider' => $provider,
@@ -379,50 +396,72 @@ class DeliverReminder implements ShouldQueue
                 return false;
             }
 
-            // Get the webhook URL for Teams (stored in the connection)
-            // For individual recipient targeting, we'd need user mapping
-            // For now, we use the account's default webhook
-            $webhookUrl = $connection->teams_webhook_url;
-            if (! $webhookUrl) {
-                Log::warning('No webhook URL configured for chat connection', [
+            $sentAny = false;
+
+            // Send to all matching connections
+            foreach ($connections as $connection) {
+                // Get the webhook URL for Teams or bot token for Slack
+                $destination = $connection->teams_webhook_url ?? $connection->slack_bot_token;
+                if (! $destination) {
+                    Log::warning('No webhook/token configured for chat connection', [
+                        'action_id' => $this->action->id,
+                        'provider' => $provider,
+                        'connection_id' => $connection->id,
+                    ]);
+
+                    continue;
+                }
+
+                // Create a separate recipient record for each chat connection
+                $chatRecipient = ReminderRecipient::firstOrCreate(
+                    [
+                        'action_id' => $this->action->id,
+                        'email' => "{$provider}:{$connection->id}",
+                    ],
+                    [
+                        'chat_provider' => $provider,
+                        'chat_destination' => $destination,
+                        'slack_channel_id' => $connection->slack_channel_id,
+                        'status' => ReminderRecipient::STATUS_PENDING,
+                        'response_token' => Str::random(20),
+                    ]
+                );
+
+                if ($chatRecipient->status !== ReminderRecipient::STATUS_PENDING) {
+                    continue;
+                }
+
+                // Get the integration service
+                $integration = $this->getChatIntegration($provider);
+                if (! $integration) {
+                    continue;
+                }
+
+                // Send the decision card
+                $result = $integration->sendDecisionCard(
+                    $this->action,
+                    $chatRecipient,
+                    $chatRecipient->response_token
+                );
+
+                // Update the chat recipient record
+                $chatRecipient->update([
+                    'status' => ReminderRecipient::STATUS_SENT,
+                    'chat_message_id' => $result['message_id'],
+                ]);
+
+                Log::info('Chat notification sent', [
                     'action_id' => $this->action->id,
                     'provider' => $provider,
                     'connection_id' => $connection->id,
+                    'connection_name' => $connection->name,
+                    'message_id' => $result['message_id'],
                 ]);
 
-                return false;
+                $sentAny = true;
             }
 
-            // Store the webhook URL as the chat destination
-            $recipient->chat_provider = $provider;
-            $recipient->chat_destination = $webhookUrl;
-            $recipient->save();
-
-            // Get the integration service
-            $integration = $this->getChatIntegration($provider);
-            if (! $integration) {
-                return false;
-            }
-
-            // Send the decision card
-            $result = $integration->sendDecisionCard(
-                $this->action,
-                $recipient,
-                $recipient->response_token
-            );
-
-            // Store the message ID for potential updates
-            $recipient->chat_message_id = $result['message_id'];
-            $recipient->save();
-
-            Log::info('Chat notification sent', [
-                'action_id' => $this->action->id,
-                'provider' => $provider,
-                'recipient' => $recipient->email,
-                'message_id' => $result['message_id'],
-            ]);
-
-            return true;
+            return $sentAny;
         } catch (\Exception $e) {
             Log::error('Failed to send chat notification', [
                 'action_id' => $this->action->id,

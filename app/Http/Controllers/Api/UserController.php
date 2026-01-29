@@ -14,15 +14,21 @@ use Illuminate\Validation\ValidationException;
 class UserController extends Controller
 {
     /**
-     * Update the user's profile (timezone).
+     * Update the user's profile.
      */
     public function updateProfile(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'first_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
             'timezone' => ['required', 'string', 'timezone'],
         ]);
 
         $request->user()->update([
+            'first_name' => $validated['first_name'] ?? null,
+            'last_name' => $validated['last_name'] ?? null,
+            'phone' => $validated['phone'] ?? null,
             'timezone' => $validated['timezone'],
         ]);
 

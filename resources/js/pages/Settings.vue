@@ -46,6 +46,17 @@
                             <h5 class="mb-0">Profile</h5>
                         </div>
                         <div class="card-body">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">First Name</label>
+                                    <input type="text" class="form-control" v-model="profile.first_name" placeholder="John">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-muted">Last Name</label>
+                                    <input type="text" class="form-control" v-model="profile.last_name" placeholder="Doe">
+                                </div>
+                            </div>
+
                             <div class="mb-4">
                                 <label class="form-label text-muted">Email</label>
                                 <div class="d-flex align-items-center">
@@ -53,6 +64,12 @@
                                     <span v-if="user?.email_verified_at" class="badge bg-success ms-2">Verified</span>
                                     <span v-else class="badge bg-warning ms-2">Unverified</span>
                                 </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label text-muted">Phone</label>
+                                <input type="tel" class="form-control" v-model="profile.phone" placeholder="+1 555 123 4567" style="max-width: 300px;">
+                                <small class="text-muted">Used when selecting yourself as a reminder recipient</small>
                             </div>
 
                             <div class="mb-4">
@@ -644,13 +661,22 @@
                                                         <i :class="getProviderIcon(integration.provider)" class="me-1"></i>
                                                         {{ integration.name }}
                                                     </h6>
-                                                    <small class="text-muted">{{ getProviderLabel(integration.provider) }}</small>
+                                                    <small class="text-muted">
+                                                        {{ getProviderLabel(integration.provider) }}
+                                                        <span v-if="integration.slack_channel_name"> · #{{ integration.slack_channel_name }}</span>
+                                                    </small>
                                                 </div>
                                                 <span :class="integration.is_active ? 'badge bg-success' : 'badge bg-secondary'">
                                                     {{ integration.is_active ? 'Active' : 'Disabled' }}
                                                 </span>
                                             </div>
                                             <div class="d-flex gap-2 mt-3">
+                                                <button
+                                                    class="btn btn-sm btn-outline-secondary"
+                                                    @click="openIntegrationModal(integration)"
+                                                >
+                                                    Edit
+                                                </button>
                                                 <button
                                                     class="btn btn-sm btn-outline-primary"
                                                     @click="testIntegration(integration)"
@@ -684,7 +710,7 @@
                         <div class="modal-dialog">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title">Add Chat Integration</h5>
+                                    <h5 class="modal-title">{{ editingIntegration ? 'Edit' : 'Add' }} Chat Integration</h5>
                                     <button type="button" class="btn-close" @click="closeIntegrationModal"></button>
                                 </div>
                                 <div class="modal-body">
@@ -692,10 +718,11 @@
 
                                     <div class="mb-3">
                                         <label class="form-label">Provider</label>
-                                        <select class="form-select" v-model="integrationForm.provider" @change="onProviderChange">
+                                        <select class="form-select" v-model="integrationForm.provider" @change="onProviderChange" :disabled="!!editingIntegration">
                                             <option value="teams">Microsoft Teams</option>
                                             <option value="slack">Slack</option>
                                         </select>
+                                        <div v-if="editingIntegration" class="form-text">Provider cannot be changed after creation.</div>
                                     </div>
 
                                     <div class="mb-3">
@@ -707,15 +734,15 @@
                                     <!-- Teams configuration -->
                                     <div v-if="integrationForm.provider === 'teams'">
                                         <div class="mb-3">
-                                            <label class="form-label">Webhook URL *</label>
+                                            <label class="form-label">Webhook URL {{ editingIntegration ? '' : '*' }}</label>
                                             <input
                                                 type="url"
                                                 class="form-control"
                                                 v-model="integrationForm.teams_webhook_url"
-                                                placeholder="Paste your Teams webhook URL here"
+                                                :placeholder="editingIntegration ? 'Leave blank to keep current URL' : 'Paste your Teams webhook URL here'"
                                             >
                                             <small class="text-muted">
-                                                See instructions below for how to create a webhook in Teams
+                                                {{ editingIntegration ? 'Only enter a new URL if you want to change it' : 'See instructions below for how to create a webhook in Teams' }}
                                             </small>
                                         </div>
 
@@ -741,19 +768,22 @@
                                     <!-- Slack configuration -->
                                     <div v-if="integrationForm.provider === 'slack'">
                                         <div class="mb-3">
-                                            <label class="form-label">Bot Token *</label>
+                                            <label class="form-label">Bot Token {{ editingIntegration ? '' : '*' }}</label>
                                             <input
                                                 type="text"
                                                 class="form-control"
                                                 v-model="integrationForm.slack_bot_token"
-                                                placeholder="xoxb-..."
+                                                :placeholder="editingIntegration ? 'Leave blank to keep current token' : 'xoxb-...'"
                                                 @blur="fetchSlackChannels"
                                             >
-                                            <small class="text-muted">Your Slack app's Bot User OAuth Token</small>
+                                            <small class="text-muted">{{ editingIntegration ? 'Only enter a new token if you want to change it' : 'Your Slack app\'s Bot User OAuth Token' }}</small>
                                         </div>
 
                                         <div class="mb-3">
-                                            <label class="form-label">Channel *</label>
+                                            <label class="form-label">Channel {{ editingIntegration ? '' : '*' }}</label>
+                                            <div v-if="editingIntegration && editingIntegration.slack_channel_name && slackChannels.length === 0" class="mb-2">
+                                                <span class="badge bg-secondary">Current: #{{ editingIntegration.slack_channel_name }}</span>
+                                            </div>
                                             <div v-if="loadingSlackChannels" class="text-muted small">
                                                 <span class="spinner-border spinner-border-sm me-1"></span> Loading channels...
                                             </div>
@@ -761,14 +791,14 @@
                                                 v-else
                                                 class="form-select"
                                                 v-model="integrationForm.slack_channel_id"
-                                                :disabled="slackChannels.length === 0"
+                                                :disabled="slackChannels.length === 0 && !editingIntegration"
                                             >
-                                                <option value="">{{ slackChannels.length === 0 ? 'Enter bot token first' : 'Select a channel' }}</option>
+                                                <option value="">{{ slackChannels.length === 0 ? (editingIntegration ? 'Keep current channel' : 'Enter bot token first') : 'Select a channel' }}</option>
                                                 <option v-for="ch in slackChannels" :key="ch.id" :value="ch.id">
                                                     {{ ch.is_private ? '🔒 ' : '#' }}{{ ch.name }}
                                                 </option>
                                             </select>
-                                            <small class="text-muted">The channel where reminders will be posted</small>
+                                            <small class="text-muted">{{ editingIntegration ? 'Select a new channel to change it, or leave empty to keep current' : 'The channel where reminders will be posted' }}</small>
                                         </div>
 
                                         <div class="alert alert-info small">
@@ -1223,6 +1253,9 @@ export default {
 
             // Profile
             profile: {
+                first_name: '',
+                last_name: '',
+                phone: '',
                 timezone: '',
             },
             savingProfile: false,
@@ -1467,6 +1500,9 @@ export default {
                 this.webhookSecret = webhookRes.data.secret;
 
                 // Set profile defaults
+                this.profile.first_name = this.user.first_name || '';
+                this.profile.last_name = this.user.last_name || '';
+                this.profile.phone = this.user.phone || '';
                 this.profile.timezone = this.user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                 // Set notification defaults from user preferences
@@ -1539,10 +1575,16 @@ export default {
             this.profileSaved = false;
             try {
                 await axios.put('/api/user/profile', {
+                    first_name: this.profile.first_name || null,
+                    last_name: this.profile.last_name || null,
+                    phone: this.profile.phone || null,
                     timezone: this.profile.timezone,
                 });
                 this.profileSaved = true;
                 // Update local user object and localStorage
+                this.user.first_name = this.profile.first_name;
+                this.user.last_name = this.profile.last_name;
+                this.user.phone = this.profile.phone;
                 this.user.timezone = this.profile.timezone;
                 localStorage.setItem('userTimezone', this.profile.timezone);
                 setTimeout(() => { this.profileSaved = false; }, 3000);
@@ -2131,23 +2173,44 @@ export default {
             this.integrationFormError = null;
             try {
                 const payload = {
-                    provider: this.integrationForm.provider,
                     name: this.integrationForm.name,
                 };
-                if (this.integrationForm.provider === 'teams') {
-                    payload.teams_webhook_url = this.integrationForm.teams_webhook_url;
-                } else if (this.integrationForm.provider === 'slack') {
-                    payload.slack_bot_token = this.integrationForm.slack_bot_token;
-                    payload.slack_channel_id = this.integrationForm.slack_channel_id;
-                    // Find the channel name from the list
-                    const selectedChannel = this.slackChannels.find(ch => ch.id === this.integrationForm.slack_channel_id);
-                    if (selectedChannel) {
-                        payload.slack_channel_name = selectedChannel.name;
+
+                if (this.editingIntegration) {
+                    // Update existing - only send changed fields
+                    if (this.integrationForm.provider === 'teams' && this.integrationForm.teams_webhook_url) {
+                        payload.teams_webhook_url = this.integrationForm.teams_webhook_url;
+                    } else if (this.integrationForm.provider === 'slack') {
+                        if (this.integrationForm.slack_bot_token) {
+                            payload.slack_bot_token = this.integrationForm.slack_bot_token;
+                        }
+                        if (this.integrationForm.slack_channel_id) {
+                            payload.slack_channel_id = this.integrationForm.slack_channel_id;
+                            const selectedChannel = this.slackChannels.find(ch => ch.id === this.integrationForm.slack_channel_id);
+                            if (selectedChannel) {
+                                payload.slack_channel_name = selectedChannel.name;
+                            }
+                        }
                     }
+                    await axios.put(`/api/v1/integrations/${this.editingIntegration.id}`, payload);
+                    this.toast.success('Integration updated successfully.');
+                } else {
+                    // Create new
+                    payload.provider = this.integrationForm.provider;
+                    if (this.integrationForm.provider === 'teams') {
+                        payload.teams_webhook_url = this.integrationForm.teams_webhook_url;
+                    } else if (this.integrationForm.provider === 'slack') {
+                        payload.slack_bot_token = this.integrationForm.slack_bot_token;
+                        payload.slack_channel_id = this.integrationForm.slack_channel_id;
+                        const selectedChannel = this.slackChannels.find(ch => ch.id === this.integrationForm.slack_channel_id);
+                        if (selectedChannel) {
+                            payload.slack_channel_name = selectedChannel.name;
+                        }
+                    }
+                    await axios.post('/api/v1/integrations', payload);
+                    this.toast.success('Integration added successfully.');
                 }
 
-                await axios.post('/api/v1/integrations', payload);
-                this.toast.success('Integration added successfully.');
                 this.closeIntegrationModal();
                 await this.loadIntegrations();
             } catch (err) {

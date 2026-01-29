@@ -30,7 +30,11 @@ class AccountResource extends JsonResource
                 return $this->members->map(fn ($member) => [
                     'id' => $member->id,
                     'name' => $member->name,
+                    'first_name' => $member->first_name,
+                    'last_name' => $member->last_name,
+                    'full_name' => $member->full_name,
                     'email' => $member->email,
+                    'phone' => $member->phone,
                     'role' => $member->pivot->role, // @phpstan-ignore-line
                     'joined_at' => $member->pivot->created_at?->toIso8601String(), // @phpstan-ignore-line
                 ]);

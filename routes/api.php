@@ -129,6 +129,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::prefix('integrations')->group(function () {
             Route::get('/', [IntegrationController::class, 'index']);
             Route::post('/', [IntegrationController::class, 'store']);
+            Route::put('/{id}', [IntegrationController::class, 'update']);
             Route::delete('/{id}', [IntegrationController::class, 'destroy']);
             Route::post('/{id}/test', [IntegrationController::class, 'test']);
             Route::post('/{id}/toggle', [IntegrationController::class, 'toggle']);

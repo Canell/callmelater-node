@@ -163,7 +163,7 @@
                                     <label class="form-label small text-muted">
                                         {{ teamMembers.length > 0 ? 'Or enter additional email/phone:' : 'Enter recipients (one per line):' }}
                                     </label>
-                                    <!-- Team member quick-add buttons -->
+                                    <!-- Account member quick-add buttons -->
                                     <div v-if="otherAccountMembers.length > 0" class="mb-2">
                                         <small class="text-muted d-block mb-1">Quick add account members:</small>
                                         <div class="d-flex flex-wrap gap-1">
@@ -173,7 +173,7 @@
                                                     class="btn btn-sm btn-outline-secondary"
                                                     @click="addRecipient(member.email || member.phone)"
                                                 >
-                                                    <span class="me-1">+</span>{{ member.name || member.email || member.phone }}
+                                                    <span class="me-1">+</span>{{ member.full_name || member.name || member.email }}
                                                 </button>
                                                 <button
                                                     v-if="member.email && member.phone"
@@ -232,45 +232,42 @@
                                 <input type="number" class="form-control" v-model="gate.max_snoozes" min="0" max="10" style="max-width: 100px;">
                             </div>
 
-                            <!-- Additional Notification Channels (Teams/Slack) -->
+                            <!-- Chat Integrations (Teams/Slack) -->
                             <div class="mb-3">
-                                <label class="form-label">Additional Channels <span class="text-muted fw-normal">(optional)</span></label>
-                                <div class="d-flex flex-wrap gap-3">
-                                    <div class="form-check">
-                                        <input
-                                            type="checkbox"
-                                            class="form-check-input"
-                                            id="channel-teams"
-                                            value="teams"
-                                            v-model="gate.channels"
-                                            :disabled="!hasActiveTeamsIntegration"
-                                        >
-                                        <label class="form-check-label" for="channel-teams">
-                                            Microsoft Teams
-                                            <span v-if="!hasActiveTeamsIntegration" class="text-muted small">
-                                                (<router-link to="/settings?tab=integrations">Setup</router-link>)
-                                            </span>
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input
-                                            type="checkbox"
-                                            class="form-check-input"
-                                            id="channel-slack"
-                                            value="slack"
-                                            v-model="gate.channels"
-                                            :disabled="!hasActiveSlackIntegration"
-                                        >
-                                        <label class="form-check-label" for="channel-slack">
-                                            Slack
-                                            <span v-if="!hasActiveSlackIntegration" class="text-muted small">
-                                                (<router-link to="/settings?tab=integrations">Setup</router-link>)
-                                            </span>
-                                        </label>
-                                    </div>
+                                <label class="form-label">Chat Channels <span class="text-muted fw-normal">(optional)</span></label>
+
+                                <!-- Integration selector -->
+                                <div v-if="activeIntegrations.length > 0" class="mb-2">
+                                    <select class="form-select" @change="addIntegration($event)" style="max-width: 350px;">
+                                        <option value="">Add a Teams or Slack channel...</option>
+                                        <option v-for="integration in availableIntegrations" :key="integration.id" :value="integration.id">
+                                            {{ integration.provider === 'teams' ? '📣' : '💬' }} {{ integration.name }}
+                                            {{ integration.slack_channel_name ? `(#${integration.slack_channel_name})` : '' }}
+                                        </option>
+                                    </select>
                                 </div>
-                                <div class="form-text">
-                                    Email/SMS is automatic based on recipient type. Use this to also post to a Teams or Slack channel.
+
+                                <!-- Selected integrations as badges -->
+                                <div v-if="selectedIntegrations.length > 0" class="mb-2">
+                                    <span
+                                        v-for="integration in selectedIntegrations"
+                                        :key="integration.id"
+                                        class="badge me-1 mb-1 d-inline-flex align-items-center"
+                                        :class="integration.provider === 'teams' ? 'bg-primary' : 'bg-success'"
+                                    >
+                                        {{ integration.provider === 'teams' ? '📣' : '💬' }} {{ integration.name }}
+                                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" @click="removeIntegration(integration)"></button>
+                                    </span>
+                                </div>
+
+                                <!-- No integrations message -->
+                                <div v-if="activeIntegrations.length === 0" class="text-muted small">
+                                    No chat integrations configured.
+                                    <router-link to="/settings?tab=integrations">Set up Teams or Slack</router-link>
+                                </div>
+
+                                <div v-else class="form-text">
+                                    Email/SMS is automatic based on recipient type. Select channels above to also post there.
                                 </div>
                             </div>
 
@@ -323,7 +320,7 @@
                                         Escalation Contacts
                                         <span class="text-muted fw-normal">(one per line)</span>
                                     </label>
-                                    <!-- Team member quick-add for escalation -->
+                                    <!-- Account member quick-add for escalation -->
                                     <div v-if="otherAccountMembers.length > 0 && escalation.hours" class="mb-2">
                                         <small class="text-muted d-block mb-1">Quick add:</small>
                                         <div class="d-flex flex-wrap gap-1">
@@ -333,7 +330,7 @@
                                                     class="btn btn-sm btn-outline-secondary"
                                                     @click="addEscalationContact(member.email || member.phone)"
                                                 >
-                                                    <span class="me-1">+</span>{{ member.name || member.email || member.phone }}
+                                                    <span class="me-1">+</span>{{ member.full_name || member.name || member.email }}
                                                 </button>
                                                 <button
                                                     v-if="member.email && member.phone"
@@ -545,6 +542,7 @@ export default {
             },
             notify_creator_on_response: false,
             chatIntegrations: [],
+            selectedIntegrations: [],
             // Request configuration (for immediate or gated+execute)
             request: {
                 method: 'POST',
@@ -645,11 +643,12 @@ export default {
             const lines = this.recipientsText.split('\n').map(l => l.trim()).filter(l => l);
             return lines.some(line => /^\+?[\d\s\-()]+$/.test(line) && line.replace(/\D/g, '').length >= 10);
         },
-        hasActiveTeamsIntegration() {
-            return this.chatIntegrations.some(i => i.provider === 'teams' && i.is_active);
+        activeIntegrations() {
+            return this.chatIntegrations.filter(i => i.is_active);
         },
-        hasActiveSlackIntegration() {
-            return this.chatIntegrations.some(i => i.provider === 'slack' && i.is_active);
+        availableIntegrations() {
+            const selectedIds = this.selectedIntegrations.map(i => i.id);
+            return this.activeIntegrations.filter(i => !selectedIds.includes(i.id));
         },
         currentRecipientEmails() {
             if (!this.recipientsText) return [];
@@ -1036,6 +1035,19 @@ export default {
         removeTeamMemberRecipient(member) {
             this.selectedTeamMembers = this.selectedTeamMembers.filter(m => m.id !== member.id);
         },
+        addIntegration(event) {
+            const integrationId = event.target.value;
+            if (!integrationId) return;
+            const integration = this.chatIntegrations.find(i => i.id === integrationId);
+            if (integration && !this.selectedIntegrations.some(i => i.id === integrationId)) {
+                this.selectedIntegrations.push(integration);
+            }
+            // Reset the select
+            event.target.value = '';
+        },
+        removeIntegration(integration) {
+            this.selectedIntegrations = this.selectedIntegrations.filter(i => i.id !== integration.id);
+        },
         async submit() {
             this.submitting = true;
             this.error = null;
@@ -1103,9 +1115,13 @@ export default {
                         autoChannels.push('sms');
                     }
 
-                    // Add additional channels (Teams/Slack) from user selection
-                    const additionalChannels = this.gate.channels.filter(c => ['teams', 'slack'].includes(c));
-                    const allChannels = [...new Set([...autoChannels, ...additionalChannels])];
+                    // Add channels from selected integrations
+                    const selectedTeamsIds = this.selectedIntegrations.filter(i => i.provider === 'teams').map(i => i.id);
+                    const selectedSlackIds = this.selectedIntegrations.filter(i => i.provider === 'slack').map(i => i.id);
+                    if (selectedTeamsIds.length > 0) autoChannels.push('teams');
+                    if (selectedSlackIds.length > 0) autoChannels.push('slack');
+
+                    const allChannels = [...new Set(autoChannels)];
 
                     payload.gate = {
                         message: this.gate.message,
@@ -1115,6 +1131,9 @@ export default {
                         confirmation_mode: this.gate.confirmation_mode,
                         max_snoozes: parseInt(this.gate.max_snoozes),
                         channels: allChannels.length > 0 ? allChannels : undefined,
+                        integration_ids: this.selectedIntegrations.length > 0
+                            ? this.selectedIntegrations.map(i => i.id)
+                            : undefined,
                     };
 
                     // Add notify_creator_on_response
