@@ -85,8 +85,8 @@
 
         <h1>{{ $action->name }}</h1>
 
-        @if($action->message)
-        <div class="message">{{ $action->message }}</div>
+        @if($action->getGateMessage())
+        <div class="message">{{ $action->getGateMessage() }}</div>
         @endif
 
         <div class="details">

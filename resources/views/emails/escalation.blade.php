@@ -107,7 +107,7 @@
 
         <p>This reminder has been escalated to you because the original recipient(s) did not respond in time.</p>
 
-        <div class="message">{{ $action->message }}</div>
+        <div class="message">{{ $action->getGateMessage() }}</div>
 
         <div class="buttons">
             <a href="{{ $confirmUrl }}" class="btn btn-confirm">Yes, Confirm</a>

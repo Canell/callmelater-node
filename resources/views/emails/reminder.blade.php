@@ -104,7 +104,7 @@
 
         <p>You have a reminder that requires your response:</p>
 
-        <div class="message">{{ $action->message }}</div>
+        <div class="message">{{ $action->getGateMessage() }}</div>
 
         <div class="buttons">
             <a href="{{ $confirmUrl }}" class="btn btn-confirm">Yes, Confirm</a>
