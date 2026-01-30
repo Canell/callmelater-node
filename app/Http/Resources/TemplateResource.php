@@ -19,6 +19,7 @@ class TemplateResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'description' => $this->description,
+            'type' => $this->type ?? 'action',
             'mode' => $this->mode,
             'timezone' => $this->timezone,
 
@@ -26,9 +27,13 @@ class TemplateResource extends JsonResource
             'trigger_url' => $this->trigger_url,
             'trigger_token' => $this->trigger_token,
 
-            // Configuration
+            // Configuration (action templates)
             'request_config' => $this->when(! empty($this->request_config), $this->request_config),
             'gate_config' => $this->when(! empty($this->gate_config), $this->gate_config),
+
+            // Configuration (chain templates)
+            'chain_steps' => $this->when(! empty($this->chain_steps), $this->chain_steps),
+            'chain_error_handling' => $this->when($this->type === 'chain', $this->chain_error_handling),
 
             // Retry settings
             'max_attempts' => $this->max_attempts,

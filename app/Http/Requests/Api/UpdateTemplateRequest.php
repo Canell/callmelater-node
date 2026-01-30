@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\ActionChain;
+use App\Models\ActionTemplate;
 use App\Models\ScheduledAction;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -18,13 +20,33 @@ class UpdateTemplateRequest extends FormRequest
      */
     public function rules(): array
     {
-        $mode = $this->input('mode');
+        $type = $this->input('type', ActionTemplate::TYPE_ACTION);
+        $isChain = $type === ActionTemplate::TYPE_CHAIN;
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
+            'type' => ['nullable', 'string', Rule::in([ActionTemplate::TYPE_ACTION, ActionTemplate::TYPE_CHAIN])],
             'mode' => ['sometimes', 'string', Rule::in([ScheduledAction::MODE_IMMEDIATE, ScheduledAction::MODE_GATED])],
             'timezone' => ['nullable', 'string', 'timezone:all'],
+
+            // Chain-specific fields
+            'chain_steps' => [$isChain ? 'required' : 'nullable', 'array', 'min:2', 'max:20'],
+            'chain_steps.*.name' => ['required', 'string', 'max:255'],
+            'chain_steps.*.type' => ['required', 'string', Rule::in([ActionChain::STEP_HTTP_CALL, ActionChain::STEP_GATED, ActionChain::STEP_DELAY])],
+            'chain_steps.*.delay' => ['nullable', 'string', 'regex:/^\d+[mhd]$/'],
+            'chain_steps.*.condition' => ['nullable', 'string', 'max:500'],
+            'chain_steps.*.url' => ['nullable', 'string', 'max:2048'],
+            'chain_steps.*.method' => ['nullable', 'string', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
+            'chain_steps.*.headers' => ['nullable', 'array'],
+            'chain_steps.*.body' => ['nullable'],
+            'chain_steps.*.gate' => ['nullable', 'array'],
+            'chain_steps.*.gate.message' => ['nullable', 'string', 'max:5000'],
+            'chain_steps.*.gate.recipients' => ['nullable', 'array'],
+            'chain_steps.*.gate.recipients.*' => ['string'],
+            'chain_steps.*.gate.channels' => ['nullable', 'array'],
+            'chain_steps.*.gate.channels.*' => ['string', Rule::in(['email', 'sms', 'teams', 'slack'])],
+            'chain_error_handling' => ['nullable', 'string', Rule::in([ActionChain::ERROR_FAIL_CHAIN, ActionChain::ERROR_SKIP_STEP])],
 
             // Request config
             'request_config' => ['nullable', 'array'],
@@ -66,19 +88,6 @@ class UpdateTemplateRequest extends FormRequest
 
             // Status
             'is_active' => ['nullable', 'boolean'],
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return [
-            'request_config.url.required_with' => 'A URL is required in the request configuration.',
-            'gate_config.message.required_with' => 'A message is required in the gate configuration.',
-            'gate_config.timeout.regex' => 'Timeout must be a number followed by h (hours), d (days), or w (weeks).',
-            'placeholders.*.name.regex' => 'Placeholder names must start with a letter or underscore and contain only alphanumeric characters and underscores.',
         ];
     }
 
@@ -132,6 +141,68 @@ class UpdateTemplateRequest extends FormRequest
                     );
                 }
             }
+
+            // Validate chain steps have required fields based on type
+            $chainSteps = $this->input('chain_steps', []);
+            foreach ($chainSteps as $index => $step) {
+                $stepType = $step['type'] ?? null;
+
+                if ($stepType === ActionChain::STEP_HTTP_CALL) {
+                    if (empty($step['url'])) {
+                        $validator->errors()->add(
+                            "chain_steps.{$index}.url",
+                            'URL is required for HTTP call steps.'
+                        );
+                    } else {
+                        // Validate URL format (allow placeholders)
+                        $testUrl = preg_replace('/\{\{[^}]+\}\}/', 'placeholder', $step['url']);
+                        if (! str_starts_with($testUrl, 'http://') && ! str_starts_with($testUrl, 'https://')) {
+                            $validator->errors()->add(
+                                "chain_steps.{$index}.url",
+                                'The URL must start with http:// or https://'
+                            );
+                        }
+                    }
+                }
+
+                if ($stepType === ActionChain::STEP_GATED) {
+                    if (empty($step['gate']) || empty($step['gate']['message'])) {
+                        $validator->errors()->add(
+                            "chain_steps.{$index}.gate.message",
+                            'A gate message is required for approval steps.'
+                        );
+                    }
+                }
+
+                if ($stepType === ActionChain::STEP_DELAY) {
+                    if (empty($step['delay'])) {
+                        $validator->errors()->add(
+                            "chain_steps.{$index}.delay",
+                            'Delay duration is required for delay steps.'
+                        );
+                    }
+                }
+            }
         });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'request_config.url.required_with' => 'A URL is required in the request configuration.',
+            'gate_config.message.required_with' => 'A message is required in the gate configuration.',
+            'gate_config.timeout.regex' => 'Timeout must be a number followed by h (hours), d (days), or w (weeks).',
+            'placeholders.*.name.regex' => 'Placeholder names must start with a letter or underscore and contain only alphanumeric characters and underscores.',
+            'chain_steps.required' => 'Chain steps are required for chain templates.',
+            'chain_steps.min' => 'A chain must have at least 2 steps.',
+            'chain_steps.max' => 'A chain cannot have more than 20 steps.',
+            'chain_steps.*.name.required' => 'Each chain step must have a name.',
+            'chain_steps.*.type.required' => 'Each chain step must have a type.',
+            'chain_steps.*.type.in' => 'Step type must be http_call, gated, or delay.',
+            'chain_steps.*.delay.regex' => 'Delay must be a number followed by m (minutes), h (hours), or d (days).',
+        ];
     }
 }

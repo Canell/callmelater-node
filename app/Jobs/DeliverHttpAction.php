@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\DeliveryAttempt;
 use App\Models\ExecutionCycle;
 use App\Models\ScheduledAction;
+use App\Services\ChainService;
 use App\Services\HttpRequestService;
 use App\Services\UrlValidator;
 use Illuminate\Bus\Queueable;
@@ -167,11 +168,36 @@ class DeliverHttpAction implements ShouldQueue
                 ?->markAsSuccess();
         }
 
+        // Advance chain if this action is part of one
+        if ($this->action->isChainStep()) {
+            $this->advanceChain([
+                'status_code' => $statusCode,
+                'body' => json_decode($attempt->response_body ?? '{}', true) ?? [],
+            ]);
+        }
+
         $this->log('info', 'delivery_success', [
             'status_code' => $statusCode,
             'duration_ms' => $durationMs,
             'attempt' => $attempt->attempt_number,
         ]);
+    }
+
+    /**
+     * Advance the chain after this step completes.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function advanceChain(array $response = []): void
+    {
+        try {
+            $chain = $this->action->chain;
+            if ($chain && ! $chain->isTerminal()) {
+                app(ChainService::class)->advanceChain($chain, $this->action, $response);
+            }
+        } catch (\Throwable $e) {
+            $this->log('error', 'chain_advance_failed', ['error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -185,8 +211,10 @@ class DeliverHttpAction implements ShouldQueue
 
         if ($isClientError) {
             // 4xx - Client errors are terminal (bad request, not found, unauthorized, etc.)
-            $this->action->markAsFailed("HTTP {$statusCode}: Client error (not retryable)");
-            $this->updateExecutionCycleOnFailure("HTTP {$statusCode}: Client error (not retryable)");
+            $failureReason = "HTTP {$statusCode}: Client error (not retryable)";
+            $this->action->markAsFailed($failureReason);
+            $this->updateExecutionCycleOnFailure($failureReason);
+            $this->handleChainStepFailure($failureReason);
 
             $this->log('warning', 'delivery_failed', [
                 'failure_type' => $failureType,
@@ -213,6 +241,7 @@ class DeliverHttpAction implements ShouldQueue
                 $failureReason = "HTTP {$statusCode}: Failed after {$this->action->attempt_count} attempts";
                 $this->action->markAsFailed($failureReason);
                 $this->updateExecutionCycleOnFailure($failureReason);
+                $this->handleChainStepFailure($failureReason);
 
                 $this->log('error', 'delivery_failed', [
                     'failure_type' => $failureType,
@@ -223,6 +252,25 @@ class DeliverHttpAction implements ShouldQueue
                     'reason' => 'max_attempts_reached',
                 ]);
             }
+        }
+    }
+
+    /**
+     * Handle chain step failure.
+     */
+    private function handleChainStepFailure(string $reason): void
+    {
+        if (! $this->action->isChainStep()) {
+            return;
+        }
+
+        try {
+            $chain = $this->action->chain;
+            if ($chain && ! $chain->isTerminal()) {
+                app(ChainService::class)->handleStepFailure($chain, $this->action, $reason);
+            }
+        } catch (\Throwable $e) {
+            $this->log('error', 'chain_failure_handling_failed', ['error' => $e->getMessage()]);
         }
     }
 
@@ -247,6 +295,7 @@ class DeliverHttpAction implements ShouldQueue
             $failureReason = "System error: {$errorMessage} (after {$this->action->attempt_count} attempts)";
             $this->action->markAsFailed($failureReason);
             $this->updateExecutionCycleOnFailure($failureReason);
+            $this->handleChainStepFailure($failureReason);
 
             $this->log('error', 'delivery_failed', [
                 'failure_type' => self::FAILURE_SYSTEM,

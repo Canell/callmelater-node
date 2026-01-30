@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Mail;
 /**
  * @property string $id
  * @property string $account_id
+ * @property string|null $chain_id
+ * @property int|null $chain_step
  * @property int|null $created_by_user_id
  * @property string $name
  * @property string|null $description
@@ -108,6 +110,8 @@ class ScheduledAction extends Model
 
     protected $fillable = [
         'account_id',
+        'chain_id',
+        'chain_step',
         'created_by_user_id',
         'template_id',
         'name',
@@ -166,6 +170,22 @@ class ScheduledAction extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    /**
+     * The chain this action belongs to (if any).
+     */
+    public function chain(): BelongsTo
+    {
+        return $this->belongsTo(ActionChain::class);
+    }
+
+    /**
+     * Check if this action is part of a chain.
+     */
+    public function isChainStep(): bool
+    {
+        return $this->chain_id !== null;
     }
 
     /**

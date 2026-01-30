@@ -10,6 +10,9 @@ import App from './App.vue';
 // are now served by Blade templates for SEO
 import Dashboard from './pages/Dashboard.vue';
 import Responses from './pages/Responses.vue';
+import Chains from './pages/Chains.vue';
+import ChainDetail from './pages/ChainDetail.vue';
+import CreateChain from './pages/CreateChain.vue';
 import Login from './pages/Login.vue';
 import Register from './pages/Register.vue';
 import CreateAction from './pages/CreateAction.vue';
@@ -45,6 +48,9 @@ const routes = [
     { path: '/responses', name: 'responses', component: Responses, meta: { requiresAuth: true } },
     { path: '/actions/create', name: 'create-action', component: CreateAction, meta: { requiresAuth: true } },
     { path: '/actions/:id', name: 'action-detail', component: ActionDetail, meta: { requiresAuth: true } },
+    { path: '/chains', name: 'chains', component: Chains, meta: { requiresAuth: true } },
+    { path: '/chains/create', name: 'create-chain', component: CreateChain, meta: { requiresAuth: true } },
+    { path: '/chains/:id', name: 'chain-detail', component: ChainDetail, meta: { requiresAuth: true } },
     { path: '/templates', name: 'templates', component: Templates, meta: { requiresAuth: true } },
     { path: '/templates/create', name: 'create-template', component: CreateTemplate, meta: { requiresAuth: true } },
     { path: '/templates/:id/edit', name: 'edit-template', component: CreateTemplate, meta: { requiresAuth: true } },

@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ActionResource;
+use App\Http\Resources\ChainResource;
 use App\Models\Account;
+use App\Models\ActionChain;
 use App\Models\ActionTemplate;
 use App\Models\ScheduledAction;
 use App\Models\User;
 use App\Services\ActionService;
+use App\Services\ChainService;
 use App\Services\PlaceholderService;
 use App\Services\QuotaService;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +21,7 @@ class TemplateTriggerController extends Controller
 {
     public function __construct(
         private ActionService $actionService,
+        private ChainService $chainService,
         private PlaceholderService $placeholderService,
         private QuotaService $quotaService
     ) {}
@@ -91,6 +95,11 @@ class TemplateTriggerController extends Controller
         }
 
         try {
+            // Handle chain templates differently
+            if ($template->isChain()) {
+                return $this->triggerChain($template, $account, $user, $params);
+            }
+
             // Create the action via ActionService
             $result = $this->actionService->create($user, $actionData);
 
@@ -212,5 +221,124 @@ class TemplateTriggerController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Trigger a chain template to create a chain.
+     *
+     * @param  array<string, mixed>  $params
+     */
+    private function triggerChain(ActionTemplate $template, Account $account, User $user, array $params): JsonResponse
+    {
+        // Build chain data from template with placeholder substitution
+        $chainData = $this->buildChainData($template, $params);
+
+        // Create the chain via ChainService
+        $chain = $this->chainService->createChain($account, $chainData, $user);
+
+        // Update template stats
+        $template->recordTrigger();
+
+        return response()->json([
+            'message' => 'Chain created from template.',
+            'data' => new ChainResource($chain),
+        ], 201);
+    }
+
+    /**
+     * Build chain data from template configuration with placeholder substitution.
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>
+     */
+    private function buildChainData(ActionTemplate $template, array $params): array
+    {
+        $data = [
+            'name' => $this->placeholderService->substitute($template->name, $params),
+            'error_handling' => $template->getChainErrorHandling(),
+            'input' => $params, // Pass all params as chain input
+        ];
+
+        // Process chain steps with placeholder substitution
+        $steps = [];
+        foreach ($template->getChainSteps() as $step) {
+            $processedStep = $this->processChainStep($step, $params);
+            $steps[] = $processedStep;
+        }
+        $data['steps'] = $steps;
+
+        return $data;
+    }
+
+    /**
+     * Process a single chain step with placeholder substitution.
+     *
+     * @param  array<string, mixed>  $step
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>
+     */
+    private function processChainStep(array $step, array $params): array
+    {
+        $processed = [
+            'name' => $this->placeholderService->substitute($step['name'] ?? 'Step', $params),
+            'type' => $step['type'],
+        ];
+
+        // Handle condition
+        if (! empty($step['condition'])) {
+            $processed['condition'] = $this->placeholderService->substitute($step['condition'], $params);
+        }
+
+        // Handle delay
+        if (! empty($step['delay'])) {
+            $processed['delay'] = $step['delay'];
+        }
+
+        // Type-specific processing
+        if ($step['type'] === ActionChain::STEP_HTTP_CALL) {
+            $processed['url'] = $this->placeholderService->substitute($step['url'] ?? '', $params);
+            $processed['method'] = $step['method'] ?? 'POST';
+
+            if (! empty($step['headers'])) {
+                $processed['headers'] = $this->placeholderService->substituteDeep($step['headers'], $params);
+            }
+
+            if (! empty($step['body'])) {
+                // Handle body stored as string template
+                if (is_string($step['body'])) {
+                    $bodyString = $this->placeholderService->substitute($step['body'], $params);
+                    $parsedBody = json_decode($bodyString, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $processed['body'] = $parsedBody;
+                    }
+                } else {
+                    $processed['body'] = $this->placeholderService->substituteDeep($step['body'], $params);
+                }
+            }
+        } elseif ($step['type'] === ActionChain::STEP_GATED) {
+            $gate = $step['gate'] ?? [];
+            $processed['gate'] = [
+                'message' => $this->placeholderService->substitute($gate['message'] ?? '', $params),
+                'channels' => $gate['channels'] ?? ['email'],
+            ];
+
+            // Process recipients with placeholder substitution
+            if (! empty($gate['recipients'])) {
+                $processed['gate']['recipients'] = array_map(
+                    fn ($r) => $this->placeholderService->substitute($r, $params),
+                    $gate['recipients']
+                );
+            }
+
+            // Copy other gate settings
+            foreach (['timeout', 'on_timeout', 'max_snoozes', 'confirmation_mode', 'integration_ids'] as $key) {
+                if (isset($gate[$key])) {
+                    $processed['gate'][$key] = $gate[$key];
+                }
+            }
+        }
+        // Delay steps just need the delay field which is already handled above
+
+        return $processed;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ActionChain;
 use App\Models\ActionTemplate;
 use App\Models\ScheduledAction;
 use App\Models\User;
@@ -869,5 +870,360 @@ class ActionTemplateTest extends TestCase
         $action = ScheduledAction::where('template_id', $template->id)->first();
         $this->assertEquals(12345, $action->request['body']['idbooking']);
         $this->assertEquals('Test Booking', $action->request['body']['name']);
+    }
+
+    // ==================== CHAIN TEMPLATES ====================
+
+    public function test_can_create_chain_template(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'User Onboarding Chain',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'Create User',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/users',
+                    'method' => 'POST',
+                    'body' => ['email' => '{{email}}'],
+                ],
+                [
+                    'name' => 'Manager Approval',
+                    'type' => 'gated',
+                    'gate' => [
+                        'message' => 'Approve new user {{email}}?',
+                        'channels' => ['email'],
+                        'recipients' => ['manager@example.com'],
+                    ],
+                ],
+            ],
+            'chain_error_handling' => 'fail_chain',
+            'placeholders' => [
+                ['name' => 'email', 'required' => true],
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.type', 'chain')
+            ->assertJsonPath('data.name', 'User Onboarding Chain');
+
+        $this->assertDatabaseHas('action_templates', [
+            'name' => 'User Onboarding Chain',
+            'type' => 'chain',
+            'account_id' => $this->user->account_id,
+        ]);
+    }
+
+    public function test_chain_template_requires_at_least_2_steps(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'Invalid Chain',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'Only Step',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/test',
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_chain_template_validates_http_call_requires_url(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'Missing URL Chain',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'No URL Step',
+                    'type' => 'http_call',
+                    // Missing url
+                ],
+                [
+                    'name' => 'Second Step',
+                    'type' => 'delay',
+                    'delay' => '5m',
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_chain_template_validates_gated_requires_message(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'Missing Gate Message',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'First Step',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/test',
+                ],
+                [
+                    'name' => 'Approval Step',
+                    'type' => 'gated',
+                    'gate' => [
+                        // Missing message
+                        'channels' => ['email'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_chain_template_validates_delay_requires_duration(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'Missing Delay',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'First Step',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/test',
+                ],
+                [
+                    'name' => 'Delay Step',
+                    'type' => 'delay',
+                    // Missing delay
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_chain_template_does_not_require_mode(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        // Chain templates don't need mode (that's per-step)
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'Chain Without Mode',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'Step 1',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/step1',
+                ],
+                [
+                    'name' => 'Step 2',
+                    'type' => 'delay',
+                    'delay' => '5m',
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_chain_template_does_not_require_request_config(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        // Chain templates don't need request_config (each step has its own config)
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'Chain Without Request Config',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'Step 1',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/step1',
+                ],
+                [
+                    'name' => 'Step 2',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/step2',
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_trigger_chain_template_creates_chain(): void
+    {
+        $template = ActionTemplate::factory()->create([
+            'account_id' => $this->user->account_id,
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'Create User',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/users',
+                    'method' => 'POST',
+                    'body' => ['email' => '{{email}}'],
+                ],
+                [
+                    'name' => 'Wait',
+                    'type' => 'delay',
+                    'delay' => '5m',
+                ],
+            ],
+            'placeholders' => [
+                ['name' => 'email', 'required' => true],
+            ],
+        ]);
+
+        $response = $this->postJson("/t/{$template->trigger_token}", [
+            'email' => 'test@example.com',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'name',
+                    'status',
+                    'steps',
+                ],
+            ]);
+
+        // Verify chain was created
+        $this->assertDatabaseHas('action_chains', [
+            'account_id' => $this->user->account_id,
+        ]);
+    }
+
+    public function test_trigger_chain_template_substitutes_placeholders_in_steps(): void
+    {
+        $template = ActionTemplate::factory()->create([
+            'account_id' => $this->user->account_id,
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'Process {{item_type}}',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/{{item_type}}/{{item_id}}',
+                    'method' => 'POST',
+                ],
+                [
+                    'name' => 'Approval',
+                    'type' => 'gated',
+                    'gate' => [
+                        'message' => 'Approve {{item_type}} #{{item_id}}?',
+                        'channels' => ['email'],
+                        'recipients' => ['{{approver}}'],
+                    ],
+                ],
+            ],
+            'placeholders' => [
+                ['name' => 'item_type', 'required' => true],
+                ['name' => 'item_id', 'required' => true],
+                ['name' => 'approver', 'required' => true],
+            ],
+        ]);
+
+        $response = $this->postJson("/t/{$template->trigger_token}", [
+            'item_type' => 'orders',
+            'item_id' => '12345',
+            'approver' => 'manager@example.com',
+        ]);
+
+        $response->assertStatus(201);
+
+        // Check chain steps were substituted
+        $chain = ActionChain::where('account_id', $this->user->account_id)->first();
+        $steps = $chain->steps;
+
+        $this->assertEquals('Process orders', $steps[0]['name']);
+        $this->assertEquals('https://api.example.com/orders/12345', $steps[0]['url']);
+        $this->assertEquals('Approve orders #12345?', $steps[1]['gate']['message']);
+        $this->assertContains('manager@example.com', $steps[1]['gate']['recipients']);
+    }
+
+    public function test_chain_template_supports_step_conditions(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $response = $this->postJson('/api/v1/templates', [
+            'name' => 'Conditional Chain',
+            'type' => 'chain',
+            'chain_steps' => [
+                [
+                    'name' => 'Step 1',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/step1',
+                ],
+                [
+                    'name' => 'Conditional Step',
+                    'type' => 'http_call',
+                    'url' => 'https://api.example.com/step2',
+                    'condition' => "{{steps.0.status}} == 'executed'",
+                ],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+
+        $template = ActionTemplate::where('name', 'Conditional Chain')->first();
+        $this->assertEquals("{{steps.0.status}} == 'executed'", $template->chain_steps[1]['condition']);
+    }
+
+    public function test_can_update_chain_template(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $template = ActionTemplate::factory()->create([
+            'account_id' => $this->user->account_id,
+            'type' => 'chain',
+            'chain_steps' => [
+                ['name' => 'Step 1', 'type' => 'http_call', 'url' => 'https://old.com/1'],
+                ['name' => 'Step 2', 'type' => 'delay', 'delay' => '5m'],
+            ],
+        ]);
+
+        $response = $this->putJson("/api/v1/templates/{$template->id}", [
+            'name' => 'Updated Chain',
+            'chain_steps' => [
+                ['name' => 'New Step 1', 'type' => 'http_call', 'url' => 'https://new.com/1'],
+                ['name' => 'New Step 2', 'type' => 'http_call', 'url' => 'https://new.com/2'],
+            ],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.name', 'Updated Chain');
+
+        $template->refresh();
+        $this->assertEquals('New Step 1', $template->chain_steps[0]['name']);
+        $this->assertEquals('https://new.com/1', $template->chain_steps[0]['url']);
+    }
+
+    public function test_trigger_chain_template_updates_stats(): void
+    {
+        $template = ActionTemplate::factory()->create([
+            'account_id' => $this->user->account_id,
+            'type' => 'chain',
+            'trigger_count' => 0,
+            'chain_steps' => [
+                ['name' => 'Step 1', 'type' => 'http_call', 'url' => 'https://api.example.com/1'],
+                ['name' => 'Step 2', 'type' => 'delay', 'delay' => '5m'],
+            ],
+        ]);
+
+        $this->postJson("/t/{$template->trigger_token}");
+
+        $template->refresh();
+        $this->assertEquals(1, $template->trigger_count);
+        $this->assertNotNull($template->last_triggered_at);
     }
 }

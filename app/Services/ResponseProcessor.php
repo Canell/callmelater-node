@@ -8,14 +8,14 @@ use App\Mail\ReminderDeclinedMail;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
-use App\Services\CreatorNotificationService;
 use Illuminate\Support\Facades\Mail;
 
 class ResponseProcessor
 {
     public function __construct(
         private ActionService $actionService,
-        private CreatorNotificationService $creatorNotificationService
+        private CreatorNotificationService $creatorNotificationService,
+        private ChainService $chainService
     ) {}
 
     /**
@@ -42,10 +42,18 @@ class ResponseProcessor
         if ($shouldProceed) {
             if ($action->hasRequest()) {
                 // Gated action with request - execute HTTP on approval
+                // Chain advancement will happen after HTTP execution in DeliverHttpAction
                 $this->executeGatedRequest($action);
             } else {
                 // Callback-only gated action
                 $this->actionService->markExecuted($action);
+
+                // Advance chain if this is a chain step
+                $this->advanceChainIfNeeded($action, [
+                    'outcome' => 'confirmed',
+                    'responder' => $recipient->email,
+                    'comment' => $comment,
+                ]);
             }
         }
 
@@ -76,6 +84,13 @@ class ResponseProcessor
             $action->resolution_status = ScheduledAction::STATUS_EXECUTED;
             $action->executed_at_utc = now();
             $action->save();
+
+            // Advance chain if this is a chain step
+            $this->advanceChainIfNeeded($action, [
+                'outcome' => 'declined',
+                'responder' => $recipient->email,
+                'comment' => $comment,
+            ]);
         }
 
         // Send decline notification to action owner
@@ -216,6 +231,23 @@ class ResponseProcessor
             'snooze' => 'Action snoozed. You will receive another notification soon.',
             default => 'Your response has been recorded.',
         };
+    }
+
+    /**
+     * Advance chain if this action is a chain step.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function advanceChainIfNeeded(ScheduledAction $action, array $response = []): void
+    {
+        if (! $action->isChainStep()) {
+            return;
+        }
+
+        $chain = $action->chain;
+        if ($chain && ! $chain->isTerminal()) {
+            $this->chainService->advanceChain($chain, $action, $response);
+        }
     }
 
     /**

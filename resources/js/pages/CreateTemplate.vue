@@ -19,8 +19,60 @@
                 </div>
 
                 <form v-else @submit.prevent="submit">
-                    <!-- Mode Selection -->
+                    <!-- Template Type Selection -->
+                    <div class="card card-cml mb-4">
+                        <div class="card-header bg-transparent">
+                            <h5 class="mb-0">Template Type</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-2 mb-md-0">
+                                    <div
+                                        class="type-option p-3 rounded border"
+                                        :class="{ 'border-success bg-success-subtle': form.type === 'action' }"
+                                        @click="setType('action')"
+                                        style="cursor: pointer;"
+                                    >
+                                        <div class="d-flex align-items-start">
+                                            <div class="form-check">
+                                                <input type="radio" class="form-check-input" :checked="form.type === 'action'" @change="setType('action')">
+                                            </div>
+                                            <div class="ms-2">
+                                                <strong>Single Action</strong>
+                                                <p class="text-muted small mb-0 mt-1">
+                                                    Create a template for single HTTP calls or approval requests.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div
+                                        class="type-option p-3 rounded border"
+                                        :class="{ 'border-success bg-success-subtle': form.type === 'chain' }"
+                                        @click="setType('chain')"
+                                        style="cursor: pointer;"
+                                    >
+                                        <div class="d-flex align-items-start">
+                                            <div class="form-check">
+                                                <input type="radio" class="form-check-input" :checked="form.type === 'chain'" @change="setType('chain')">
+                                            </div>
+                                            <div class="ms-2">
+                                                <strong>Chain (Multi-step Workflow)</strong>
+                                                <p class="text-muted small mb-0 mt-1">
+                                                    Create a template for workflows with multiple HTTP calls, approvals, and delays.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode Selection (only for action type) -->
                     <ModeSelector
+                        v-if="form.type === 'action'"
                         v-model="form.mode"
                         title="How should actions from this template execute?"
                         immediate-description="Execute HTTP request at scheduled time"
@@ -123,9 +175,214 @@
                         </div>
                     </div>
 
+                    <!-- Chain Steps (for chain type) -->
+                    <div v-if="form.type === 'chain'" class="card card-cml mb-4">
+                        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Chain Steps ({{ chainSteps.length }})</h5>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-primary" @click="addChainStep('http_call')">
+                                    + HTTP Call
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" @click="addChainStep('gated')">
+                                    + Approval
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" @click="addChainStep('delay')">
+                                    + Delay
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div v-if="chainSteps.length === 0" class="text-center py-4 text-muted border rounded bg-light">
+                                Add at least 2 steps to create a chain template.
+                            </div>
+
+                            <div
+                                v-for="(step, index) in chainSteps"
+                                :key="index"
+                                class="step-card mb-3"
+                            >
+                                <div class="step-header d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="step-number">{{ index + 1 }}</span>
+                                        <span class="badge" :class="stepTypeBadge(step.type)">
+                                            {{ formatStepType(step.type) }}
+                                        </span>
+                                        <input
+                                            type="text"
+                                            class="form-control form-control-sm step-name-input"
+                                            v-model="step.name"
+                                            placeholder="Step name"
+                                            style="width: 200px;"
+                                        >
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            :disabled="index === 0"
+                                            @click="moveChainStep(index, -1)"
+                                        >
+                                            &uarr;
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            :disabled="index === chainSteps.length - 1"
+                                            @click="moveChainStep(index, 1)"
+                                        >
+                                            &darr;
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            @click="removeChainStep(index)"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- HTTP Call step config -->
+                                <div v-if="step.type === 'http_call'" class="step-body">
+                                    <div class="row">
+                                        <div class="col-md-2 mb-2">
+                                            <label class="form-label small">Method</label>
+                                            <select class="form-select form-select-sm" v-model="step.method">
+                                                <option value="GET">GET</option>
+                                                <option value="POST">POST</option>
+                                                <option value="PUT">PUT</option>
+                                                <option value="PATCH">PATCH</option>
+                                                <option value="DELETE">DELETE</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-10 mb-2">
+                                            <label class="form-label small">URL</label>
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-sm"
+                                                v-model="step.url"
+                                                placeholder="https://api.example.com/{{endpoint}} or {{input.url}}"
+                                                required
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small">
+                                            Request Body (JSON)
+                                            <small class="text-muted" v-pre>- Use {{placeholder}}, {{input.field}} or {{steps.0.response.field}}</small>
+                                        </label>
+                                        <textarea
+                                            class="form-control form-control-sm font-monospace"
+                                            v-model="step.bodyJson"
+                                            rows="3"
+                                            placeholder='{"user_id": "{{user_id}}", "data": "{{steps.0.response.id}}"}'
+                                        ></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- Gated step config -->
+                                <div v-else-if="step.type === 'gated'" class="step-body">
+                                    <div class="mb-2">
+                                        <label class="form-label small">Message</label>
+                                        <textarea
+                                            class="form-control form-control-sm"
+                                            v-model="step.gate.message"
+                                            rows="2"
+                                            placeholder="Approve this action? Use {{placeholder}} for variables."
+                                            required
+                                        ></textarea>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6 mb-2">
+                                            <label class="form-label small">Recipients (one per line)</label>
+                                            <textarea
+                                                class="form-control form-control-sm"
+                                                v-model="step.recipientsText"
+                                                rows="2"
+                                                placeholder="manager@example.com&#10;{{approver_email}}"
+                                            ></textarea>
+                                        </div>
+                                        <div class="col-md-6 mb-2">
+                                            <label class="form-label small">Channels</label>
+                                            <div class="d-flex gap-3 mt-1">
+                                                <div class="form-check">
+                                                    <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="email" :id="'email-' + index">
+                                                    <label class="form-check-label" :for="'email-' + index">Email</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="teams" :id="'teams-' + index">
+                                                    <label class="form-check-label" :for="'teams-' + index">Teams</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="slack" :id="'slack-' + index">
+                                                    <label class="form-check-label" :for="'slack-' + index">Slack</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Delay step config -->
+                                <div v-else-if="step.type === 'delay'" class="step-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Delay Duration</label>
+                                            <div class="input-group input-group-sm">
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    v-model="step.delayValue"
+                                                    min="1"
+                                                    required
+                                                >
+                                                <select class="form-select" v-model="step.delayUnit">
+                                                    <option value="m">Minutes</option>
+                                                    <option value="h">Hours</option>
+                                                    <option value="d">Days</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Condition (for all step types) -->
+                                <div class="step-body border-top pt-2 mt-2">
+                                    <div class="form-check">
+                                        <input
+                                            type="checkbox"
+                                            class="form-check-input"
+                                            :id="'condition-' + index"
+                                            v-model="step.hasCondition"
+                                        >
+                                        <label class="form-check-label small" :for="'condition-' + index">
+                                            Add condition (only run if...)
+                                        </label>
+                                    </div>
+                                    <div v-if="step.hasCondition" class="mt-2">
+                                        <input
+                                            type="text"
+                                            class="form-control form-control-sm"
+                                            v-model="step.condition"
+                                            placeholder="{{steps.0.status}} == 'executed' or {{steps.1.response.approved}} == true"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chain error handling -->
+                            <div v-if="chainSteps.length > 0" class="mt-3 pt-3 border-top">
+                                <label class="form-label">On Step Failure</label>
+                                <select class="form-select" v-model="chainErrorHandling" style="max-width: 300px;">
+                                    <option value="fail_chain">Fail entire chain</option>
+                                    <option value="skip_step">Skip failed step and continue</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Request Configuration (for immediate mode or gated with execute on approval) -->
                     <RequestConfigForm
-                        v-if="form.mode === 'immediate' || showRequestForGated"
+                        v-if="form.type === 'action' && (form.mode === 'immediate' || showRequestForGated)"
                         title="HTTP Request Configuration"
                         :request="request"
                         @update:request="request = $event"
@@ -143,9 +400,9 @@
                         :show-docs-link="false"
                     />
 
-                    <!-- Gate Configuration (for gated mode) -->
+                    <!-- Gate Configuration (for gated mode on action type) -->
                     <GateConfigForm
-                        v-if="form.mode === 'gated'"
+                        v-if="form.type === 'action' && form.mode === 'gated'"
                         :gate="gate"
                         @update:gate="gate = $event"
                         v-model:recipientsText="recipientsText"
@@ -158,8 +415,9 @@
                         :show-placeholder-hint="true"
                     />
 
-                    <!-- Coordination -->
+                    <!-- Coordination (only for action templates) -->
                     <CoordinationForm
+                        v-if="form.type === 'action'"
                         v-model:keysText="coordinationKeysText"
                         :coordination="coordination"
                         @update:coordination="coordination = $event"
@@ -237,12 +495,15 @@ export default {
             form: {
                 name: '',
                 description: '',
+                type: 'action',
                 mode: 'immediate',
                 timezone: localStorage.getItem('userTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone,
                 max_attempts: 5,
                 retry_strategy: 'exponential',
                 placeholders: [],
             },
+            chainSteps: [],
+            chainErrorHandling: 'fail_chain',
             request: {
                 method: 'POST',
                 url: '',
@@ -302,6 +563,9 @@ export default {
             return this.validateJson(this.bodyJson, 'body');
         },
         hasValidationErrors() {
+            if (this.form.type === 'chain') {
+                return this.chainSteps.length < 2;
+            }
             return !!(this.headersJsonError || this.bodyJsonError);
         },
         examplePayload() {
@@ -331,13 +595,47 @@ export default {
                 // Populate form
                 this.form.name = template.name;
                 this.form.description = template.description || '';
-                this.form.mode = template.mode;
+                this.form.type = template.type || 'action';
+                this.form.mode = template.mode || 'immediate';
                 this.form.timezone = template.timezone || 'UTC';
                 this.form.max_attempts = template.max_attempts || 5;
                 this.form.retry_strategy = template.retry_strategy || 'exponential';
                 this.form.placeholders = template.placeholders || [];
 
-                // Request config
+                // Chain-specific fields
+                if (template.type === 'chain' && template.chain_steps) {
+                    this.chainErrorHandling = template.chain_error_handling || 'fail_chain';
+                    this.chainSteps = template.chain_steps.map(step => {
+                        const loadedStep = {
+                            name: step.name || 'Step',
+                            type: step.type,
+                            hasCondition: !!step.condition,
+                            condition: step.condition || '',
+                        };
+
+                        if (step.type === 'http_call') {
+                            loadedStep.method = step.method || 'POST';
+                            loadedStep.url = step.url || '';
+                            loadedStep.bodyJson = step.body
+                                ? (typeof step.body === 'string' ? step.body : JSON.stringify(step.body, null, 2))
+                                : '';
+                        } else if (step.type === 'gated') {
+                            loadedStep.gate = {
+                                message: step.gate?.message || '',
+                                channels: step.gate?.channels || ['email'],
+                            };
+                            loadedStep.recipientsText = (step.gate?.recipients || []).join('\n');
+                        } else if (step.type === 'delay') {
+                            const delayMatch = (step.delay || '5m').match(/^(\d+)([mhd])$/);
+                            loadedStep.delayValue = delayMatch ? parseInt(delayMatch[1]) : 5;
+                            loadedStep.delayUnit = delayMatch ? delayMatch[2] : 'm';
+                        }
+
+                        return loadedStep;
+                    });
+                }
+
+                // Request config (action templates only)
                 if (template.request_config) {
                     this.request.method = template.request_config.method || 'POST';
                     this.request.url = template.request_config.url || '';
@@ -355,7 +653,7 @@ export default {
                     }
                 }
 
-                // Gate config
+                // Gate config (action templates only)
                 if (template.gate_config) {
                     this.gate.message = template.gate_config.message || '';
                     if (template.gate_config.timeout) {
@@ -371,7 +669,7 @@ export default {
                     this.recipientsText = (template.gate_config.recipients || []).join('\n');
                 }
 
-                // Coordination
+                // Coordination (action templates only)
                 if (template.default_coordination_keys?.length) {
                     this.coordinationKeysText = template.default_coordination_keys.join(', ');
                     this.showCoordination = true;
@@ -402,6 +700,102 @@ export default {
         },
         removePlaceholder(index) {
             this.form.placeholders.splice(index, 1);
+        },
+        setType(type) {
+            this.form.type = type;
+        },
+        formatStepType(type) {
+            const labels = {
+                http_call: 'HTTP Call',
+                gated: 'Approval',
+                delay: 'Delay',
+            };
+            return labels[type] || type;
+        },
+        stepTypeBadge(type) {
+            const classes = {
+                http_call: 'bg-info text-dark',
+                gated: 'bg-warning text-dark',
+                delay: 'bg-secondary',
+            };
+            return classes[type] || 'bg-secondary';
+        },
+        addChainStep(type) {
+            const step = {
+                name: `Step ${this.chainSteps.length + 1}`,
+                type,
+                hasCondition: false,
+                condition: '',
+            };
+
+            if (type === 'http_call') {
+                step.method = 'POST';
+                step.url = '';
+                step.bodyJson = '';
+            } else if (type === 'gated') {
+                step.gate = {
+                    message: '',
+                    channels: ['email'],
+                };
+                step.recipientsText = '';
+            } else if (type === 'delay') {
+                step.delayValue = 5;
+                step.delayUnit = 'm';
+            }
+
+            this.chainSteps.push(step);
+        },
+        removeChainStep(index) {
+            this.chainSteps.splice(index, 1);
+        },
+        moveChainStep(index, direction) {
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= this.chainSteps.length) return;
+
+            const temp = this.chainSteps[index];
+            this.chainSteps[index] = this.chainSteps[newIndex];
+            this.chainSteps[newIndex] = temp;
+        },
+        buildChainStepsPayload() {
+            return this.chainSteps.map(step => {
+                const result = {
+                    name: step.name,
+                    type: step.type,
+                };
+
+                if (step.hasCondition && step.condition) {
+                    result.condition = step.condition;
+                }
+
+                if (step.type === 'http_call') {
+                    result.method = step.method;
+                    result.url = step.url;
+                    if (step.bodyJson && step.bodyJson.trim()) {
+                        // Check if body contains unquoted placeholders
+                        if (this.hasUnquotedPlaceholders(step.bodyJson)) {
+                            result.body = step.bodyJson;
+                        } else {
+                            try {
+                                result.body = JSON.parse(step.bodyJson);
+                            } catch {
+                                result.body = step.bodyJson;
+                            }
+                        }
+                    }
+                } else if (step.type === 'gated') {
+                    result.gate = {
+                        message: step.gate.message,
+                        channels: step.gate.channels,
+                        recipients: step.recipientsText
+                            ? step.recipientsText.split('\n').map(r => r.trim()).filter(r => r)
+                            : [],
+                    };
+                } else if (step.type === 'delay') {
+                    result.delay = `${step.delayValue}${step.delayUnit}`;
+                }
+
+                return result;
+            });
         },
         validateJson(jsonString, fieldName) {
             if (!jsonString || !jsonString.trim()) {
@@ -453,10 +847,8 @@ export default {
                 const payload = {
                     name: this.form.name,
                     description: this.form.description || null,
-                    mode: this.form.mode,
+                    type: this.form.type,
                     timezone: this.form.timezone,
-                    max_attempts: parseInt(this.form.max_attempts),
-                    retry_strategy: this.form.retry_strategy,
                 };
 
                 // Placeholders
@@ -464,66 +856,77 @@ export default {
                     payload.placeholders = this.form.placeholders.filter(ph => ph.name);
                 }
 
-                // Request config
-                if (this.form.mode === 'immediate' || this.showRequestForGated) {
-                    payload.request_config = {
-                        method: this.request.method,
-                        url: this.request.url,
-                    };
-                    if (this.headersJson.trim()) {
-                        payload.request_config.headers = JSON.parse(this.headersJson);
-                    }
-                    if (this.bodyJson.trim()) {
-                        // Check if body contains unquoted placeholders (e.g., {{id}} not inside quotes)
-                        // If so, send as string to preserve numeric placeholder substitution
-                        const hasUnquotedPlaceholders = this.hasUnquotedPlaceholders(this.bodyJson);
-                        if (hasUnquotedPlaceholders) {
-                            // Send as raw string - backend will parse after substitution
-                            payload.request_config.body = this.bodyJson;
-                        } else {
-                            payload.request_config.body = JSON.parse(this.bodyJson);
+                // Chain-specific fields
+                if (this.form.type === 'chain') {
+                    payload.chain_steps = this.buildChainStepsPayload();
+                    payload.chain_error_handling = this.chainErrorHandling;
+                } else {
+                    // Action-specific fields
+                    payload.mode = this.form.mode;
+                    payload.max_attempts = parseInt(this.form.max_attempts);
+                    payload.retry_strategy = this.form.retry_strategy;
+
+                    // Request config
+                    if (this.form.mode === 'immediate' || this.showRequestForGated) {
+                        payload.request_config = {
+                            method: this.request.method,
+                            url: this.request.url,
+                        };
+                        if (this.headersJson.trim()) {
+                            payload.request_config.headers = JSON.parse(this.headersJson);
+                        }
+                        if (this.bodyJson.trim()) {
+                            // Check if body contains unquoted placeholders (e.g., {{id}} not inside quotes)
+                            // If so, send as string to preserve numeric placeholder substitution
+                            const hasUnquotedPlaceholders = this.hasUnquotedPlaceholders(this.bodyJson);
+                            if (hasUnquotedPlaceholders) {
+                                // Send as raw string - backend will parse after substitution
+                                payload.request_config.body = this.bodyJson;
+                            } else {
+                                payload.request_config.body = JSON.parse(this.bodyJson);
+                            }
                         }
                     }
-                }
 
-                // Gate config
-                if (this.form.mode === 'gated') {
-                    payload.gate_config = {
-                        message: this.gate.message,
-                        timeout: `${this.gate.timeoutValue}${this.gate.timeoutUnit}`,
-                        on_timeout: this.gate.on_timeout,
-                        confirmation_mode: this.gate.confirmation_mode,
-                        max_snoozes: parseInt(this.gate.max_snoozes),
-                    };
-                    if (this.recipientsText.trim()) {
-                        payload.gate_config.recipients = this.recipientsText
-                            .split('\n')
-                            .map(r => r.trim())
-                            .filter(r => r);
+                    // Gate config
+                    if (this.form.mode === 'gated') {
+                        payload.gate_config = {
+                            message: this.gate.message,
+                            timeout: `${this.gate.timeoutValue}${this.gate.timeoutUnit}`,
+                            on_timeout: this.gate.on_timeout,
+                            confirmation_mode: this.gate.confirmation_mode,
+                            max_snoozes: parseInt(this.gate.max_snoozes),
+                        };
+                        if (this.recipientsText.trim()) {
+                            payload.gate_config.recipients = this.recipientsText
+                                .split('\n')
+                                .map(r => r.trim())
+                                .filter(r => r);
+                        }
                     }
-                }
 
-                // Coordination
-                if (this.coordinationKeysText.trim()) {
-                    payload.default_coordination_keys = this.coordinationKeysText
-                        .split(',')
-                        .map(k => k.trim())
-                        .filter(k => k);
-                }
+                    // Coordination (only for action templates)
+                    if (this.coordinationKeysText.trim()) {
+                        payload.default_coordination_keys = this.coordinationKeysText
+                            .split(',')
+                            .map(k => k.trim())
+                            .filter(k => k);
+                    }
 
-                // Build coordination config
-                const coordConfig = {};
-                if (this.coordination.on_create) {
-                    coordConfig.on_create = this.coordination.on_create;
-                }
-                if (this.coordination.on_execute_condition) {
-                    coordConfig.on_execute = {
-                        condition: this.coordination.on_execute_condition,
-                        on_condition_not_met: this.coordination.on_condition_not_met || 'cancel',
-                    };
-                }
-                if (Object.keys(coordConfig).length > 0) {
-                    payload.coordination_config = coordConfig;
+                    // Build coordination config
+                    const coordConfig = {};
+                    if (this.coordination.on_create) {
+                        coordConfig.on_create = this.coordination.on_create;
+                    }
+                    if (this.coordination.on_execute_condition) {
+                        coordConfig.on_execute = {
+                            condition: this.coordination.on_execute_condition,
+                            on_condition_not_met: this.coordination.on_condition_not_met || 'cancel',
+                        };
+                    }
+                    if (Object.keys(coordConfig).length > 0) {
+                        payload.coordination_config = coordConfig;
+                    }
                 }
 
                 if (this.isEdit) {
@@ -557,5 +960,56 @@ export default {
 <style scoped>
 .cursor-pointer {
     cursor: pointer;
+}
+
+.type-option {
+    transition: all 0.15s ease;
+}
+
+.type-option:hover {
+    border-color: #22c55e !important;
+}
+
+.bg-success-subtle {
+    background-color: rgba(34, 197, 94, 0.1);
+}
+
+.step-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.step-header {
+    background: #f9fafb;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.step-body {
+    padding: 16px;
+}
+
+.step-number {
+    width: 24px;
+    height: 24px;
+    background: #e5e7eb;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.step-name-input {
+    border: none;
+    background: transparent;
+    font-weight: 500;
+}
+
+.step-name-input:focus {
+    background: white;
+    border: 1px solid #22c55e;
 }
 </style>

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\StatusController;
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ActionController;
+use App\Http\Controllers\Api\ChainController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\DomainController;
@@ -96,6 +97,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/actions/{id}/retry', [ActionController::class, 'retry']);
         Route::get('/quota', [ActionController::class, 'quota']);
         Route::get('/coordination-keys', [ActionController::class, 'coordinationKeys']);
+
+        // Action Chains
+        Route::get('/chains', [ChainController::class, 'index']);
+        Route::post('/chains', [ChainController::class, 'store'])
+            ->middleware('throttle:create-action');
+        Route::get('/chains/{id}', [ChainController::class, 'show']);
+        Route::delete('/chains/{id}', [ChainController::class, 'destroy']);
 
         // Domain Verification
         Route::get('/domains', [DomainController::class, 'index']);

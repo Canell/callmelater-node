@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Models\ActionChain;
 use App\Models\ActionTemplate;
 use App\Models\ScheduledAction;
 use Illuminate\Foundation\Http\FormRequest;
@@ -19,24 +20,47 @@ class CreateTemplateRequest extends FormRequest
      */
     public function rules(): array
     {
+        $type = $this->input('type', ActionTemplate::TYPE_ACTION);
         $mode = $this->input('mode', ScheduledAction::MODE_IMMEDIATE);
+
+        // For chain templates, mode and request_config/gate_config are not required
+        $isChain = $type === ActionTemplate::TYPE_CHAIN;
 
         return [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'mode' => ['required', 'string', Rule::in([ScheduledAction::MODE_IMMEDIATE, ScheduledAction::MODE_GATED])],
+            'type' => ['nullable', 'string', Rule::in([ActionTemplate::TYPE_ACTION, ActionTemplate::TYPE_CHAIN])],
+            'mode' => [$isChain ? 'nullable' : 'required', 'string', Rule::in([ScheduledAction::MODE_IMMEDIATE, ScheduledAction::MODE_GATED])],
             'timezone' => ['nullable', 'string', 'timezone:all'],
 
-            // Request config (required for immediate, optional for gated)
-            'request_config' => [$mode === ScheduledAction::MODE_IMMEDIATE ? 'required' : 'nullable', 'array'],
+            // Chain-specific fields
+            'chain_steps' => [$isChain ? 'required' : 'nullable', 'array', 'min:2', 'max:20'],
+            'chain_steps.*.name' => ['required', 'string', 'max:255'],
+            'chain_steps.*.type' => ['required', 'string', Rule::in([ActionChain::STEP_HTTP_CALL, ActionChain::STEP_GATED, ActionChain::STEP_DELAY])],
+            'chain_steps.*.delay' => ['nullable', 'string', 'regex:/^\d+[mhd]$/'],
+            'chain_steps.*.condition' => ['nullable', 'string', 'max:500'],
+            'chain_steps.*.url' => ['nullable', 'string', 'max:2048'],
+            'chain_steps.*.method' => ['nullable', 'string', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
+            'chain_steps.*.headers' => ['nullable', 'array'],
+            'chain_steps.*.body' => ['nullable'],
+            'chain_steps.*.gate' => ['nullable', 'array'],
+            'chain_steps.*.gate.message' => ['nullable', 'string', 'max:5000'],
+            'chain_steps.*.gate.recipients' => ['nullable', 'array'],
+            'chain_steps.*.gate.recipients.*' => ['string'],
+            'chain_steps.*.gate.channels' => ['nullable', 'array'],
+            'chain_steps.*.gate.channels.*' => ['string', Rule::in(['email', 'sms', 'teams', 'slack'])],
+            'chain_error_handling' => ['nullable', 'string', Rule::in([ActionChain::ERROR_FAIL_CHAIN, ActionChain::ERROR_SKIP_STEP])],
+
+            // Request config (required for immediate action templates, optional otherwise)
+            'request_config' => [! $isChain && $mode === ScheduledAction::MODE_IMMEDIATE ? 'required' : 'nullable', 'array'],
             'request_config.url' => ['required_with:request_config', 'string', 'max:2000'],
             'request_config.method' => ['nullable', 'string', Rule::in(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])],
             'request_config.headers' => ['nullable', 'array'],
             'request_config.body' => ['nullable'], // Can be array or string (for templates with numeric placeholders)
             'request_config.timeout' => ['nullable', 'integer', 'min:1', 'max:120'],
 
-            // Gate config (required for gated mode)
-            'gate_config' => ['required_if:mode,gated', 'array'],
+            // Gate config (required for gated mode on action templates, not for chains)
+            'gate_config' => [! $isChain && $mode === ScheduledAction::MODE_GATED ? 'required' : 'nullable', 'array'],
             'gate_config.message' => ['required_with:gate_config', 'string', 'max:5000'],
             'gate_config.recipients' => ['nullable', 'array'],
             'gate_config.recipients.*' => ['string'],
@@ -77,11 +101,20 @@ class CreateTemplateRequest extends FormRequest
         return [
             'request_config.required' => 'Request configuration is required for immediate mode templates.',
             'request_config.url.required_with' => 'A URL is required in the request configuration.',
-            'gate_config.required_if' => 'Gate configuration is required for gated mode templates.',
+            'gate_config.required' => 'Gate configuration is required for gated mode templates.',
             'gate_config.message.required_with' => 'A message is required in the gate configuration.',
             'gate_config.timeout.regex' => 'Timeout must be a number followed by h (hours), d (days), or w (weeks).',
             'placeholders.*.name.regex' => 'Placeholder names must start with a letter or underscore and contain only alphanumeric characters and underscores.',
             'default_coordination_keys.*.regex' => 'Coordination keys may only contain letters, numbers, underscores, colons, dots, dashes, and {{placeholders}}.',
+            'chain_steps.required' => 'Chain steps are required for chain templates.',
+            'chain_steps.min' => 'A chain must have at least 2 steps.',
+            'chain_steps.max' => 'A chain cannot have more than 20 steps.',
+            'chain_steps.*.name.required' => 'Each chain step must have a name.',
+            'chain_steps.*.type.required' => 'Each chain step must have a type.',
+            'chain_steps.*.type.in' => 'Step type must be http_call, gated, or delay.',
+            'chain_steps.*.delay.regex' => 'Delay must be a number followed by m (minutes), h (hours), or d (days).',
+            'chain_steps.*.method.in' => 'HTTP method must be GET, POST, PUT, PATCH, or DELETE.',
+            'chain_steps.*.gate.channels.*.in' => 'Gate channel must be email, sms, teams, or slack.',
         ];
     }
 
@@ -145,6 +178,48 @@ class CreateTemplateRequest extends FormRequest
                         "default_coordination_keys.{$index}",
                         'Coordination keys may only contain letters, numbers, underscores, colons, dots, dashes, and {{placeholders}}.'
                     );
+                }
+            }
+
+            // Validate chain steps have required fields based on type
+            $chainSteps = $this->input('chain_steps', []);
+            foreach ($chainSteps as $index => $step) {
+                $stepType = $step['type'] ?? null;
+
+                if ($stepType === ActionChain::STEP_HTTP_CALL) {
+                    if (empty($step['url'])) {
+                        $validator->errors()->add(
+                            "chain_steps.{$index}.url",
+                            'URL is required for HTTP call steps.'
+                        );
+                    } else {
+                        // Validate URL format (allow placeholders)
+                        $testUrl = preg_replace('/\{\{[^}]+\}\}/', 'placeholder', $step['url']);
+                        if (! str_starts_with($testUrl, 'http://') && ! str_starts_with($testUrl, 'https://')) {
+                            $validator->errors()->add(
+                                "chain_steps.{$index}.url",
+                                'The URL must start with http:// or https://'
+                            );
+                        }
+                    }
+                }
+
+                if ($stepType === ActionChain::STEP_GATED) {
+                    if (empty($step['gate']) || empty($step['gate']['message'])) {
+                        $validator->errors()->add(
+                            "chain_steps.{$index}.gate.message",
+                            'A gate message is required for approval steps.'
+                        );
+                    }
+                }
+
+                if ($stepType === ActionChain::STEP_DELAY) {
+                    if (empty($step['delay'])) {
+                        $validator->errors()->add(
+                            "chain_steps.{$index}.delay",
+                            'Delay duration is required for delay steps.'
+                        );
+                    }
                 }
             }
         });

@@ -381,6 +381,158 @@ This ensures only one pending deployment per service/environment combination.
 
 ---
 
+## Chain Templates
+
+Create templates that trigger multi-step workflows (chains) instead of single actions.
+
+### Create Chain Template
+
+Set `type: "chain"` and define `chain_steps` instead of `request_config` or `gate_config`:
+
+```bash
+curl -X POST https://callmelater.io/api/v1/templates \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "User Onboarding {{user_email}}",
+    "type": "chain",
+    "chain_steps": [
+      {
+        "name": "Create User",
+        "type": "http_call",
+        "url": "https://api.example.com/users",
+        "method": "POST",
+        "body": {"email": "{{user_email}}"}
+      },
+      {
+        "name": "Wait for setup",
+        "type": "delay",
+        "delay": "5m"
+      },
+      {
+        "name": "Manager Approval",
+        "type": "gated",
+        "gate": {
+          "message": "Approve new user {{user_email}}?",
+          "recipients": ["{{manager_email}}"],
+          "channels": ["email"]
+        }
+      },
+      {
+        "name": "Send Welcome",
+        "type": "http_call",
+        "url": "https://api.example.com/welcome",
+        "method": "POST",
+        "body": {"email": "{{user_email}}", "user_id": "{{steps.0.response.id}}"}
+      }
+    ],
+    "chain_error_handling": "fail_chain",
+    "placeholders": [
+      {"name": "user_email", "required": true},
+      {"name": "manager_email", "required": true}
+    ]
+  }'
+```
+
+### Chain Template Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Must be `"chain"` |
+| `chain_steps` | array | Yes | Array of step definitions (min 2, max 20) |
+| `chain_error_handling` | string | No | `fail_chain` (default) or `skip_step` |
+
+### Step Types
+
+**HTTP Call Step:**
+```json
+{
+  "name": "API Request",
+  "type": "http_call",
+  "url": "https://api.example.com/endpoint",
+  "method": "POST",
+  "headers": {"Authorization": "Bearer {{token}}"},
+  "body": {"key": "value"}
+}
+```
+
+**Approval (Gated) Step:**
+```json
+{
+  "name": "Manager Approval",
+  "type": "gated",
+  "gate": {
+    "message": "Please approve this request",
+    "recipients": ["manager@example.com"],
+    "channels": ["email", "teams", "slack"]
+  }
+}
+```
+
+**Delay Step:**
+```json
+{
+  "name": "Wait",
+  "type": "delay",
+  "delay": "5m"
+}
+```
+
+Delay format: number + unit (`m` = minutes, `h` = hours, `d` = days)
+
+### Step Conditions
+
+Add a `condition` to any step to make it conditional:
+
+```json
+{
+  "name": "Proceed if approved",
+  "type": "http_call",
+  "url": "https://api.example.com/proceed",
+  "condition": "{{steps.1.status}} == 'confirmed'"
+}
+```
+
+### Variable Interpolation
+
+In chain templates, you can reference:
+
+- **Input variables:** `{{input.field}}` or `{{field}}`
+- **Previous step responses:** `{{steps.0.response.id}}`
+- **Previous step status:** `{{steps.1.status}}`
+
+### Trigger Chain Template
+
+Triggering a chain template returns a chain (not an action):
+
+```bash
+curl -X POST https://callmelater.io/t/clmt_abc123... \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_email": "newuser@example.com",
+    "manager_email": "manager@example.com"
+  }'
+```
+
+Response:
+```json
+{
+  "message": "Chain created from template.",
+  "data": {
+    "id": "01chain789-...",
+    "name": "User Onboarding newuser@example.com",
+    "status": "pending",
+    "current_step": 0,
+    "steps": [...],
+    "created_at": "2025-01-15T14:30:00Z"
+  }
+}
+```
+
+See [Chains API](/api/chains) for managing chains.
+
+---
+
 ## Rate Limits
 
 Template triggers are rate-limited:

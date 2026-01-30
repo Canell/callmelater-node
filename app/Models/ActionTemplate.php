@@ -14,6 +14,11 @@ class ActionTemplate extends Model
     use HasFactory;
     use HasUuids;
 
+    // Template types
+    public const TYPE_ACTION = 'action';
+
+    public const TYPE_CHAIN = 'chain';
+
     protected $fillable = [
         'account_id',
         'created_by_user_id',
@@ -21,6 +26,9 @@ class ActionTemplate extends Model
         'description',
         'trigger_token',
         'mode',
+        'type',
+        'chain_steps',
+        'chain_error_handling',
         'timezone',
         'request_config',
         'gate_config',
@@ -42,6 +50,7 @@ class ActionTemplate extends Model
         return [
             'request_config' => 'array',
             'gate_config' => 'array',
+            'chain_steps' => 'array',
             'coordination_config' => 'array',
             'default_coordination_keys' => 'array',
             'placeholders' => 'array',
@@ -158,6 +167,40 @@ class ActionTemplate extends Model
     public function isGated(): bool
     {
         return $this->mode === ScheduledAction::MODE_GATED;
+    }
+
+    /**
+     * Check if template is for a chain (multi-step workflow).
+     */
+    public function isChain(): bool
+    {
+        return $this->type === self::TYPE_CHAIN;
+    }
+
+    /**
+     * Check if template is for a single action.
+     */
+    public function isAction(): bool
+    {
+        return $this->type === self::TYPE_ACTION || $this->type === null;
+    }
+
+    /**
+     * Get chain steps configuration.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getChainSteps(): array
+    {
+        return $this->chain_steps ?? [];
+    }
+
+    /**
+     * Get chain error handling strategy.
+     */
+    public function getChainErrorHandling(): string
+    {
+        return $this->chain_error_handling ?? 'fail_chain';
     }
 
     /**

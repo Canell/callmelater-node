@@ -39,6 +39,9 @@
                                 <router-link class="nav-link" to="/dashboard">Actions</router-link>
                             </li>
                             <li class="nav-item">
+                                <router-link class="nav-link" to="/chains">Chains</router-link>
+                            </li>
+                            <li class="nav-item">
                                 <router-link class="nav-link" to="/templates">Templates</router-link>
                             </li>
                             <li class="nav-item">

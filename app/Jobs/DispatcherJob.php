@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\ScheduledAction;
+use App\Services\ChainService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -214,8 +215,14 @@ class DispatcherJob implements ShouldQueue
     {
         try {
             if ($action->isImmediate()) {
-                // Immediate mode: execute HTTP request
-                DeliverHttpAction::dispatch($action);
+                if ($action->hasRequest()) {
+                    // Immediate mode with HTTP request: execute it
+                    DeliverHttpAction::dispatch($action);
+                } else {
+                    // Immediate mode without request (e.g., chain delay step)
+                    // Just mark as executed and advance chain if applicable
+                    $this->handleNoOpExecution($action);
+                }
             } elseif ($action->isGated()) {
                 if ($action->gatePassed()) {
                     // Gate already passed (approved): execute the HTTP request
@@ -240,6 +247,38 @@ class DispatcherJob implements ShouldQueue
                 'action_id' => $action->id,
                 'error' => $e->getMessage(),
             ]);
+        }
+    }
+
+    /**
+     * Handle execution of a no-op action (e.g., chain delay step).
+     * These actions have no HTTP request - they just complete and potentially advance a chain.
+     */
+    private function handleNoOpExecution(ScheduledAction $action): void
+    {
+        $action->markAsExecuted();
+
+        Log::info('No-op action executed', [
+            'action_id' => $action->id,
+            'is_chain_step' => $action->isChainStep(),
+        ]);
+
+        // Advance chain if this is a chain step
+        if ($action->isChainStep()) {
+            $chain = $action->chain;
+            if ($chain && ! $chain->isTerminal()) {
+                try {
+                    app(ChainService::class)->advanceChain($chain, $action, [
+                        'status' => 'completed',
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::error('Failed to advance chain after delay step', [
+                        'action_id' => $action->id,
+                        'chain_id' => $chain->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
     }
 
