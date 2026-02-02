@@ -94,3 +94,6 @@ ide:
 
 push-docs:
 	git subtree push --prefix=docs-site docs-public main
+
+push-n8n:
+	git subtree push --prefix=packages/n8n-nodes-callmelater n8n-public main

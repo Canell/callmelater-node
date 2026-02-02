@@ -45,7 +45,9 @@
       "WebSearch",
       "Bash(/opt/homebrew/opt/php@8.4/bin/php:*)",
       "Bash(/opt/homebrew/bin/php:*)",
-      "WebFetch(domain:zeplo.io)"
+      "WebFetch(domain:zeplo.io)",
+      "WebFetch(domain:docs.n8n.io)",
+      "Bash(npm run lint)"
     ]
   }
 }
