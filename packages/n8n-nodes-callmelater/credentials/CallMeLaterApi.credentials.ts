@@ -26,7 +26,7 @@ export class CallMeLaterApi implements ICredentialType {
 			displayName: 'API URL',
 			name: 'apiUrl',
 			type: 'string',
-			default: 'https://api.callmelater.io',
+			default: 'https://callmelater.io',
 			description: 'The CallMeLater API URL. Change only for self-hosted instances.',
 		},
 	];
