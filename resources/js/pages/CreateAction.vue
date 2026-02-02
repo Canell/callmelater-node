@@ -630,79 +630,16 @@ export default {
                         }
                     }
 
-                    // Recipients - convert old format to new URI format
+                    // Recipients - convert to unified selector format
                     const recipients = g.recipients || [];
-                    this.selectedRecipients = recipients.map(r => {
-                        // Already in URI format
-                        if (r.includes(':')) {
-                            const [type, ...rest] = r.split(':');
-                            const value = rest.join(':');
-                            return {
-                                uri: r,
-                                label: value,
-                                sublabel: type === 'email' ? 'Email' : type === 'phone' ? 'Phone' : type,
-                                type: 'manual',
-                                contact_type: type,
-                            };
-                        }
-                        // Email
-                        if (r.includes('@')) {
-                            return {
-                                uri: `email:${r}`,
-                                label: r,
-                                sublabel: 'Email',
-                                type: 'manual',
-                                contact_type: 'email',
-                            };
-                        }
-                        // Phone
-                        if (/^\+?[\d\s\-()]+$/.test(r)) {
-                            return {
-                                uri: `phone:${r}`,
-                                label: r,
-                                sublabel: 'Phone',
-                                type: 'manual',
-                                contact_type: 'phone',
-                            };
-                        }
-                        // Unknown - treat as email
-                        return {
-                            uri: `email:${r}`,
-                            label: r,
-                            sublabel: 'Email',
-                            type: 'manual',
-                            contact_type: 'email',
-                        };
-                    });
+                    this.selectedRecipients = await this.resolveRecipientUris(recipients);
 
                     // Escalation
                     if (g.escalation) {
                         this.escalation.hours = g.escalation.after_hours || '';
                         // Convert escalation contacts to unified recipient format
                         if (g.escalation.contacts?.length) {
-                            this.escalationRecipients = g.escalation.contacts.map(contact => {
-                                // Check if it's already in URI format
-                                if (contact.includes(':')) {
-                                    const [type, ...rest] = contact.split(':');
-                                    const value = rest.join(':');
-                                    return {
-                                        uri: contact,
-                                        label: value,
-                                        sublabel: type === 'email' ? 'Email' : 'Phone',
-                                        type: 'manual',
-                                        contact_type: type,
-                                    };
-                                }
-                                // Legacy format - email or phone
-                                const isEmail = contact.includes('@');
-                                return {
-                                    uri: isEmail ? `email:${contact}` : `phone:${contact}`,
-                                    label: contact,
-                                    sublabel: isEmail ? 'Email' : 'Phone',
-                                    type: 'manual',
-                                    contact_type: isEmail ? 'email' : 'phone',
-                                };
-                            });
+                            this.escalationRecipients = await this.resolveRecipientUris(g.escalation.contacts);
                         }
                     }
                 }
@@ -884,6 +821,18 @@ export default {
                 return;
             }
 
+            // Validate schedule is filled
+            if (this.scheduleType === 'datetime' && !this.form.execute_at) {
+                this.error = 'Please select a date and time for the schedule.';
+                this.submitting = false;
+                return;
+            }
+            if (this.scheduleType === 'delay' && (!this.delayAmount || this.delayAmount <= 0)) {
+                this.error = 'Please enter a delay amount.';
+                this.submitting = false;
+                return;
+            }
+
             try {
                 // Build payload
                 const payload = {
@@ -1020,6 +969,113 @@ export default {
             } finally {
                 this.submitting = false;
             }
+        },
+        /**
+         * Resolve recipient URIs to display-friendly format.
+         * Fetches recipient details from API and matches against stored URIs.
+         */
+        async resolveRecipientUris(uris) {
+            if (!uris || uris.length === 0) return [];
+
+            // Fetch all available recipients to match against
+            let availableRecipients = [];
+            try {
+                const response = await axios.get('/api/v1/recipients');
+                availableRecipients = response.data.data || [];
+            } catch (err) {
+                console.error('Failed to fetch recipients for resolution:', err);
+            }
+
+            return uris.map(uri => {
+                // Try to find a matching recipient from the API
+                const match = availableRecipients.find(r => r.uri === uri);
+                if (match) {
+                    return match;
+                }
+
+                // Parse URI and create display object
+                if (uri.includes(':')) {
+                    const parts = uri.split(':');
+                    const scheme = parts[0];
+
+                    // email:address@example.com
+                    if (scheme === 'email') {
+                        const email = parts.slice(1).join(':');
+                        return {
+                            uri,
+                            label: email,
+                            sublabel: 'Email',
+                            type: 'manual',
+                            contact_type: 'email',
+                        };
+                    }
+
+                    // phone:+15551234567
+                    if (scheme === 'phone') {
+                        return {
+                            uri,
+                            label: parts[1],
+                            sublabel: 'Phone',
+                            type: 'manual',
+                            contact_type: 'phone',
+                        };
+                    }
+
+                    // user:id:type or contact:uuid:type - not found in available recipients
+                    // Show a placeholder since we can't resolve it
+                    if (scheme === 'user' || scheme === 'contact') {
+                        const id = parts[1];
+                        const contactType = parts[2] || 'email';
+                        return {
+                            uri,
+                            label: `(${scheme} not found)`,
+                            sublabel: contactType,
+                            type: scheme,
+                            contact_type: contactType,
+                        };
+                    }
+
+                    // channel:uuid
+                    if (scheme === 'channel') {
+                        return {
+                            uri,
+                            label: '(channel)',
+                            sublabel: 'Chat',
+                            type: 'channel',
+                        };
+                    }
+                }
+
+                // Legacy plain formats
+                if (uri.includes('@')) {
+                    return {
+                        uri: `email:${uri}`,
+                        label: uri,
+                        sublabel: 'Email',
+                        type: 'manual',
+                        contact_type: 'email',
+                    };
+                }
+
+                if (/^\+?[\d\s\-()]+$/.test(uri)) {
+                    return {
+                        uri: `phone:${uri}`,
+                        label: uri,
+                        sublabel: 'Phone',
+                        type: 'manual',
+                        contact_type: 'phone',
+                    };
+                }
+
+                // Unknown format
+                return {
+                    uri: `email:${uri}`,
+                    label: uri,
+                    sublabel: 'Email',
+                    type: 'manual',
+                    contact_type: 'email',
+                };
+            });
         }
     }
 };

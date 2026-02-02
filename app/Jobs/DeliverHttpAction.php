@@ -176,6 +176,15 @@ class DeliverHttpAction implements ShouldQueue
             ]);
         }
 
+        // Dispatch callback for action.executed event
+        if ($this->action->callback_url) {
+            DeliverActionCallback::dispatch($this->action, DeliverActionCallback::EVENT_EXECUTED, [
+                'status_code' => $statusCode,
+                'duration_ms' => $durationMs,
+                'attempt_number' => $attempt->attempt_number,
+            ]);
+        }
+
         $this->log('info', 'delivery_success', [
             'status_code' => $statusCode,
             'duration_ms' => $durationMs,
@@ -215,6 +224,7 @@ class DeliverHttpAction implements ShouldQueue
             $this->action->markAsFailed($failureReason);
             $this->updateExecutionCycleOnFailure($failureReason);
             $this->handleChainStepFailure($failureReason);
+            $this->dispatchFailureCallback($statusCode, $failureReason, $attempt->attempt_number);
 
             $this->log('warning', 'delivery_failed', [
                 'failure_type' => $failureType,
@@ -242,6 +252,7 @@ class DeliverHttpAction implements ShouldQueue
                 $this->action->markAsFailed($failureReason);
                 $this->updateExecutionCycleOnFailure($failureReason);
                 $this->handleChainStepFailure($failureReason);
+                $this->dispatchFailureCallback($statusCode, $failureReason, $attempt->attempt_number);
 
                 $this->log('error', 'delivery_failed', [
                     'failure_type' => $failureType,
@@ -296,6 +307,7 @@ class DeliverHttpAction implements ShouldQueue
             $this->action->markAsFailed($failureReason);
             $this->updateExecutionCycleOnFailure($failureReason);
             $this->handleChainStepFailure($failureReason);
+            $this->dispatchFailureCallback(null, $failureReason, $attempt->attempt_number, $errorMessage);
 
             $this->log('error', 'delivery_failed', [
                 'failure_type' => self::FAILURE_SYSTEM,
@@ -306,6 +318,23 @@ class DeliverHttpAction implements ShouldQueue
                 'reason' => 'max_attempts_reached',
             ]);
         }
+    }
+
+    /**
+     * Dispatch callback for action.failed event.
+     */
+    private function dispatchFailureCallback(?int $statusCode, string $reason, int $totalAttempts, ?string $errorMessage = null): void
+    {
+        if (! $this->action->callback_url) {
+            return;
+        }
+
+        DeliverActionCallback::dispatch($this->action, DeliverActionCallback::EVENT_FAILED, [
+            'reason' => $reason,
+            'status_code' => $statusCode,
+            'total_attempts' => $totalAttempts,
+            'error_message' => $errorMessage,
+        ]);
     }
 
     /**

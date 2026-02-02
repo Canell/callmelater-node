@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $id
  * @property string $action_id
+ * @property string $event_type
  * @property int $attempt_number
  * @property string $status
  * @property int|null $response_code
@@ -28,6 +29,7 @@ class CallbackAttempt extends Model
 
     protected $fillable = [
         'action_id',
+        'event_type',
         'attempt_number',
         'status',
         'response_code',

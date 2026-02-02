@@ -320,6 +320,151 @@ class ActionApiTest extends TestCase
             ->assertJsonValidationErrors(['gate.channels']);
     }
 
+    // ==================== URI RECIPIENT FORMATS ====================
+
+    public function test_create_gated_action_accepts_email_uri_format(): void
+    {
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ['email:test@example.com'],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_create_gated_action_validates_phone_uri_format(): void
+    {
+        // Test that phone URI format passes validation (even if SMS channel check fails later)
+        // This tests the isValidRecipient() method specifically
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ['phone:+15551234567'],
+                'channels' => ['sms'],
+            ],
+        ]);
+
+        // Should fail on SMS channel (free plan), not on recipient format
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['gate.channels'])
+            ->assertJsonMissingValidationErrors(['gate.recipients.0']);
+    }
+
+    public function test_create_gated_action_accepts_user_uri_format(): void
+    {
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ["user:{$this->user->id}:email"],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_create_gated_action_accepts_contact_uri_format(): void
+    {
+        $contact = \App\Models\Contact::factory()->create([
+            'account_id' => $this->user->account_id,
+            'email' => 'contact@example.com',
+        ]);
+
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ["contact:{$contact->id}:email"],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_create_gated_action_rejects_invalid_user_uri(): void
+    {
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ['user:99999:email'], // Non-existent user
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['gate.recipients.0']);
+    }
+
+    public function test_create_gated_action_rejects_contact_from_other_account(): void
+    {
+        $otherUser = User::factory()->create();
+        $contact = \App\Models\Contact::factory()->create([
+            'account_id' => $otherUser->account_id,
+            'email' => 'other@example.com',
+        ]);
+
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ["contact:{$contact->id}:email"],
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['gate.recipients.0']);
+    }
+
+    public function test_create_gated_action_rejects_invalid_email_uri(): void
+    {
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ['email:not-valid-email'],
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['gate.recipients.0']);
+    }
+
+    public function test_create_gated_action_rejects_invalid_phone_uri(): void
+    {
+        // Test that invalid phone URI format fails validation
+        // Don't include sms channel to avoid triggering SMS quota check
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Gated',
+            'mode' => 'gated',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please confirm',
+                'recipients' => ['phone:123'], // Invalid E.164
+            ],
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['gate.recipients.0']);
+    }
+
     public function test_can_create_gated_action_with_request(): void
     {
         $response = $this->postJson('/api/v1/actions', [

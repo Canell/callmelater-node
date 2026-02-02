@@ -160,6 +160,7 @@ export class CallMeLaterTrigger implements INodeType {
 			action_id: body.action_id,
 			action_name: body.action_name,
 			timestamp: body.timestamp,
+			// Reminder response fields
 			...(body.response && { response: body.response }),
 			...(body.responder_email && { responder_email: body.responder_email }),
 			...(body.responded_at && { responded_at: body.responded_at }),
@@ -167,6 +168,10 @@ export class CallMeLaterTrigger implements INodeType {
 			...(body.next_reminder_at && { next_reminder_at: body.next_reminder_at }),
 			...(body.action_status && { action_status: body.action_status }),
 			...(body.comment && { comment: body.comment }),
+			// Action callback fields
+			...(body.execution && { execution: body.execution }),
+			...(body.failure && { failure: body.failure }),
+			...(body.expiration && { expiration: body.expiration }),
 			// Include full body for advanced use
 			_raw: body,
 		};

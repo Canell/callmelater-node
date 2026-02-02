@@ -21,7 +21,7 @@ POST /api/v1/actions
 | `description` | string | No | Optional description (max 1000 chars) |
 | `timezone` | string | No | Timezone for scheduling (e.g., `America/New_York`) |
 | `idempotency_key` | string | No | Unique key to prevent duplicates (max 255 chars) |
-| `callback_url` | string | No | URL to receive status webhooks |
+| `callback_url` | string | No | URL to receive [action callbacks](/api/callbacks) (executed, failed, expired events) |
 | `schedule` | object | Yes* | When to execute (see below). Also known as `intent` for backwards compatibility. |
 
 *Either `schedule` or top-level `scheduled_for` must be provided.
