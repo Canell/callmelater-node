@@ -209,10 +209,68 @@ class CreateChainRequest extends FormRequest
     }
 
     /**
-     * Check if a recipient is valid.
+     * Check if a recipient is valid (email, phone, user, contact, or channel URI).
+     *
+     * Supported formats:
+     * - Plain email: user@example.com
+     * - Plain phone (E.164): +15551234567
+     * - Plain UUID: for backwards compatibility
+     * - URI formats from unified selector:
+     *   - email:user@example.com (manual email entry)
+     *   - phone:+15551234567 (manual phone entry)
+     *   - user:{id}:email or user:{id}:phone (workspace member)
+     *   - contact:{uuid}:email or contact:{uuid}:phone (external contact)
+     *   - channel:{uuid} (chat channel - validated separately)
      */
     private function isValidRecipient(string $recipient, ?string $accountId): bool
     {
+        // Parse URI format
+        if (str_contains($recipient, ':')) {
+            $parts = explode(':', $recipient);
+            $scheme = $parts[0];
+
+            // email:user@example.com
+            if ($scheme === 'email' && isset($parts[1])) {
+                $email = implode(':', array_slice($parts, 1));
+                return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+            }
+
+            // phone:+15551234567
+            if ($scheme === 'phone' && isset($parts[1])) {
+                $phone = $parts[1];
+                return preg_match('/^\+[1-9]\d{6,14}$/', $phone) === 1;
+            }
+
+            // user:{id}:email or user:{id}:phone
+            if ($scheme === 'user' && isset($parts[1])) {
+                $userId = $parts[1];
+                if ($accountId) {
+                    return \App\Models\User::where('id', $userId)
+                        ->where('account_id', $accountId)
+                        ->exists();
+                }
+                return false;
+            }
+
+            // contact:{uuid}:email or contact:{uuid}:phone
+            if ($scheme === 'contact' && isset($parts[1])) {
+                $contactId = $parts[1];
+                if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $contactId) === 1 && $accountId) {
+                    return Contact::where('id', $contactId)
+                        ->where('account_id', $accountId)
+                        ->exists();
+                }
+                return false;
+            }
+
+            // channel:{uuid} - validated separately via integration_ids
+            if ($scheme === 'channel') {
+                return true;
+            }
+        }
+
+        // Legacy/plain formats for backwards compatibility
+
         // Email
         if (filter_var($recipient, FILTER_VALIDATE_EMAIL) !== false) {
             return true;
