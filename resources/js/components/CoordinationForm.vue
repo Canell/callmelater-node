@@ -6,7 +6,7 @@
             role="button"
         >
             <h5 class="mb-0">
-                Coordination
+                Deduplication
                 <span class="text-muted fw-normal ms-1">(optional)</span>
             </h5>
             <span class="text-muted">{{ expanded ? '−' : '+' }}</span>
@@ -86,11 +86,11 @@ export default {
         },
         description: {
             type: String,
-            default: 'Coordination keys let you link related actions and control their behavior.',
+            default: 'Dedup keys let you link related actions and control their behavior.',
         },
         keysLabel: {
             type: String,
-            default: 'Coordination Keys',
+            default: 'Dedup Keys',
         },
         keysPlaceholder: {
             type: String,

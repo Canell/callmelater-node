@@ -1,122 +1,117 @@
 /**
  * Code examples in multiple languages for the documentation and homepage.
+ * Uses the new friendlier terminology: approval, schedule, wait
  */
 
+// Simple webhook example - shows the core value quickly
 export const createHttpAction = {
   curl: `curl -X POST https://api.callmelater.io/v1/actions \\
   -H "Authorization: Bearer sk_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "Trial expiration webhook",
-    "intent": { "delay": "14d" },
+    "name": "Trial expiration",
+    "schedule": { "wait": "14d" },
     "request": {
-      "url": "https://your-app.com/webhook",
+      "url": "https://your-app.com/webhooks/trial-expired",
       "method": "POST",
-      "body": { "event": "trial_expired", "user_id": 42 }
+      "body": { "user_id": 42 }
     }
   }'`,
 
   php: `<?php
-use GuzzleHttp\\Client;
-
-$client = new Client();
-$response = $client->post('https://api.callmelater.io/v1/actions', [
-    'headers' => [
-        'Authorization' => 'Bearer sk_live_...',
-        'Content-Type' => 'application/json',
-    ],
-    'json' => [
-        'name' => 'Trial expiration webhook',
-        'intent' => ['delay' => '14d'],
+$response = Http::withToken('sk_live_...')
+    ->post('https://api.callmelater.io/v1/actions', [
+        'name' => 'Trial expiration',
+        'schedule' => ['wait' => '14d'],
         'request' => [
-            'url' => 'https://your-app.com/webhook',
+            'url' => 'https://your-app.com/webhooks/trial-expired',
             'method' => 'POST',
-            'body' => [
-                'event' => 'trial_expired',
-                'user_id' => 42,
-            ],
+            'body' => ['user_id' => 42],
         ],
-    ],
-]);
-
-$action = json_decode($response->getBody(), true);`,
+    ]);`,
 
   python: `import requests
 
 response = requests.post(
     "https://api.callmelater.io/v1/actions",
-    headers={
-        "Authorization": "Bearer sk_live_...",
-        "Content-Type": "application/json",
-    },
+    headers={"Authorization": "Bearer sk_live_..."},
     json={
-        "name": "Trial expiration webhook",
-        "intent": {"delay": "14d"},
+        "name": "Trial expiration",
+        "schedule": {"wait": "14d"},
         "request": {
-            "url": "https://your-app.com/webhook",
-            "method": "POST",
-            "body": {"event": "trial_expired", "user_id": 42},
+            "url": "https://your-app.com/webhooks/trial-expired",
+            "body": {"user_id": 42},
         },
     },
-)
+)`,
 
-action = response.json()`,
-
-  javascript: `const response = await fetch('https://api.callmelater.io/v1/actions', {
+  javascript: `const action = await fetch('https://api.callmelater.io/v1/actions', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer sk_live_...',
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    name: 'Trial expiration webhook',
-    intent: { delay: '14d' },
+    name: 'Trial expiration',
+    schedule: { wait: '14d' },
     request: {
-      url: 'https://your-app.com/webhook',
-      method: 'POST',
-      body: { event: 'trial_expired', user_id: 42 },
+      url: 'https://your-app.com/webhooks/trial-expired',
+      body: { user_id: 42 },
     },
   }),
-});
-
-const action = await response.json();`,
+});`,
 
   node: `const axios = require('axios');
 
-const response = await axios.post(
+const { data } = await axios.post(
   'https://api.callmelater.io/v1/actions',
   {
-    name: 'Trial expiration webhook',
-    intent: { delay: '14d' },
+    name: 'Trial expiration',
+    schedule: { wait: '14d' },
     request: {
-      url: 'https://your-app.com/webhook',
-      method: 'POST',
-      body: { event: 'trial_expired', user_id: 42 },
+      url: 'https://your-app.com/webhooks/trial-expired',
+      body: { user_id: 42 },
     },
   },
-  {
-    headers: {
-      Authorization: 'Bearer sk_live_...',
-      'Content-Type': 'application/json',
+  { headers: { Authorization: 'Bearer sk_live_...' } }
+);`,
+
+  go: `payload := map[string]interface{}{
+    "name": "Trial expiration",
+    "schedule": map[string]string{"wait": "14d"},
+    "request": map[string]interface{}{
+        "url":  "https://your-app.com/webhooks/trial-expired",
+        "body": map[string]interface{}{"user_id": 42},
     },
-  }
-);
+}
 
-const action = response.data;`,
+body, _ := json.Marshal(payload)
+req, _ := http.NewRequest("POST", "https://api.callmelater.io/v1/actions", bytes.NewBuffer(body))
+req.Header.Set("Authorization", "Bearer sk_live_...")
+req.Header.Set("Content-Type", "application/json")`,
 
-  java: `import java.net.http.*;
-import java.net.URI;
+  ruby: `response = HTTParty.post(
+  'https://api.callmelater.io/v1/actions',
+  headers: { 'Authorization' => 'Bearer sk_live_...' },
+  body: {
+    name: 'Trial expiration',
+    schedule: { wait: '14d' },
+    request: {
+      url: 'https://your-app.com/webhooks/trial-expired',
+      body: { user_id: 42 }
+    }
+  }.to_json
+)`,
 
-HttpClient client = HttpClient.newHttpClient();
+  java: `HttpClient client = HttpClient.newHttpClient();
 
 String json = """
   {
-    "name": "Trial expiration webhook",
-    "intent": { "delay": "14d" },
+    "name": "Trial expiration",
+    "schedule": { "wait": "14d" },
     "request": {
-      "url": "https://your-app.com/webhook",
-      "method": "POST",
-      "body": { "event": "trial_expired", "user_id": 42 }
+      "url": "https://your-app.com/webhooks/trial-expired",
+      "body": { "user_id": 42 }
     }
   }
   """;
@@ -126,182 +121,175 @@ HttpRequest request = HttpRequest.newBuilder()
     .header("Authorization", "Bearer sk_live_...")
     .header("Content-Type", "application/json")
     .POST(HttpRequest.BodyPublishers.ofString(json))
-    .build();
-
-HttpResponse<String> response = client.send(
-    request, HttpResponse.BodyHandlers.ofString()
-);`,
-
-  go: `package main
-
-import (
-    "bytes"
-    "encoding/json"
-    "net/http"
-)
-
-func createAction() {
-    payload := map[string]interface{}{
-        "name": "Trial expiration webhook",
-        "intent": map[string]string{"delay": "14d"},
-        "request": map[string]interface{}{
-            "url":    "https://your-app.com/webhook",
-            "method": "POST",
-            "body":   map[string]interface{}{"event": "trial_expired", "user_id": 42},
-        },
-    }
-
-    body, _ := json.Marshal(payload)
-    req, _ := http.NewRequest("POST", "https://api.callmelater.io/v1/actions", bytes.NewBuffer(body))
-    req.Header.Set("Authorization", "Bearer sk_live_...")
-    req.Header.Set("Content-Type", "application/json")
-
-    client := &http.Client{}
-    resp, _ := client.Do(req)
-    defer resp.Body.Close()
-}`,
-
-  ruby: `require 'net/http'
-require 'json'
-
-uri = URI('https://api.callmelater.io/v1/actions')
-http = Net::HTTP.new(uri.host, uri.port)
-http.use_ssl = true
-
-request = Net::HTTP::Post.new(uri)
-request['Authorization'] = 'Bearer sk_live_...'
-request['Content-Type'] = 'application/json'
-request.body = {
-  name: 'Trial expiration webhook',
-  intent: { delay: '14d' },
-  request: {
-    url: 'https://your-app.com/webhook',
-    method: 'POST',
-    body: { event: 'trial_expired', user_id: 42 }
-  }
-}.to_json
-
-response = http.request(request)
-action = JSON.parse(response.body)`,
+    .build();`,
 };
 
-export const createReminderAction = {
+// Human approval example - key differentiator!
+export const createApprovalAction = {
   curl: `curl -X POST https://api.callmelater.io/v1/actions \\
   -H "Authorization: Bearer sk_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "Deployment approval",
-    "mode": "gated",
-    "intent": { "delay": "30m" },
+    "name": "Deploy to production",
+    "mode": "approval",
+    "schedule": { "wait": "5m" },
     "gate": {
-      "message": "Please approve the production deployment",
-      "recipients": ["tech-lead@example.com"],
+      "message": "Ready to deploy v2.1 to production?",
+      "recipients": ["ops@example.com"],
       "channels": ["email"]
     }
   }'`,
 
   php: `<?php
-use GuzzleHttp\\Client;
-
-$client = new Client();
-$response = $client->post('https://api.callmelater.io/v1/actions', [
-    'headers' => [
-        'Authorization' => 'Bearer sk_live_...',
-        'Content-Type' => 'application/json',
-    ],
-    'json' => [
-        'name' => 'Deployment approval',
-        'mode' => 'gated',
-        'intent' => ['delay' => '30m'],
+$response = Http::withToken('sk_live_...')
+    ->post('https://api.callmelater.io/v1/actions', [
+        'name' => 'Deploy to production',
+        'mode' => 'approval',
+        'schedule' => ['wait' => '5m'],
         'gate' => [
-            'message' => 'Please approve the production deployment',
-            'recipients' => ['tech-lead@example.com'],
+            'message' => 'Ready to deploy v2.1 to production?',
+            'recipients' => ['ops@example.com'],
             'channels' => ['email'],
         ],
-    ],
-]);`,
+    ]);`,
 
-  python: `import requests
-
-response = requests.post(
+  python: `response = requests.post(
     "https://api.callmelater.io/v1/actions",
-    headers={
-        "Authorization": "Bearer sk_live_...",
-        "Content-Type": "application/json",
-    },
+    headers={"Authorization": "Bearer sk_live_..."},
     json={
-        "name": "Deployment approval",
-        "mode": "gated",
-        "intent": {"delay": "30m"},
+        "name": "Deploy to production",
+        "mode": "approval",
+        "schedule": {"wait": "5m"},
         "gate": {
-            "message": "Please approve the production deployment",
-            "recipients": ["tech-lead@example.com"],
+            "message": "Ready to deploy v2.1 to production?",
+            "recipients": ["ops@example.com"],
             "channels": ["email"],
         },
     },
 )`,
 
-  javascript: `const response = await fetch('https://api.callmelater.io/v1/actions', {
+  javascript: `const action = await fetch('https://api.callmelater.io/v1/actions', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer sk_live_...',
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    name: 'Deployment approval',
-    mode: 'gated',
-    intent: { delay: '30m' },
+    name: 'Deploy to production',
+    mode: 'approval',
+    schedule: { wait: '5m' },
     gate: {
-      message: 'Please approve the production deployment',
-      recipients: ['tech-lead@example.com'],
+      message: 'Ready to deploy v2.1 to production?',
+      recipients: ['ops@example.com'],
       channels: ['email'],
     },
   }),
 });`,
 
-  node: `const axios = require('axios');
-
-const response = await axios.post(
+  node: `const { data } = await axios.post(
   'https://api.callmelater.io/v1/actions',
   {
-    name: 'Deployment approval',
-    mode: 'gated',
-    intent: { delay: '30m' },
+    name: 'Deploy to production',
+    mode: 'approval',
+    schedule: { wait: '5m' },
     gate: {
-      message: 'Please approve the production deployment',
-      recipients: ['tech-lead@example.com'],
+      message: 'Ready to deploy v2.1 to production?',
+      recipients: ['ops@example.com'],
       channels: ['email'],
     },
   },
-  {
-    headers: {
-      Authorization: 'Bearer sk_live_...',
-    },
-  }
+  { headers: { Authorization: 'Bearer sk_live_...' } }
 );`,
 };
 
-export const httpActionJson = `{
-  "name": "Expire trial subscription",
-  "intent": { "delay": "14d" },
-  "request": {
-    "method": "POST",
-    "url": "https://api.example.com/subscriptions/expire",
-    "headers": { "X-Custom": "value" },
-    "body": { "user_id": 42, "reason": "trial_ended" }
+// Teams/Slack example - showcase integration
+export const createTeamsSlackAction = {
+  curl: `curl -X POST https://api.callmelater.io/v1/actions \\
+  -H "Authorization: Bearer sk_live_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Infrastructure approval",
+    "mode": "approval",
+    "schedule": { "wait": "1h" },
+    "gate": {
+      "message": "Approve scaling to 10 instances?",
+      "recipients": ["channel:teams-ops-123"],
+      "channels": ["teams"]
+    }
+  }'`,
+
+  javascript: `const action = await fetch('https://api.callmelater.io/v1/actions', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer sk_live_...',
+    'Content-Type': 'application/json',
   },
-  "max_attempts": 5,
-  "retry_strategy": "exponential"
+  body: JSON.stringify({
+    name: 'Infrastructure approval',
+    mode: 'approval',
+    schedule: { wait: '1h' },
+    gate: {
+      message: 'Approve scaling to 10 instances?',
+      recipients: ['channel:slack-devops-456'],  // or channel:teams-ops-123
+      channels: ['slack'],
+    },
+  }),
+});`,
+};
+
+// JSON examples for inline display
+export const httpActionJson = `{
+  "name": "Expire trial",
+  "schedule": { "wait": "14d" },
+  "request": {
+    "url": "https://api.example.com/trials/expire",
+    "body": { "user_id": 42 }
+  },
+  "max_attempts": 5
 }`;
 
-export const reminderActionJson = `{
-  "mode": "gated",
-  "name": "Approve deployment",
-  "intent": { "delay": "30m" },
+export const approvalActionJson = `{
+  "mode": "approval",
+  "name": "Deploy to production",
+  "schedule": { "wait": "30m" },
   "gate": {
-    "message": "Please approve the production deployment for v2.1",
-    "recipients": ["tech-lead@example.com", "+1234567890"],
-    "channels": ["email", "sms"],
+    "message": "Deploy v2.1 to production?",
+    "recipients": ["ops@example.com", "channel:slack-deploys"],
+    "channels": ["email", "slack"],
     "max_snoozes": 3
   }
 }`;
+
+// Workflow example
+export const workflowJson = `{
+  "name": "User onboarding",
+  "steps": [
+    {
+      "name": "Create account",
+      "type": "webhook",
+      "url": "https://api.example.com/accounts"
+    },
+    {
+      "name": "Manager approval",
+      "type": "approval",
+      "gate": {
+        "message": "Approve new user {{email}}?",
+        "recipients": ["channel:slack-approvals"]
+      }
+    },
+    {
+      "name": "Wait for setup",
+      "type": "wait",
+      "delay": "1h"
+    },
+    {
+      "name": "Send welcome email",
+      "type": "webhook",
+      "url": "https://api.example.com/welcome"
+    }
+  ]
+}`;
+
+// Legacy exports for backwards compatibility
+export const createReminderAction = createApprovalAction;
+export const reminderActionJson = approvalActionJson;

@@ -3,8 +3,8 @@
 namespace App\Http\Requests\Api;
 
 use App\Models\ChatConnection;
+use App\Models\Contact;
 use App\Models\ScheduledAction;
-use App\Models\TeamMember;
 use App\Models\UsageCounter;
 use App\Services\IntentResolver;
 use Illuminate\Foundation\Http\FormRequest;
@@ -22,6 +22,60 @@ class CreateActionRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        // =====================================================
+        // Terminology aliasing: Accept both old and new terms
+        // =====================================================
+
+        // Map type/mode new terms -> old terms
+        if ($this->has('type') && ! $this->has('mode')) {
+            $typeMap = [
+                'approval' => ScheduledAction::MODE_GATED,
+                'webhook' => ScheduledAction::MODE_IMMEDIATE,
+            ];
+            $type = $this->input('type');
+            if (isset($typeMap[$type])) {
+                $this->merge(['mode' => $typeMap[$type]]);
+            } else {
+                // Pass through if not a mapped value (e.g., 'immediate', 'gated')
+                $this->merge(['mode' => $type]);
+            }
+        }
+
+        // Map dedup_keys -> coordination_keys
+        if ($this->has('dedup_keys') && ! $this->has('coordination_keys')) {
+            $this->merge(['coordination_keys' => $this->input('dedup_keys')]);
+        }
+
+        // Map schedule -> intent
+        if ($this->has('schedule') && ! $this->has('intent')) {
+            $schedule = $this->input('schedule');
+            // Map wait -> delay within schedule
+            if (is_array($schedule) && isset($schedule['wait']) && ! isset($schedule['delay'])) {
+                $schedule['delay'] = $schedule['wait'];
+                unset($schedule['wait']);
+            }
+            $this->merge(['intent' => $schedule]);
+        }
+
+        // Also map wait -> delay if intent is provided directly with wait
+        if ($this->has('intent')) {
+            $intent = $this->input('intent');
+            if (is_array($intent) && isset($intent['wait']) && ! isset($intent['delay'])) {
+                $intent['delay'] = $intent['wait'];
+                unset($intent['wait']);
+                $this->merge(['intent' => $intent]);
+            }
+        }
+
+        // Map scheduled_for -> execute_at
+        if ($this->has('scheduled_for') && ! $this->has('execute_at')) {
+            $this->merge(['execute_at' => $this->input('scheduled_for')]);
+        }
+
+        // =====================================================
+        // Original transformations
+        // =====================================================
+
         // Default mode to 'immediate' if not provided
         if (! $this->has('mode')) {
             $this->merge(['mode' => ScheduledAction::MODE_IMMEDIATE]);
@@ -30,7 +84,7 @@ class CreateActionRequest extends FormRequest
         // Auto-generate name if not provided
         if (! $this->filled('name')) {
             $mode = $this->input('mode', ScheduledAction::MODE_IMMEDIATE);
-            $this->merge(['name' => $mode === ScheduledAction::MODE_IMMEDIATE ? 'HTTP Action' : 'Gated Action']);
+            $this->merge(['name' => $mode === ScheduledAction::MODE_IMMEDIATE ? 'Webhook Action' : 'Approval Action']);
         }
     }
 
@@ -383,9 +437,9 @@ class CreateActionRequest extends FormRequest
             return true;
         }
 
-        // Check if it's a valid UUID that exists as a team member
+        // Check if it's a valid UUID that exists as a contact
         if ($this->isUuid($recipient) && $accountId) {
-            return TeamMember::where('id', $recipient)
+            return Contact::where('id', $recipient)
                 ->where('account_id', $accountId)
                 ->exists();
         }

@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Api;
 
-use App\Models\TeamMember;
+use App\Models\Contact;
 use Illuminate\Foundation\Http\FormRequest;
 
-class CreateTeamMemberRequest extends FormRequest
+class CreateContactRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -49,23 +49,23 @@ class CreateTeamMemberRequest extends FormRequest
 
             // Check email uniqueness within account
             if ($this->filled('email')) {
-                $exists = TeamMember::where('account_id', $accountId)
+                $exists = Contact::where('account_id', $accountId)
                     ->where('email', $this->input('email'))
                     ->exists();
 
                 if ($exists) {
-                    $validator->errors()->add('email', 'A team member with this email already exists.');
+                    $validator->errors()->add('email', 'A contact with this email already exists.');
                 }
             }
 
             // Check phone uniqueness within account
             if ($this->filled('phone')) {
-                $exists = TeamMember::where('account_id', $accountId)
+                $exists = Contact::where('account_id', $accountId)
                     ->where('phone', $this->input('phone'))
                     ->exists();
 
                 if ($exists) {
-                    $validator->errors()->add('phone', 'A team member with this phone number already exists.');
+                    $validator->errors()->add('phone', 'A contact with this phone number already exists.');
                 }
             }
         });

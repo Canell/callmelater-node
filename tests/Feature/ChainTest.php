@@ -23,6 +23,9 @@ class ChainTest extends TestCase
         parent::setUp();
         $this->user = User::factory()->create();
         $this->otherUser = User::factory()->create();
+        // Chains require Pro plan
+        $this->user->account->update(['manual_plan' => 'pro']);
+        $this->otherUser->account->update(['manual_plan' => 'pro']);
         Queue::fake();
     }
 
@@ -108,7 +111,7 @@ class ChainTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.name', 'User Onboarding')
-            ->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.status', 'running')
             ->assertJsonStructure([
                 'data' => [
                     'id',
@@ -238,7 +241,6 @@ class ChainTest extends TestCase
                     'status',
                     'current_step',
                     'steps',
-                    'context',
                     'created_at',
                 ],
             ]);

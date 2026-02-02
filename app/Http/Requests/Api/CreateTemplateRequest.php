@@ -15,6 +15,15 @@ class CreateTemplateRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        // For chain templates, mode is not required at the template level
+        // (each step has its own type). Set a default to satisfy DB constraint.
+        if ($this->input('type') === ActionTemplate::TYPE_CHAIN && ! $this->has('mode')) {
+            $this->merge(['mode' => ScheduledAction::MODE_IMMEDIATE]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */

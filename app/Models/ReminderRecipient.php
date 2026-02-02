@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property string $id
  * @property string $action_id
- * @property string|null $team_member_id
+ * @property string|null $contact_id
  * @property string $email
  * @property string|null $chat_provider
  * @property string|null $chat_destination
@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read ScheduledAction $action
- * @property-read TeamMember|null $teamMember
+ * @property-read Contact|null $contact
  * @property-read string $display_name
  */
 class ReminderRecipient extends Model
@@ -45,7 +45,7 @@ class ReminderRecipient extends Model
 
     protected $fillable = [
         'action_id',
-        'team_member_id',
+        'contact_id',
         'email',
         'chat_provider',
         'chat_destination',
@@ -69,19 +69,19 @@ class ReminderRecipient extends Model
         return $this->belongsTo(ScheduledAction::class, 'action_id');
     }
 
-    public function teamMember(): BelongsTo
+    public function contact(): BelongsTo
     {
-        return $this->belongsTo(TeamMember::class);
+        return $this->belongsTo(Contact::class);
     }
 
     /**
      * Get the display name for this recipient.
-     * Returns team member name if available, otherwise the email/phone.
+     * Returns contact name if available, otherwise the email/phone.
      */
     protected function displayName(): Attribute
     {
         return Attribute::make(
-            get: fn () => $this->teamMember ? $this->teamMember->full_name : $this->email
+            get: fn () => $this->contact ? $this->contact->full_name : $this->email
         );
     }
 

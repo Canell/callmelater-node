@@ -11,11 +11,13 @@ Everything in CallMeLater is an **action** — something scheduled to happen in 
 Every action moves through these states:
 
 ```
-pending_resolution → resolved → executing → executed
-                                         ↘ failed
-                            ↘ awaiting_response → executed | failed | expired
-                            ↘ cancelled
+scheduled → resolved → executing → executed
+                                 ↘ failed
+                    ↘ awaiting_response → executed | failed | expired
+                    ↘ cancelled
 ```
+
+Note: `scheduled` is also known as `pending_resolution` for backwards compatibility.
 
 For full details, see [Action States](./states).
 
@@ -23,13 +25,13 @@ For full details, see [Action States](./states).
 
 Actions have two modes:
 
-### Immediate Mode (default)
+### Webhook Mode (default)
 
-An immediate action triggers a webhook at a scheduled time. This is the default mode.
+A webhook action triggers an HTTP call at a scheduled time. This is the default mode. Also known as `immediate` mode for backwards compatibility.
 
 ```json
 {
-  "intent": {
+  "schedule": {
     "preset": "tomorrow"
   },
   "request": {
@@ -46,22 +48,22 @@ An immediate action triggers a webhook at a scheduled time. This is the default 
 }
 ```
 
-Use immediate mode for:
+Use webhook mode for:
 - Trial expirations
 - Delayed notifications
 - Scheduled API calls
 - Cleanup tasks
 - Follow-up triggers
 
-### Gated Mode
+### Approval Mode
 
-A gated action sends a message to one or more recipients, asking them to respond before any HTTP request is made.
+An approval action sends a message to one or more recipients, asking them to respond before any HTTP request is made. Also known as `gated` mode for backwards compatibility.
 
 ```json
 {
-  "mode": "gated",
-  "intent": {
-    "delay": "2h"
+  "mode": "approval",
+  "schedule": {
+    "wait": "2h"
   },
   "gate": {
     "message": "Please confirm the deployment",
@@ -72,7 +74,7 @@ A gated action sends a message to one or more recipients, asking them to respond
 }
 ```
 
-Use gated mode for:
+Use approval mode for:
 - Approval workflows
 - Human confirmations
 - Check-ins
@@ -80,7 +82,7 @@ Use gated mode for:
 
 ## Scheduling
 
-Every action needs an **intent** that defines when it should execute.
+Every action needs a **schedule** that defines when it should execute. Also known as `intent` for backwards compatibility.
 
 ### Presets
 
@@ -97,21 +99,21 @@ Named time references:
 
 ```json
 {
-  "intent": {
+  "schedule": {
     "preset": "next_monday",
     "timezone": "America/New_York"
   }
 }
 ```
 
-### Relative Delay
+### Relative Wait
 
-A duration from now:
+A duration from now. Also known as `delay` for backwards compatibility.
 
 ```json
 {
-  "intent": {
-    "delay": "30m"
+  "schedule": {
+    "wait": "30m"
   }
 }
 ```
@@ -120,18 +122,18 @@ Supported units: `m` (minutes), `h` (hours), `d` (days), `w` (weeks)
 
 ### Exact Time
 
-A specific UTC timestamp:
+A specific UTC timestamp. Also known as `execute_at` for backwards compatibility.
 
 ```json
 {
-  "intent": {
-    "execute_at": "2025-04-01T14:30:00Z"
+  "schedule": {
+    "scheduled_for": "2025-04-01T14:30:00Z"
   }
 }
 ```
 
 :::note Timezone Handling
-If no `timezone` is provided in the intent, **UTC is assumed**. Always specify a timezone for presets like `tomorrow` or `next_monday` if your users expect local time.
+If no `timezone` is provided in the schedule, **UTC is assumed**. Always specify a timezone for presets like `tomorrow` or `next_monday` if your users expect local time.
 :::
 
 ## Idempotency

@@ -79,9 +79,9 @@ class CreatorNotificationService
             return 'Someone';
         }
 
-        // Use team member name if available
-        if ($respondent->teamMember) {
-            return $respondent->teamMember->full_name;
+        // Use contact name if available
+        if ($respondent->contact) {
+            return $respondent->contact->full_name;
         }
 
         // Use email

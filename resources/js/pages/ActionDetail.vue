@@ -54,7 +54,7 @@
                         <div class="card-header bg-transparent d-flex justify-content-between">
                             <h5 class="mb-0">Details</h5>
                             <span :class="['badge', action.mode === 'immediate' ? 'bg-primary' : 'bg-info']">
-                                {{ action.mode === 'immediate' ? 'Immediate' : 'Gated' }}
+                                {{ formatType(action.mode) }}
                             </span>
                         </div>
                         <div class="card-body">
@@ -70,9 +70,9 @@
                                 <small class="text-muted d-block">Displayed In</small>
                                 <strong>{{ displayTimezone }}</strong>
                             </div>
-                            <div v-if="action.coordination_keys?.length" class="mb-3">
-                                <small class="text-muted d-block">Coordination Keys</small>
-                                <span v-for="key in action.coordination_keys" :key="key" class="badge bg-secondary me-1">
+                            <div v-if="action.dedup_keys?.length" class="mb-3">
+                                <small class="text-muted d-block">Dedup Keys</small>
+                                <span v-for="key in action.dedup_keys" :key="key" class="badge bg-secondary me-1">
                                     {{ key }}
                                 </span>
                             </div>
@@ -156,10 +156,10 @@
                         </div>
                     </div>
 
-                    <!-- Gate Config (gated mode) -->
+                    <!-- Approval Config (gated mode) -->
                     <div v-if="action.mode === 'gated' && action.gate" class="card card-cml mb-4">
                         <div class="card-header bg-transparent">
-                            <h5 class="mb-0">Gate Configuration</h5>
+                            <h5 class="mb-0">Approval Configuration</h5>
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
@@ -379,7 +379,7 @@ import { useActionStatus } from '../composables/useActionStatus';
 import { formatDate, formatTime } from '../utils/dateFormatting';
 import ConfirmModal from '../components/ConfirmModal.vue';
 
-const { formatStatus, statusBadgeClass, recipientBadgeClass, canCancel, canRetry } = useActionStatus();
+const { formatStatus, statusBadgeClass, recipientBadgeClass, canCancel, canRetry, formatType } = useActionStatus();
 
 export default {
     name: 'ActionDetail',
@@ -438,6 +438,7 @@ export default {
         formatDate,
         formatTime,
         formatStatus,
+        formatType,
         statusBadgeClass,
         recipientBadgeClass,
         canCancel,

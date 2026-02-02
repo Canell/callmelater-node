@@ -2,7 +2,7 @@
     <div class="container py-4">
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="mb-0">Responses</h2>
+            <h2 class="mb-0">Inbox</h2>
         </div>
 
         <!-- Filters -->

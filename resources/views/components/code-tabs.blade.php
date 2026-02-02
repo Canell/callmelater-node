@@ -5,175 +5,93 @@ $codeExamples = [
   -H "Authorization: Bearer sk_live_..." \\
   -H "Content-Type: application/json" \\
   -d \'{
-    "name": "Trial expiration webhook",
-    "intent": { "delay": "14d" },
+    "name": "Trial expiration",
+    "schedule": { "wait": "14d" },
     "request": {
-      "url": "https://your-app.com/webhook",
+      "url": "https://your-app.com/webhooks/trial-expired",
       "method": "POST",
-      "body": { "event": "trial_expired", "user_id": 42 }
+      "body": { "user_id": 42 }
     }
   }\'',
         'php' => '<?php
-use GuzzleHttp\\Client;
-
-$client = new Client();
-$response = $client->post(\'https://api.callmelater.io/v1/actions\', [
-    \'headers\' => [
-        \'Authorization\' => \'Bearer sk_live_...\',
-        \'Content-Type\' => \'application/json\',
-    ],
-    \'json\' => [
-        \'name\' => \'Trial expiration webhook\',
-        \'intent\' => [\'delay\' => \'14d\'],
+$response = Http::withToken(\'sk_live_...\')
+    ->post(\'https://api.callmelater.io/v1/actions\', [
+        \'name\' => \'Trial expiration\',
+        \'schedule\' => [\'wait\' => \'14d\'],
         \'request\' => [
-            \'url\' => \'https://your-app.com/webhook\',
+            \'url\' => \'https://your-app.com/webhooks/trial-expired\',
             \'method\' => \'POST\',
-            \'body\' => [
-                \'event\' => \'trial_expired\',
-                \'user_id\' => 42,
-            ],
+            \'body\' => [\'user_id\' => 42],
         ],
-    ],
-]);
-
-$action = json_decode($response->getBody(), true);',
+    ]);',
         'python' => 'import requests
 
 response = requests.post(
     "https://api.callmelater.io/v1/actions",
-    headers={
-        "Authorization": "Bearer sk_live_...",
-        "Content-Type": "application/json",
-    },
+    headers={"Authorization": "Bearer sk_live_..."},
     json={
-        "name": "Trial expiration webhook",
-        "intent": {"delay": "14d"},
+        "name": "Trial expiration",
+        "schedule": {"wait": "14d"},
         "request": {
-            "url": "https://your-app.com/webhook",
-            "method": "POST",
-            "body": {"event": "trial_expired", "user_id": 42},
+            "url": "https://your-app.com/webhooks/trial-expired",
+            "body": {"user_id": 42},
         },
     },
-)
-
-action = response.json()',
-        'javascript' => 'const response = await fetch(\'https://api.callmelater.io/v1/actions\', {
+)',
+        'javascript' => 'const action = await fetch(\'https://api.callmelater.io/v1/actions\', {
   method: \'POST\',
   headers: {
     \'Authorization\': \'Bearer sk_live_...\',
     \'Content-Type\': \'application/json\',
   },
   body: JSON.stringify({
-    name: \'Trial expiration webhook\',
-    intent: { delay: \'14d\' },
+    name: \'Trial expiration\',
+    schedule: { wait: \'14d\' },
     request: {
-      url: \'https://your-app.com/webhook\',
-      method: \'POST\',
-      body: { event: \'trial_expired\', user_id: 42 },
+      url: \'https://your-app.com/webhooks/trial-expired\',
+      body: { user_id: 42 },
     },
   }),
-});
-
-const action = await response.json();',
+});',
         'node' => 'const axios = require(\'axios\');
 
-const response = await axios.post(
+const { data } = await axios.post(
   \'https://api.callmelater.io/v1/actions\',
   {
-    name: \'Trial expiration webhook\',
-    intent: { delay: \'14d\' },
+    name: \'Trial expiration\',
+    schedule: { wait: \'14d\' },
     request: {
-      url: \'https://your-app.com/webhook\',
-      method: \'POST\',
-      body: { event: \'trial_expired\', user_id: 42 },
+      url: \'https://your-app.com/webhooks/trial-expired\',
+      body: { user_id: 42 },
     },
   },
-  {
-    headers: {
-      Authorization: \'Bearer sk_live_...\',
-      \'Content-Type\': \'application/json\',
-    },
-  }
-);
-
-const action = response.data;',
-        'java' => 'import java.net.http.*;
-import java.net.URI;
-
-HttpClient client = HttpClient.newHttpClient();
-
-String json = """
-  {
-    "name": "Trial expiration webhook",
-    "intent": { "delay": "14d" },
-    "request": {
-      "url": "https://your-app.com/webhook",
-      "method": "POST",
-      "body": { "event": "trial_expired", "user_id": 42 }
-    }
-  }
-  """;
-
-HttpRequest request = HttpRequest.newBuilder()
-    .uri(URI.create("https://api.callmelater.io/v1/actions"))
-    .header("Authorization", "Bearer sk_live_...")
-    .header("Content-Type", "application/json")
-    .POST(HttpRequest.BodyPublishers.ofString(json))
-    .build();
-
-HttpResponse<String> response = client.send(
-    request, HttpResponse.BodyHandlers.ofString()
+  { headers: { Authorization: \'Bearer sk_live_...\' } }
 );',
-        'go' => 'package main
+        'go' => 'payload := map[string]interface{}{
+    "name": "Trial expiration",
+    "schedule": map[string]string{"wait": "14d"},
+    "request": map[string]interface{}{
+        "url":  "https://your-app.com/webhooks/trial-expired",
+        "body": map[string]interface{}{"user_id": 42},
+    },
+}
 
-import (
-    "bytes"
-    "encoding/json"
-    "net/http"
-)
-
-func createAction() {
-    payload := map[string]interface{}{
-        "name": "Trial expiration webhook",
-        "intent": map[string]string{"delay": "14d"},
-        "request": map[string]interface{}{
-            "url":    "https://your-app.com/webhook",
-            "method": "POST",
-            "body":   map[string]interface{}{"event": "trial_expired", "user_id": 42},
-        },
+body, _ := json.Marshal(payload)
+req, _ := http.NewRequest("POST", "https://api.callmelater.io/v1/actions", bytes.NewBuffer(body))
+req.Header.Set("Authorization", "Bearer sk_live_...")
+req.Header.Set("Content-Type", "application/json")',
+        'ruby' => 'response = HTTParty.post(
+  \'https://api.callmelater.io/v1/actions\',
+  headers: { \'Authorization\' => \'Bearer sk_live_...\' },
+  body: {
+    name: \'Trial expiration\',
+    schedule: { wait: \'14d\' },
+    request: {
+      url: \'https://your-app.com/webhooks/trial-expired\',
+      body: { user_id: 42 }
     }
-
-    body, _ := json.Marshal(payload)
-    req, _ := http.NewRequest("POST", "https://api.callmelater.io/v1/actions", bytes.NewBuffer(body))
-    req.Header.Set("Authorization", "Bearer sk_live_...")
-    req.Header.Set("Content-Type", "application/json")
-
-    client := &http.Client{}
-    resp, _ := client.Do(req)
-    defer resp.Body.Close()
-}',
-        'ruby' => 'require \'net/http\'
-require \'json\'
-
-uri = URI(\'https://api.callmelater.io/v1/actions\')
-http = Net::HTTP.new(uri.host, uri.port)
-http.use_ssl = true
-
-request = Net::HTTP::Post.new(uri)
-request[\'Authorization\'] = \'Bearer sk_live_...\'
-request[\'Content-Type\'] = \'application/json\'
-request.body = {
-  name: \'Trial expiration webhook\',
-  intent: { delay: \'14d\' },
-  request: {
-    url: \'https://your-app.com/webhook\',
-    method: \'POST\',
-    body: { event: \'trial_expired\', user_id: 42 }
-  }
-}.to_json
-
-response = http.request(request)
-action = JSON.parse(response.body)',
+  }.to_json
+)',
     ],
 ];
 
@@ -183,7 +101,6 @@ $languageConfig = [
     'python' => ['id' => 'python', 'label' => 'Python'],
     'javascript' => ['id' => 'javascript', 'label' => 'JavaScript'],
     'node' => ['id' => 'node', 'label' => 'Node.js'],
-    'java' => ['id' => 'java', 'label' => 'Java'],
     'go' => ['id' => 'go', 'label' => 'Go'],
     'ruby' => ['id' => 'ruby', 'label' => 'Ruby'],
 ];

@@ -24,7 +24,7 @@ class ResponseDashboardController extends Controller
                 ReminderRecipient::STATUS_SNOOZED,
             ])
             ->whereHas('action', fn ($q) => $q->where('account_id', $user->account_id))
-            ->with(['action:id,name', 'teamMember:id,first_name,last_name,email,phone'])
+            ->with(['action:id,name', 'contact:id,first_name,last_name,email,phone'])
             ->orderBy('responded_at', 'desc');
 
         // Filter by response type
@@ -40,12 +40,12 @@ class ResponseDashboardController extends Controller
             $query->whereDate('responded_at', '<=', $request->input('date_to'));
         }
 
-        // Search by email or team member name
+        // Search by email or contact name
         if ($request->filled('search')) {
             $search = '%' . $request->input('search') . '%';
             $query->where(function ($q) use ($search) {
                 $q->where('email', 'like', $search)
-                    ->orWhereHas('teamMember', fn ($tm) => $tm->where('first_name', 'like', $search)
+                    ->orWhereHas('contact', fn ($c) => $c->where('first_name', 'like', $search)
                         ->orWhere('last_name', 'like', $search)
                     );
             });

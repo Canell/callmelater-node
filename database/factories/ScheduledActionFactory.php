@@ -25,7 +25,8 @@ class ScheduledActionFactory extends Factory
             'name' => fake()->words(3, true),
             'mode' => ScheduledAction::MODE_IMMEDIATE,
             'resolution_status' => ScheduledAction::STATUS_PENDING_RESOLUTION,
-            'intent' => ['delay' => '1h'],
+            'intent_type' => ScheduledAction::INTENT_WALL_CLOCK,
+            'intent_payload' => ['delay' => '1h'],
             'timezone' => 'UTC',
             'request' => [
                 'url' => 'https://api.example.com/webhook',
@@ -34,9 +35,7 @@ class ScheduledActionFactory extends Factory
             'gate' => null,
             'max_attempts' => 5,
             'retry_strategy' => 'exponential',
-            'current_attempt' => 0,
-            'coordination_keys' => null,
-            'coordination_config' => null,
+            'attempt_count' => 0,
         ];
     }
 
@@ -113,11 +112,17 @@ class ScheduledActionFactory extends Factory
 
     /**
      * Configure with coordination keys.
+     * Note: Coordination keys are stored in a related table, not directly on the model.
+     * Use afterCreating to add keys via the relationship.
      */
     public function withCoordinationKeys(array $keys): static
     {
-        return $this->state(fn (array $attributes) => [
-            'coordination_keys' => $keys,
-        ]);
+        return $this->afterCreating(function (ScheduledAction $action) use ($keys) {
+            foreach ($keys as $key) {
+                $action->coordinationKeyRecords()->create([
+                    'coordination_key' => $key,
+                ]);
+            }
+        });
     }
 }

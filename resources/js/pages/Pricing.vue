@@ -59,12 +59,12 @@
                 <h5 class="card-title text-muted text-uppercase small fw-semibold">Pro</h5>
                 <div class="price-display mb-1">
                   <span class="price-amount" :key="billingPeriod">
-                    €{{ billingPeriod === 'annual' ? '16' : '19' }}
+                    €{{ billingPeriod === 'annual' ? '7.50' : '9' }}
                   </span>
                   <span class="price-period">/month</span>
                 </div>
                 <div v-if="billingPeriod === 'annual'" class="annual-note mb-3">
-                  <span class="text-success small fw-medium">€190/year</span>
+                  <span class="text-success small fw-medium">€90/year</span>
                   <span class="text-muted small"> (2 months free)</span>
                 </div>
                 <div v-else class="mb-3">&nbsp;</div>
@@ -73,9 +73,9 @@
                   <li class="included">5,000 actions/month</li>
                   <li class="included">10 retry attempts</li>
                   <li class="included">Email reminders</li>
+                  <li class="included">Teams & Slack integration</li>
                   <li class="included">15 SMS/month</li>
                   <li class="included">90-day history</li>
-                  <li class="included">Webhook signatures</li>
                   <li class="included">Callback webhooks</li>
                 </ul>
                 <button @click="subscribe('pro')" class="btn btn-cml-primary w-100" :disabled="loading">
@@ -92,12 +92,12 @@
                 <h5 class="card-title text-muted text-uppercase small fw-semibold">Business</h5>
                 <div class="price-display mb-1">
                   <span class="price-amount" :key="billingPeriod">
-                    €{{ billingPeriod === 'annual' ? '66' : '79' }}
+                    €{{ billingPeriod === 'annual' ? '32.50' : '39' }}
                   </span>
                   <span class="price-period">/month</span>
                 </div>
                 <div v-if="billingPeriod === 'annual'" class="annual-note mb-3">
-                  <span class="text-success small fw-medium">€790/year</span>
+                  <span class="text-success small fw-medium">€390/year</span>
                   <span class="text-muted small"> (2 months free)</span>
                 </div>
                 <div v-else class="mb-3">&nbsp;</div>
@@ -106,10 +106,10 @@
                   <li class="included">25,000 actions/month</li>
                   <li class="included">Unlimited retries</li>
                   <li class="included">Email reminders</li>
+                  <li class="included">Teams & Slack integration</li>
                   <li class="included">50 SMS/month</li>
                   <li class="included">1-year history</li>
-                  <li class="included">Webhook signatures</li>
-                  <li class="included">Callback webhooks</li>
+                  <li class="included">Workflows</li>
                   <li class="included">Team workspaces</li>
                   <li class="included">Priority email support</li>
                 </ul>

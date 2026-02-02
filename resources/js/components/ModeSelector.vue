@@ -14,7 +14,7 @@
                     >
                         <div class="card-body text-center py-4">
                             <div class="fs-2 mb-2">&#9889;</div>
-                            <h5 class="mb-1">Immediate</h5>
+                            <h5 class="mb-1">Webhook</h5>
                             <p class="text-muted mb-0 small">{{ immediateDescription }}</p>
                         </div>
                     </div>
@@ -28,7 +28,7 @@
                     >
                         <div class="card-body text-center py-4">
                             <div class="fs-2 mb-2">&#128275;</div>
-                            <h5 class="mb-1">Gated</h5>
+                            <h5 class="mb-1">Approval</h5>
                             <p class="text-muted mb-0 small">Requires human approval first</p>
                         </div>
                     </div>

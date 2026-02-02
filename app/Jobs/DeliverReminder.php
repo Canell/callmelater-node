@@ -9,7 +9,8 @@ use App\Models\ChatConnection;
 use App\Models\ReminderEvent;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
-use App\Models\TeamMember;
+use App\Models\Contact;
+use App\Models\User;
 use App\Services\BrevoService;
 use App\Services\Chat\SlackIntegration;
 use App\Services\Chat\TeamsIntegration;
@@ -77,36 +78,46 @@ class DeliverReminder implements ShouldQueue
 
         // Create recipient records with response tokens and send notifications
         foreach ($recipients as $recipient) {
-            // Resolve team member ID if applicable
-            $teamMemberId = null;
-            $resolvedContact = $recipient;
+            // Parse and resolve the recipient URI
+            $parsed = $this->parseRecipientUri($recipient);
+            $resolved = $this->resolveRecipient($parsed);
 
-            if ($this->isUuid($recipient)) {
-                $teamMember = TeamMember::where('id', $recipient)
+            // Handle channel recipients separately
+            if ($resolved['is_channel']) {
+                $channelId = $resolved['channel_id'];
+                $connection = ChatConnection::where('id', $channelId)
                     ->where('account_id', $this->action->account_id)
+                    ->where('is_active', true)
                     ->first();
 
-                if ($teamMember) {
-                    $teamMemberId = $teamMember->id;
-                    // Use email as primary contact, fallback to phone
-                    $resolvedContact = $teamMember->email ?? $teamMember->phone;
-
-                    if (! $resolvedContact) {
-                        Log::warning('Team member has no contact info, skipping', [
-                            'action_id' => $this->action->id,
-                            'team_member_id' => $teamMemberId,
-                        ]);
-
-                        continue;
+                if ($connection) {
+                    $provider = $connection->provider;
+                    $chatSent = $this->sendChatToConnection($connection);
+                    if ($chatSent) {
+                        $channelsUsed[$provider] = true;
+                        $sentCount++;
                     }
                 } else {
-                    Log::warning('Team member not found, skipping', [
+                    Log::warning('Chat connection not found or inactive', [
                         'action_id' => $this->action->id,
-                        'recipient' => $recipient,
+                        'channel_id' => $channelId,
                     ]);
-
-                    continue;
                 }
+
+                continue;
+            }
+
+            // Get resolved contact info
+            $resolvedContact = $resolved['contact'];
+            $contactId = $resolved['contact_id'];
+
+            if (! $resolvedContact) {
+                Log::warning('Could not resolve recipient contact info', [
+                    'action_id' => $this->action->id,
+                    'recipient' => $recipient,
+                ]);
+
+                continue;
             }
 
             // Determine if it's an email or phone number
@@ -131,7 +142,7 @@ class DeliverReminder implements ShouldQueue
                     'email' => $resolvedContact,
                 ],
                 [
-                    'team_member_id' => $teamMemberId,
+                    'contact_id' => $contactId,
                     'status' => ReminderRecipient::STATUS_PENDING,
                     'response_token' => Str::random(20),
                 ]
@@ -486,6 +497,82 @@ class DeliverReminder implements ShouldQueue
         };
     }
 
+    /**
+     * Send a chat message to a specific connection.
+     *
+     * @return bool Whether the message was sent successfully
+     */
+    private function sendChatToConnection(ChatConnection $connection): bool
+    {
+        $provider = $connection->provider;
+        $destination = $connection->teams_webhook_url ?? $connection->slack_bot_token;
+
+        if (! $destination) {
+            Log::warning('No webhook/token configured for chat connection', [
+                'action_id' => $this->action->id,
+                'provider' => $provider,
+                'connection_id' => $connection->id,
+            ]);
+
+            return false;
+        }
+
+        // Create a recipient record for this chat channel
+        $chatRecipient = ReminderRecipient::firstOrCreate(
+            [
+                'action_id' => $this->action->id,
+                'email' => "{$provider}:{$connection->id}",
+            ],
+            [
+                'chat_provider' => $provider,
+                'chat_destination' => $destination,
+                'slack_channel_id' => $connection->slack_channel_id,
+                'status' => ReminderRecipient::STATUS_PENDING,
+                'response_token' => Str::random(20),
+            ]
+        );
+
+        if ($chatRecipient->status !== ReminderRecipient::STATUS_PENDING) {
+            return false; // Already sent
+        }
+
+        $integration = $this->getChatIntegration($provider);
+        if (! $integration) {
+            return false;
+        }
+
+        try {
+            $result = $integration->sendDecisionCard(
+                $this->action,
+                $chatRecipient,
+                $chatRecipient->response_token
+            );
+
+            $chatRecipient->update([
+                'status' => ReminderRecipient::STATUS_SENT,
+                'chat_message_id' => $result['message_id'],
+            ]);
+
+            Log::info('Chat notification sent to channel', [
+                'action_id' => $this->action->id,
+                'provider' => $provider,
+                'connection_id' => $connection->id,
+                'connection_name' => $connection->name,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Failed to send chat notification to channel', [
+                'action_id' => $this->action->id,
+                'provider' => $provider,
+                'connection_id' => $connection->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
     private function isPhoneNumber(string $value): bool
     {
         // Simple check for phone numbers (starts with + or contains only digits, spaces, dashes)
@@ -495,5 +582,188 @@ class DeliverReminder implements ShouldQueue
     private function isUuid(string $value): bool
     {
         return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $value) === 1;
+    }
+
+    /**
+     * Parse a recipient URI into its components.
+     *
+     * Supported formats:
+     * - user:{id}:email - Workspace member's email
+     * - user:{id}:phone - Workspace member's phone
+     * - contact:{uuid}:email - Contact's email
+     * - contact:{uuid}:phone - Contact's phone
+     * - member:{uuid}:email - Contact's email (legacy alias)
+     * - member:{uuid}:phone - Contact's phone (legacy alias)
+     * - channel:{uuid} - Chat channel
+     * - email:{address} - Direct email
+     * - phone:{number} - Direct phone
+     * - {uuid} - Legacy contact ID
+     * - {email} - Legacy email address
+     * - {phone} - Legacy phone number
+     *
+     * @return array{type: string, id: string|null, contact_type: string|null, value: string|null}
+     */
+    private function parseRecipientUri(string $recipient): array
+    {
+        // New URI format: type:value or type:id:subtype
+        if (str_contains($recipient, ':')) {
+            $parts = explode(':', $recipient, 3);
+            $type = $parts[0];
+
+            switch ($type) {
+                case 'contact':
+                case 'member': // Legacy alias for contact
+                    $contactId = $parts[1] ?? null;
+                    $contactType = $parts[2] ?? 'email'; // Default to email
+
+                    return [
+                        'type' => 'contact',
+                        'id' => $contactId,
+                        'contact_type' => $contactType,
+                        'value' => null,
+                    ];
+
+                case 'user':
+                    $userId = $parts[1] ?? null;
+                    $contactType = $parts[2] ?? 'email'; // Default to email
+
+                    return [
+                        'type' => 'user',
+                        'id' => $userId,
+                        'contact_type' => $contactType,
+                        'value' => null,
+                    ];
+
+                case 'channel':
+                    return [
+                        'type' => 'channel',
+                        'id' => $parts[1] ?? null,
+                        'contact_type' => null,
+                        'value' => null,
+                    ];
+
+                case 'email':
+                    // Rejoin in case email contains colons (unlikely but handle it)
+                    $email = implode(':', array_slice($parts, 1));
+
+                    return [
+                        'type' => 'email',
+                        'id' => null,
+                        'contact_type' => 'email',
+                        'value' => $email,
+                    ];
+
+                case 'phone':
+                    return [
+                        'type' => 'phone',
+                        'id' => null,
+                        'contact_type' => 'phone',
+                        'value' => $parts[1] ?? null,
+                    ];
+            }
+        }
+
+        // Legacy format: UUID (contact)
+        if ($this->isUuid($recipient)) {
+            return [
+                'type' => 'contact',
+                'id' => $recipient,
+                'contact_type' => 'email', // Default to email for legacy
+                'value' => null,
+            ];
+        }
+
+        // Legacy format: email
+        if (filter_var($recipient, FILTER_VALIDATE_EMAIL) !== false) {
+            return [
+                'type' => 'email',
+                'id' => null,
+                'contact_type' => 'email',
+                'value' => $recipient,
+            ];
+        }
+
+        // Legacy format: phone
+        if ($this->isPhoneNumber($recipient)) {
+            return [
+                'type' => 'phone',
+                'id' => null,
+                'contact_type' => 'phone',
+                'value' => $recipient,
+            ];
+        }
+
+        // Unknown format, treat as email
+        return [
+            'type' => 'email',
+            'id' => null,
+            'contact_type' => 'email',
+            'value' => $recipient,
+        ];
+    }
+
+    /**
+     * Resolve a parsed recipient to actual contact information.
+     *
+     * @param  array{type: string, id: string|null, contact_type: string|null, value: string|null}  $parsed
+     * @return array{contact: string|null, contact_id: string|null, is_channel: bool, channel_id: string|null}
+     */
+    private function resolveRecipient(array $parsed): array
+    {
+        $result = [
+            'contact' => null,
+            'contact_id' => null,
+            'is_channel' => false,
+            'channel_id' => null,
+        ];
+
+        switch ($parsed['type']) {
+            case 'contact':
+                $contactRecord = Contact::where('id', $parsed['id'])
+                    ->where('account_id', $this->action->account_id)
+                    ->first();
+
+                if ($contactRecord) {
+                    $result['contact_id'] = $contactRecord->id;
+                    // Get preferred contact type
+                    if ($parsed['contact_type'] === 'phone' && $contactRecord->phone) {
+                        $result['contact'] = $contactRecord->phone;
+                    } elseif ($contactRecord->email) {
+                        $result['contact'] = $contactRecord->email;
+                    } elseif ($contactRecord->phone) {
+                        $result['contact'] = $contactRecord->phone;
+                    }
+                }
+                break;
+
+            case 'user':
+                $user = User::where('id', $parsed['id'])
+                    ->where('account_id', $this->action->account_id)
+                    ->first();
+
+                if ($user) {
+                    // Get preferred contact type
+                    if ($parsed['contact_type'] === 'phone' && $user->phone) {
+                        $result['contact'] = $user->phone;
+                    } elseif ($user->email) {
+                        $result['contact'] = $user->email;
+                    } elseif ($user->phone) {
+                        $result['contact'] = $user->phone;
+                    }
+                }
+                break;
+
+            case 'channel':
+                $result['is_channel'] = true;
+                $result['channel_id'] = $parsed['id'];
+                break;
+
+            case 'email':
+            case 'phone':
+                $result['contact'] = $parsed['value'];
+                break;
+        }
+
+        return $result;
     }
 }

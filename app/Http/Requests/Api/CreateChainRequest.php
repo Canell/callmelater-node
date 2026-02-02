@@ -4,8 +4,8 @@ namespace App\Http\Requests\Api;
 
 use App\Models\ActionChain;
 use App\Models\ChatConnection;
+use App\Models\Contact;
 use App\Models\ScheduledAction;
-use App\Models\TeamMember;
 use App\Models\UsageCounter;
 use App\Services\IntentResolver;
 use Illuminate\Foundation\Http\FormRequest;
@@ -223,10 +223,10 @@ class CreateChainRequest extends FormRequest
             return true;
         }
 
-        // Team member UUID
+        // Contact UUID
         if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $recipient) === 1) {
             if ($accountId) {
-                return TeamMember::where('id', $recipient)
+                return Contact::where('id', $recipient)
                     ->where('account_id', $accountId)
                     ->exists();
             }

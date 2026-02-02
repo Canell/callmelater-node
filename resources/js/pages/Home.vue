@@ -23,12 +23,12 @@
         <div class="row align-items-center">
           <div class="col-lg-6">
             <h1 class="hero-title">
-              Schedule future actions<br>
-              <span class="text-green">you can actually rely on</span>
+              Forget cron jobs.<br>
+              <span class="text-green">Schedule anything reliably.</span>
             </h1>
             <p class="hero-subtitle">
-              Trigger HTTP webhooks or send human confirmations at any time in the future.
-              Durable, retryable, and transparent. No cron jobs. No infrastructure.
+              Fire webhooks in 14 days. Get human approval before deploying.
+              Send reminders to Slack or Teams. One API, zero infrastructure headaches.
             </p>
             <div class="hero-cta">
               <router-link to="/register" class="btn btn-cml-primary btn-lg me-3">
@@ -64,11 +64,11 @@
       <div class="container">
         <div class="row justify-content-center">
           <div class="col-lg-8 text-center">
-            <h2 class="section-title">"Do this later" is where things break</h2>
+            <h2 class="section-title">Stop babysitting your scheduled jobs</h2>
             <p class="section-subtitle">
-              You need to call an API in three days, clean up data after a trial ends,
-              or remind someone to approve a deployment. And then: the server restarts,
-              a job fails silently, the reminder is ignored. No one knows what happened.
+              You've been there: the cron job silently failed, the retry logic has bugs,
+              and nobody approved that deployment because the reminder got lost.
+              CallMeLater handles all of this — so you can ship and sleep peacefully.
             </p>
           </div>
         </div>
@@ -144,8 +144,8 @@
                   <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h5>Team Reminders</h5>
-              <p>Send to multiple recipients. First response or all required. Built-in escalation.</p>
+              <h5>Slack &amp; Teams</h5>
+              <p>Send approvals to your team's channels. No context switching, faster responses.</p>
             </div>
           </div>
           <div class="col-md-6 col-lg-3">
@@ -174,70 +174,99 @@
       </div>
     </section>
 
-    <!-- Two Action Types -->
+    <!-- Three Superpowers -->
     <section class="section-light">
       <div class="container">
+        <!-- Webhooks -->
         <div class="row align-items-center mb-5 pb-4">
           <div class="col-lg-5">
-            <span class="feature-label">HTTP Webhooks</span>
-            <h3 class="feature-title">Trigger any API at the right time</h3>
+            <span class="feature-label">Scheduled Webhooks</span>
+            <h3 class="feature-title">Fire any API call at the perfect moment</h3>
             <p class="feature-description">
-              Schedule a POST, GET, or any HTTP method to fire at a specific time.
-              Perfect for trial expirations, follow-ups, cleanup jobs, or any delayed workflow.
+              Trial expiring in 14 days? Clean up old data next week?
+              Just tell us when and where — we'll handle retries, failures, and logging.
             </p>
             <ul class="feature-list">
-              <li>Configurable retry strategy</li>
-              <li>Custom headers and body</li>
-              <li>Webhook signature verification</li>
-              <li>Idempotency key support</li>
+              <li>Exponential backoff retries</li>
+              <li>HMAC signature verification</li>
+              <li>Full request/response logging</li>
+              <li>Cancel anytime via API</li>
             </ul>
           </div>
           <div class="col-lg-7">
             <div class="code-block">
               <pre><code>{
-  "name": "Expire trial subscription",
-  "intent": { "delay": "14d" },
+  "name": "Expire trial",
+  "schedule": { "wait": "14d" },
   "request": {
-    "method": "POST",
-    "url": "https://api.example.com/subscriptions/expire",
-    "headers": { "X-API-Key": "..." },
+    "url": "https://api.example.com/trials/expire",
     "body": { "user_id": 12345 }
   },
-  "max_attempts": 5,
-  "retry_strategy": "exponential"
+  "max_attempts": 5
 }</code></pre>
             </div>
           </div>
         </div>
 
-        <div class="row align-items-center flex-lg-row-reverse">
+        <!-- Human Approval -->
+        <div class="row align-items-center flex-lg-row-reverse mb-5 pb-4">
           <div class="col-lg-5">
-            <span class="feature-label">Human Reminders</span>
-            <h3 class="feature-title">Get confirmation before acting</h3>
+            <span class="feature-label">Human Approval</span>
+            <h3 class="feature-title">Get a Yes before things happen</h3>
             <p class="feature-description">
-              Sometimes a human needs to approve first. Send reminders via email or SMS
-              with one-click Yes/No/Snooze buttons. No account needed to respond.
+              Need someone to approve a deployment? Send a reminder to email, SMS, Slack, or Teams.
+              One-click buttons. No login required. Snooze if they need more time.
             </p>
             <ul class="feature-list">
-              <li>Email and SMS delivery</li>
-              <li>One-click response buttons</li>
-              <li>Configurable snooze limits</li>
-              <li>Automatic escalation</li>
+              <li>Email, SMS, Slack &amp; Teams</li>
+              <li>One-click Yes / No / Snooze</li>
+              <li>Auto-escalation if ignored</li>
+              <li>Callback webhook on response</li>
             </ul>
           </div>
           <div class="col-lg-7">
             <div class="code-block">
               <pre><code>{
-  "mode": "gated",
-  "name": "Approve production deploy",
-  "intent": { "delay": "1h" },
+  "mode": "approval",
+  "name": "Deploy to production",
+  "schedule": { "wait": "30m" },
   "gate": {
-    "message": "Ready to deploy v2.1 to production?",
-    "recipients": ["ops@example.com", "+1234567890"],
-    "channels": ["email", "sms"],
-    "confirmation_mode": "first_response",
+    "message": "Ready to deploy v2.1?",
+    "recipients": ["channel:slack-deploys"],
+    "channels": ["slack"],
     "max_snoozes": 3
   }
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workflows -->
+        <div class="row align-items-center">
+          <div class="col-lg-5">
+            <span class="feature-label">Multi-Step Workflows</span>
+            <h3 class="feature-title">Chain actions together</h3>
+            <p class="feature-description">
+              Complex processes need multiple steps: call an API, wait for approval,
+              then trigger another webhook. Workflows let you orchestrate it all.
+            </p>
+            <ul class="feature-list">
+              <li>Mix webhooks, approvals &amp; delays</li>
+              <li>Pass data between steps</li>
+              <li>Conditional execution</li>
+              <li>Visual progress tracking</li>
+            </ul>
+          </div>
+          <div class="col-lg-7">
+            <div class="code-block">
+              <pre><code>{
+  "name": "User onboarding",
+  "steps": [
+    { "type": "webhook", "url": "https://api.example.com/users" },
+    { "type": "approval", "message": "Approve new user?" },
+    { "type": "wait", "delay": "1h" },
+    { "type": "webhook", "url": "https://api.example.com/welcome" }
+  ]
 }</code></pre>
             </div>
           </div>
@@ -294,15 +323,15 @@
     <!-- CTA Section -->
     <section class="cta-section">
       <div class="container text-center">
-        <h2 class="cta-title">Ready to make "later" reliable?</h2>
-        <p class="cta-subtitle">Start scheduling actions in under a minute. Free tier included.</p>
+        <h2 class="cta-title">Ship it. Sleep peacefully.</h2>
+        <p class="cta-subtitle">100 actions/month free. No credit card. Takes 30 seconds to start.</p>
         <div class="cta-buttons">
           <router-link to="/register" class="btn btn-light btn-lg me-3">
-            Get Started Free
+            Start Free
           </router-link>
-          <router-link to="/pricing" class="btn btn-outline-light btn-lg">
-            View Pricing
-          </router-link>
+          <a :href="docsUrl" class="btn btn-outline-light btn-lg">
+            Read the Docs
+          </a>
         </div>
       </div>
     </section>

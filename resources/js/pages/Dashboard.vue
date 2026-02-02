@@ -46,9 +46,9 @@
                     <option value="cancelled">Cancelled</option>
                 </select>
                 <select class="form-select" v-model="modeFilter" style="max-width: 150px;">
-                    <option value="">All modes</option>
-                    <option value="immediate">Immediate</option>
-                    <option value="gated">Gated</option>
+                    <option value="">All types</option>
+                    <option value="immediate">Webhook</option>
+                    <option value="gated">Approval</option>
                 </select>
                 <select v-if="coordinationKeys.length" class="form-select" v-model="coordinationKeyFilter" style="max-width: 200px;">
                     <option value="">All groups</option>
@@ -91,7 +91,7 @@
                     <thead>
                         <tr>
                             <th>Name</th>
-                            <th>Mode</th>
+                            <th>Type</th>
                             <th>Status</th>
                             <th>Scheduled For</th>
                             <th class="text-muted">Created</th>
@@ -109,7 +109,7 @@
                                 <span class="mode-label">
                                     <span v-if="action.mode === 'immediate'">&#9889;</span>
                                     <span v-else>&#128275;</span>
-                                    {{ action.mode === 'immediate' ? 'Immediate' : 'Gated' }}
+                                    {{ formatType(action.mode) }}
                                 </span>
                             </td>
                             <td>
@@ -186,7 +186,7 @@ import { formatDate } from '../utils/dateFormatting';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import QuotaWidget from '../components/QuotaWidget.vue';
 
-const { formatStatus, statusBadgeClass, canCancel } = useActionStatus();
+const { formatStatus, statusBadgeClass, canCancel, formatType } = useActionStatus();
 
 export default {
     name: 'Dashboard',
@@ -286,6 +286,7 @@ export default {
     methods: {
         formatDate,
         formatStatus,
+        formatType,
         statusBadgeClass,
         canCancel,
         async loadActions(page = 1, silent = false) {

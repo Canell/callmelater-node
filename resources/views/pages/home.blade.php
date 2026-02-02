@@ -1,7 +1,7 @@
 @extends('layouts.marketing')
 
-@section('title', 'CallMeLater - Schedule Future Actions You Can Rely On')
-@section('description', 'Trigger HTTP webhooks or send human confirmations at any time in the future. Durable, retryable, and transparent. No cron jobs. No infrastructure.')
+@section('title', 'CallMeLater - Forget cron jobs. Schedule anything reliably.')
+@section('description', 'Schedule webhooks, approvals, and multi-step workflows. Durable execution with automatic retries. Built-in Teams and Slack integration. No infrastructure required.')
 
 @section('styles')
 <style>
@@ -631,12 +631,12 @@
             <div class="row align-items-center">
                 <div class="col-lg-6">
                     <h1 class="hero-title">
-                        Schedule future actions<br>
-                        <span class="text-green">you can actually rely on</span>
+                        Forget cron jobs.<br>
+                        <span class="text-green">Schedule anything reliably.</span>
                     </h1>
                     <p class="hero-subtitle">
-                        Trigger HTTP webhooks or send human confirmations at any time in the future.
-                        Durable, retryable, and transparent. No cron jobs. No infrastructure.
+                        Webhooks that fire on time. Human approvals via Teams, Slack, or email.
+                        Multi-step workflows that just work. All with automatic retries and full audit trails.
                     </p>
                     <div class="hero-cta">
                         <a href="/register" class="btn btn-cml-primary btn-lg me-3">
@@ -738,22 +738,22 @@
                     <div class="feature-card">
                         <div class="feature-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                         </div>
-                        <h5>Coordination Keys</h5>
-                        <p>Group related actions. Replace old deployments, skip duplicates, or chain workflows.</p>
+                        <h5>Teams & Slack</h5>
+                        <p>Send approval requests directly to your channels. Interactive buttons for instant responses.</p>
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3">
                     <div class="feature-card">
                         <div class="feature-icon">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                             </svg>
                         </div>
-                        <h5>Team Reminders</h5>
-                        <p>Send to multiple recipients. First response or all required. Built-in escalation.</p>
+                        <h5>Workflows</h5>
+                        <p>Chain webhooks, approvals, and wait steps into powerful multi-step sequences.</p>
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-3">
@@ -798,32 +798,30 @@
         <div class="container">
             <div class="row align-items-center mb-5 pb-4">
                 <div class="col-lg-5">
-                    <span class="feature-label">HTTP Webhooks</span>
+                    <span class="feature-label">Scheduled Webhooks</span>
                     <h3 class="feature-title">Trigger any API at the right time</h3>
                     <p class="feature-description">
-                        Schedule a POST, GET, or any HTTP method to fire at a specific time.
-                        Perfect for trial expirations, follow-ups, cleanup jobs, or any delayed workflow.
+                        Schedule any HTTP request to fire at a specific time. Perfect for trial expirations,
+                        follow-up sequences, cleanup jobs, or any delayed API call.
                     </p>
                     <ul class="feature-list">
-                        <li>Configurable retry strategy</li>
-                        <li>Custom headers and body</li>
-                        <li>Webhook signature verification</li>
-                        <li>Idempotency key support</li>
+                        <li>Automatic retries with exponential backoff</li>
+                        <li>Custom headers and JSON body</li>
+                        <li>HMAC signature verification</li>
+                        <li>Callback webhooks on completion</li>
                     </ul>
                 </div>
                 <div class="col-lg-7">
                     <div class="code-block">
                         <pre><code>{
   "name": "Expire trial subscription",
-  "intent": { "delay": "14d" },
+  "schedule": { "wait": "14d" },
   "request": {
-    "method": "POST",
     "url": "https://api.example.com/subscriptions/expire",
-    "headers": { "X-API-Key": "..." },
+    "method": "POST",
     "body": { "user_id": 12345 }
   },
-  "max_attempts": 5,
-  "retry_strategy": "exponential"
+  "max_attempts": 5
 }</code></pre>
                     </div>
                 </div>
@@ -831,31 +829,29 @@
 
             <div class="row align-items-center flex-lg-row-reverse">
                 <div class="col-lg-5">
-                    <span class="feature-label">Human Reminders</span>
-                    <h3 class="feature-title">Get confirmation before acting</h3>
+                    <span class="feature-label">Human Approvals</span>
+                    <h3 class="feature-title">Get sign-off before acting</h3>
                     <p class="feature-description">
-                        Sometimes a human needs to approve first. Send reminders via email or SMS
-                        with one-click Yes/No/Snooze buttons. No account needed to respond.
+                        Sometimes a human needs to approve first. Send approval requests via Teams, Slack,
+                        email, or SMS with one-click Yes/No/Snooze buttons. No account needed to respond.
                     </p>
                     <ul class="feature-list">
+                        <li>Teams and Slack integration</li>
                         <li>Email and SMS delivery</li>
                         <li>One-click response buttons</li>
-                        <li>Configurable snooze limits</li>
-                        <li>Automatic escalation</li>
+                        <li>Snooze and escalation support</li>
                     </ul>
                 </div>
                 <div class="col-lg-7">
                     <div class="code-block">
                         <pre><code>{
-  "mode": "gated",
+  "mode": "approval",
   "name": "Approve production deploy",
-  "intent": { "delay": "1h" },
+  "schedule": { "wait": "5m" },
   "gate": {
     "message": "Ready to deploy v2.1 to production?",
-    "recipients": ["ops@example.com", "+1234567890"],
-    "channels": ["email", "sms"],
-    "confirmation_mode": "first_response",
-    "max_snoozes": 3
+    "recipients": ["channel:slack-ops-123", "ops@example.com"],
+    "channels": ["slack", "email"]
   }
 }</code></pre>
                     </div>
@@ -913,11 +909,11 @@
     <!-- CTA Section -->
     <section class="cta-section">
         <div class="container text-center">
-            <h2 class="cta-title">Ready to make "later" reliable?</h2>
-            <p class="cta-subtitle">Start scheduling actions in under a minute. Free tier included.</p>
+            <h2 class="cta-title">Stop babysitting your scheduled jobs</h2>
+            <p class="cta-subtitle">One API call. We handle the rest. Start free, scale as you grow.</p>
             <div class="cta-buttons">
                 <a href="/register" class="btn btn-light btn-lg me-3">
-                    Get Started Free
+                    Start Free
                 </a>
                 <a href="/pricing" class="btn btn-outline-light btn-lg">
                     View Pricing

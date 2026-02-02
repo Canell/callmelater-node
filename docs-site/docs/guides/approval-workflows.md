@@ -4,10 +4,10 @@ sidebar_position: 2
 
 # Approval Workflows
 
-Use gated actions to get human confirmation before proceeding with an action.
+Use approval actions to get human confirmation before proceeding with an action.
 
 :::info How Approval Works
-Approval workflows are implemented by creating a **gated** action. The reminder *is* the approval request.
+Approval workflows are implemented by creating an **approval** action (also known as `gated` for backwards compatibility). The reminder *is* the approval request.
 
 Your system is responsible for executing the follow-up logic (e.g., deploying, calling an API) once approval is confirmed. CallMeLater notifies you of the response — it does not automatically chain actions together.
 :::
@@ -24,17 +24,17 @@ You want someone to confirm before proceeding.
 
 ## Basic Approval
 
-Send a gated action and wait for confirmation:
+Send an approval action and wait for confirmation:
 
 ```bash
 curl -X POST https://api.callmelater.io/v1/actions \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "mode": "gated",
+    "mode": "approval",
     "idempotency_key": "deploy-approval-v2.1.0",
-    "intent": {
-      "delay": "0m"
+    "schedule": {
+      "wait": "0m"
     },
     "gate": {
       "message": "Please approve deployment of v2.1.0 to production",
@@ -56,7 +56,7 @@ Require everyone to approve:
 
 ```json
 {
-  "mode": "gated",
+  "mode": "approval",
   "gate": {
     "message": "Please approve the deployment",
     "confirmation_mode": "all_required",
@@ -77,7 +77,7 @@ If no one responds, escalate to a manager:
 
 ```json
 {
-  "mode": "gated",
+  "mode": "approval",
   "gate": {
     "message": "Please approve",
     "recipients": ["team@example.com"],
@@ -116,9 +116,9 @@ if (action.status === 'executed') {
 async function requestDeploymentApproval(version, environment) {
   // Create approval request
   const action = await callmelater.createAction({
-    mode: 'gated',
+    mode: 'approval',
     idempotency_key: `deploy-${version}-${environment}`,
-    intent: { delay: '0m' },
+    schedule: { wait: '0m' },
     gate: {
       message: `Approve deployment of ${version} to ${environment}?`,
       recipients: getApprovers(environment),

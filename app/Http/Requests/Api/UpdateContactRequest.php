@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Api;
 
-use App\Models\TeamMember;
+use App\Models\Contact;
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateTeamMemberRequest extends FormRequest
+class UpdateContactRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -41,41 +41,41 @@ class UpdateTeamMemberRequest extends FormRequest
             /** @var \App\Models\User $user */
             $user = $this->user();
             $accountId = $user->account_id;
-            $routeParam = $this->route('teamMember');
-            $teamMemberId = $routeParam instanceof TeamMember ? $routeParam->id : $routeParam;
+            $routeParam = $this->route('contact');
+            $contactId = $routeParam instanceof Contact ? $routeParam->id : $routeParam;
 
             // Check that at least one contact method will remain after update
-            $currentMember = TeamMember::find($teamMemberId);
-            if ($currentMember) {
-                $newEmail = $this->has('email') ? $this->input('email') : $currentMember->email;
-                $newPhone = $this->has('phone') ? $this->input('phone') : $currentMember->phone;
+            $currentContact = Contact::find($contactId);
+            if ($currentContact) {
+                $newEmail = $this->has('email') ? $this->input('email') : $currentContact->email;
+                $newPhone = $this->has('phone') ? $this->input('phone') : $currentContact->phone;
 
                 if (empty($newEmail) && empty($newPhone)) {
                     $validator->errors()->add('email', 'At least one contact method (email or phone) is required.');
                 }
             }
 
-            // Check email uniqueness within account (excluding current member)
+            // Check email uniqueness within account (excluding current contact)
             if ($this->filled('email')) {
-                $exists = TeamMember::where('account_id', $accountId)
+                $exists = Contact::where('account_id', $accountId)
                     ->where('email', $this->input('email'))
-                    ->where('id', '!=', $teamMemberId)
+                    ->where('id', '!=', $contactId)
                     ->exists();
 
                 if ($exists) {
-                    $validator->errors()->add('email', 'A team member with this email already exists.');
+                    $validator->errors()->add('email', 'A contact with this email already exists.');
                 }
             }
 
-            // Check phone uniqueness within account (excluding current member)
+            // Check phone uniqueness within account (excluding current contact)
             if ($this->filled('phone')) {
-                $exists = TeamMember::where('account_id', $accountId)
+                $exists = Contact::where('account_id', $accountId)
                     ->where('phone', $this->input('phone'))
-                    ->where('id', '!=', $teamMemberId)
+                    ->where('id', '!=', $contactId)
                     ->exists();
 
                 if ($exists) {
-                    $validator->errors()->add('phone', 'A team member with this phone number already exists.');
+                    $validator->errors()->add('phone', 'A contact with this phone number already exists.');
                 }
             }
         });

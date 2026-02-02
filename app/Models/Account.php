@@ -84,11 +84,11 @@ class Account extends Model
     }
 
     /**
-     * All team members (contacts) for this account.
+     * All contacts for this account.
      */
-    public function teamMembers(): HasMany
+    public function contacts(): HasMany
     {
-        return $this->hasMany(TeamMember::class, 'account_id');
+        return $this->hasMany(Contact::class, 'account_id');
     }
 
     /**

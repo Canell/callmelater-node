@@ -2,22 +2,24 @@
 sidebar_position: 13
 ---
 
-# Coordination Keys
+# Dedup Keys
 
-List and manage coordination keys used for grouping related actions.
+List and manage dedup keys used for grouping related actions. Also known as `coordination_keys` for backwards compatibility.
 
-## List Coordination Keys
+## List Dedup Keys
 
-Get all unique coordination keys used in your account.
+Get all unique dedup keys used in your account.
 
 ```
-GET /api/v1/coordination-keys
+GET /api/v1/dedup-keys
 ```
+
+Note: The endpoint `/api/v1/coordination-keys` is also available for backwards compatibility.
 
 ### Example
 
 ```bash
-curl https://api.callmelater.io/v1/coordination-keys \
+curl https://api.callmelater.io/v1/dedup-keys \
   -H "Authorization: Bearer sk_live_..."
 ```
 
@@ -35,18 +37,20 @@ curl https://api.callmelater.io/v1/coordination-keys \
 }
 ```
 
-## Filter Actions by Coordination Key
+## Filter Actions by Dedup Key
 
-Use the `coordination_key` query parameter on the list actions endpoint:
+Use the `dedup_key` query parameter on the list actions endpoint:
 
 ```
-GET /api/v1/actions?coordination_key={key}
+GET /api/v1/actions?dedup_key={key}
 ```
+
+Note: The query parameter `coordination_key` is also available for backwards compatibility.
 
 ### Example
 
 ```bash
-curl "https://api.callmelater.io/v1/actions?coordination_key=deploy:api-service" \
+curl "https://api.callmelater.io/v1/actions?dedup_key=deploy:api-service" \
   -H "Authorization: Bearer sk_live_..."
 ```
 
@@ -59,14 +63,14 @@ curl "https://api.callmelater.io/v1/actions?coordination_key=deploy:api-service"
       "id": "action-uuid-1",
       "name": "Deploy API v2.1",
       "status": "executed",
-      "coordination_keys": ["deploy:api-service"],
+      "dedup_keys": ["deploy:api-service"],
       ...
     },
     {
       "id": "action-uuid-2",
       "name": "Deploy API v2.0 (replaced)",
       "status": "cancelled",
-      "coordination_keys": ["deploy:api-service"],
+      "dedup_keys": ["deploy:api-service"],
       "replaced_by_action_id": "action-uuid-1",
       ...
     }
@@ -78,7 +82,7 @@ curl "https://api.callmelater.io/v1/actions?coordination_key=deploy:api-service"
 }
 ```
 
-## Coordination Key Format
+## Dedup Key Format
 
 Keys must match the pattern: alphanumeric characters plus `_`, `:`, `.`, `-`
 
@@ -99,7 +103,7 @@ Keys must match the pattern: alphanumeric characters plus `_`, `:`, `.`, `-`
 
 ```json
 {
-  "coordination_keys": ["deploy:api-service"],
+  "dedup_keys": ["deploy:api-service"],
   "coordination": {
     "on_create": "replace_existing"
   }
@@ -113,13 +117,13 @@ Each new deployment cancels the previous pending one.
 ```json
 // Step 1
 {
-  "coordination_keys": ["workflow:order-123"],
+  "dedup_keys": ["workflow:order-123"],
   "name": "Process payment"
 }
 
 // Step 2 (waits for step 1)
 {
-  "coordination_keys": ["workflow:order-123"],
+  "dedup_keys": ["workflow:order-123"],
   "name": "Ship order",
   "coordination": {
     "on_execute": {
@@ -135,7 +139,7 @@ Each new deployment cancels the previous pending one.
 ```json
 // Only run cleanup if processing failed
 {
-  "coordination_keys": ["job:data-import"],
+  "dedup_keys": ["job:data-import"],
   "name": "Cleanup failed import",
   "coordination": {
     "on_execute": {
@@ -149,7 +153,7 @@ Each new deployment cancels the previous pending one.
 
 ```json
 {
-  "coordination_keys": ["notification:user-42-weekly"],
+  "dedup_keys": ["notification:user-42-weekly"],
   "coordination": {
     "on_create": "skip_if_exists"
   }
@@ -160,13 +164,13 @@ If a notification is already scheduled, returns the existing one instead of crea
 
 ## Related Actions
 
-When viewing an action with coordination keys, the response includes `related_actions`:
+When viewing an action with dedup keys, the response includes `related_actions`:
 
 ```json
 {
   "data": {
     "id": "current-action",
-    "coordination_keys": ["deploy:api"],
+    "dedup_keys": ["deploy:api"],
     "related_actions": [
       {
         "id": "previous-action-1",
@@ -191,3 +195,4 @@ When viewing an action with coordination keys, the response includes `related_ac
 - Maximum 10 keys per action
 - Keys are scoped to your account (other accounts can use the same keys)
 - Deleted/expired actions still appear in related_actions for audit purposes
+- The API accepts both `dedup_keys` and `coordination_keys` for backwards compatibility

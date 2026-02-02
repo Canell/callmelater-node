@@ -2,15 +2,15 @@
 
 namespace Database\Factories;
 
-use App\Models\TeamMember;
+use App\Models\Contact;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<TeamMember>
+ * @extends Factory<Contact>
  */
-class TeamMemberFactory extends Factory
+class ContactFactory extends Factory
 {
-    protected $model = TeamMember::class;
+    protected $model = Contact::class;
 
     /**
      * Define the model's default state.
@@ -28,7 +28,7 @@ class TeamMemberFactory extends Factory
     }
 
     /**
-     * Indicate that the team member only has a phone.
+     * Indicate that the contact only has a phone.
      */
     public function withPhone(): static
     {
@@ -39,7 +39,7 @@ class TeamMemberFactory extends Factory
     }
 
     /**
-     * Indicate that the team member has both email and phone.
+     * Indicate that the contact has both email and phone.
      */
     public function withBoth(): static
     {

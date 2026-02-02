@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Mail\ActionFailedMail;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -54,6 +55,7 @@ use Illuminate\Support\Facades\Mail;
  */
 class ScheduledAction extends Model
 {
+    use HasFactory;
     use HasUuids;
 
     // Action modes

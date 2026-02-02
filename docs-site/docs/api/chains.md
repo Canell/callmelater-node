@@ -4,7 +4,7 @@ sidebar_position: 8
 
 # Chains API
 
-Chains are multi-step workflows that execute actions sequentially with data passing between steps. Each step can be an HTTP call, a human approval gate, or a delay.
+Chains are multi-step workflows that execute actions sequentially with data passing between steps. Each step can be a webhook, a human approval gate, or a wait.
 
 ## Why Chains?
 
@@ -37,10 +37,10 @@ Each step requires:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Step name |
-| `type` | string | Yes | `http_call`, `gated`, or `delay` |
+| `type` | string | Yes | `webhook`, `approval`, or `wait`. Also known as `http_call`, `gated`, or `delay` for backwards compatibility. |
 | `condition` | string | No | Expression that must be true to execute |
 
-**HTTP Call Step:**
+**Webhook Step:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -49,7 +49,7 @@ Each step requires:
 | `headers` | object | No | Request headers |
 | `body` | object | No | Request body |
 
-**Gated Step:**
+**Approval Step:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -57,11 +57,11 @@ Each step requires:
 | `gate.recipients` | array | No | Recipient emails/phones |
 | `gate.channels` | array | No | `email`, `sms`, `teams`, `slack` |
 
-**Delay Step:**
+**Wait Step:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `delay` | string | Yes | Duration (e.g., `5m`, `1h`, `2d`) |
+| `wait` | string | Yes | Duration (e.g., `5m`, `1h`, `2d`). Also known as `delay` for backwards compatibility. |
 
 ### Example: Approval Workflow
 
@@ -74,7 +74,7 @@ curl -X POST https://callmelater.io/api/v1/chains \
     "steps": [
       {
         "name": "Submit Expense",
-        "type": "http_call",
+        "type": "webhook",
         "url": "https://api.example.com/expenses",
         "method": "POST",
         "body": {
@@ -84,7 +84,7 @@ curl -X POST https://callmelater.io/api/v1/chains \
       },
       {
         "name": "Manager Approval",
-        "type": "gated",
+        "type": "approval",
         "gate": {
           "message": "Approve expense of ${{input.amount}} for {{input.description}}?",
           "recipients": ["manager@example.com"],
@@ -93,7 +93,7 @@ curl -X POST https://callmelater.io/api/v1/chains \
       },
       {
         "name": "Process Payment",
-        "type": "http_call",
+        "type": "webhook",
         "url": "https://api.example.com/payments",
         "method": "POST",
         "body": {
@@ -118,9 +118,9 @@ curl -X POST https://callmelater.io/api/v1/chains \
     "status": "pending",
     "current_step": 0,
     "steps": [
-      {"name": "Submit Expense", "type": "http_call", "status": "pending"},
-      {"name": "Manager Approval", "type": "gated", "status": "pending"},
-      {"name": "Process Payment", "type": "http_call", "status": "pending"}
+      {"name": "Submit Expense", "type": "webhook", "status": "pending"},
+      {"name": "Manager Approval", "type": "approval", "status": "pending"},
+      {"name": "Process Payment", "type": "webhook", "status": "pending"}
     ],
     "error_handling": "fail_chain",
     "created_at": "2025-01-15T10:00:00Z"
@@ -184,18 +184,18 @@ GET /api/v1/chains/{id}
     "steps": [
       {
         "name": "Submit Expense",
-        "type": "http_call",
+        "type": "webhook",
         "status": "executed",
         "response": {"id": "exp_123", "status": "submitted"}
       },
       {
         "name": "Manager Approval",
-        "type": "gated",
+        "type": "approval",
         "status": "awaiting_response"
       },
       {
         "name": "Process Payment",
-        "type": "http_call",
+        "type": "webhook",
         "status": "pending"
       }
     ],
@@ -277,10 +277,10 @@ Access responses from earlier steps with `{{steps.N.response.field}}`:
 
 Access the status of earlier steps with `{{steps.N.status}}`:
 
-- `executed` - HTTP call completed successfully
-- `failed` - HTTP call failed
-- `confirmed` - Gated step approved
-- `declined` - Gated step rejected
+- `executed` - Webhook step completed successfully
+- `failed` - Webhook step failed
+- `confirmed` - Approval step was approved
+- `declined` - Approval step was rejected
 - `skipped` - Step skipped due to condition
 
 ---
@@ -363,8 +363,8 @@ If a step fails, it's marked as skipped and the chain continues to the next step
 |--------|-------------|
 | `pending` | Step hasn't started |
 | `executing` | Step is currently running |
-| `executed` | HTTP call completed successfully |
+| `executed` | Webhook step completed successfully |
 | `failed` | Step failed |
-| `confirmed` | Gated step was approved |
-| `declined` | Gated step was rejected |
+| `confirmed` | Approval step was approved |
+| `declined` | Approval step was rejected |
 | `skipped` | Step skipped (condition not met or error with `skip_step`) |

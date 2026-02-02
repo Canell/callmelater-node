@@ -2,29 +2,29 @@
 sidebar_position: 4
 ---
 
-# Gated Actions (Reminders)
+# Approval Actions (Reminders)
 
-Gated actions let you collect human responses (confirm, decline, or snooze). When someone responds, CallMeLater notifies your system via a callback URL — your system then decides what action to take.
+Approval actions let you collect human responses (confirm, decline, or snooze). When someone responds, CallMeLater notifies your system via a callback URL — your system then decides what action to take. Also known as `gated` actions for backwards compatibility.
 
-## How Gated Actions Work
+## How Approval Actions Work
 
-1. You create a gated action with recipients
+1. You create an approval action with recipients
 2. At the scheduled time, CallMeLater sends the reminder (email/SMS)
 3. Recipients see a simple interface: **Confirm**, **Decline**, or **Snooze**
 4. Their response triggers your callback URL with response details
 
-:::info Gated vs Immediate Mode
-**Immediate mode** executes your webhook directly at the scheduled time.
+:::info Approval vs Webhook Mode
+**Webhook mode** executes your HTTP call directly at the scheduled time.
 
-**Gated mode** collects a human response, then optionally calls your HTTP endpoint with the response details. Your system receives the response and decides what to do next — CallMeLater doesn't automatically execute any business logic.
+**Approval mode** collects a human response, then optionally calls your HTTP endpoint with the response details. Your system receives the response and decides what to do next — CallMeLater doesn't automatically execute any business logic.
 :::
 
-## Creating a Gated Action
+## Creating an Approval Action
 
 ```json
 {
-  "mode": "gated",
-  "intent": {
+  "mode": "approval",
+  "schedule": {
     "preset": "tomorrow"
   },
   "gate": {
@@ -79,7 +79,7 @@ Configure snooze behavior in the gate:
 
 ```json
 {
-  "mode": "gated",
+  "mode": "approval",
   "gate": {
     "message": "Please confirm",
     "recipients": ["user@example.com"],
@@ -98,7 +98,7 @@ Set when response links should expire:
 
 ```json
 {
-  "mode": "gated",
+  "mode": "approval",
   "gate": {
     "recipients": ["user@example.com"],
     "message": "Please confirm",
@@ -119,7 +119,7 @@ Configure escalation for critical reminders:
 
 ```json
 {
-  "mode": "gated",
+  "mode": "approval",
   "gate": {
     "message": "Please confirm",
     "recipients": ["team@example.com"],

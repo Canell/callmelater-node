@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read string $full_name
  * @property-read string|null $primary_contact
  */
-class TeamMember extends Model
+class Contact extends Model
 {
     use HasFactory, HasUuids;
 

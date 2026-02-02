@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\Concerns\TerminologyMapping;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,6 +11,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class ChainResource extends JsonResource
 {
+    use TerminologyMapping;
     /**
      * @return array<string, mixed>
      */
@@ -44,11 +46,15 @@ class ChainResource extends JsonResource
 
         return array_map(function ($step, $index) use ($context) {
             $stepContext = $context['steps'][$index] ?? null;
+            $internalType = $step['type'];
 
             return [
                 'index' => $index,
                 'name' => $step['name'] ?? "Step {$index}",
-                'type' => $step['type'],
+                // New terminology (primary)
+                'step_type' => $this->mapStepType($internalType),
+                // Legacy terminology (for backwards compatibility)
+                'type' => $internalType,
                 'status' => $this->getStepStatus($index, $stepContext),
                 'response' => $stepContext['response'] ?? null,
                 'completed_at' => $stepContext['completed_at'] ?? null,
@@ -104,6 +110,8 @@ class ChainResource extends JsonResource
             ],
             'delay' => [
                 'delay' => $step['delay'] ?? null,
+                // Also include as 'wait' for new terminology
+                'wait' => $step['delay'] ?? null,
             ],
             default => [],
         };

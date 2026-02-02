@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Create Action
 
-Schedule a new HTTP call or gated reminder.
+Schedule a new webhook or approval request.
 
 ```
 POST /api/v1/actions
@@ -16,31 +16,31 @@ POST /api/v1/actions
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `mode` | string | No | `immediate` (default) or `gated` |
+| `mode` | string | No | `webhook` (default) or `approval`. Also known as `immediate` and `gated` for backwards compatibility. |
 | `name` | string | No | Display name (auto-generated if omitted) |
 | `description` | string | No | Optional description (max 1000 chars) |
 | `timezone` | string | No | Timezone for scheduling (e.g., `America/New_York`) |
 | `idempotency_key` | string | No | Unique key to prevent duplicates (max 255 chars) |
 | `callback_url` | string | No | URL to receive status webhooks |
-| `intent` | object | Yes* | When to execute (see below) |
+| `schedule` | object | Yes* | When to execute (see below). Also known as `intent` for backwards compatibility. |
 
-*Either `intent` or top-level `execute_at` must be provided.
+*Either `schedule` or top-level `scheduled_for` must be provided.
 
-### Scheduling (Intent)
+### Scheduling
 
 One of these is required:
 
 | Field | Type | Example | Description |
 |-------|------|---------|-------------|
-| `intent.preset` | string | `"tomorrow"` | Named time preset |
-| `intent.delay` | string | `"2h"` | Relative delay |
-| `execute_at` | string | `"2025-04-01T09:00:00Z"` | Exact UTC time (top-level) |
+| `schedule.preset` | string | `"tomorrow"` | Named time preset |
+| `schedule.wait` | string | `"2h"` | Relative wait duration. Also known as `delay` for backwards compatibility. |
+| `scheduled_for` | string | `"2025-04-01T09:00:00Z"` | Exact UTC time (top-level). Also known as `execute_at` for backwards compatibility. |
 
 **Presets:** `tomorrow`, `next_week`, `next_monday` through `next_sunday`, `1h`, `2h`, `4h`, `1d`, `3d`, `1w`
 
-**Delay format:** Number + unit (`m` minutes, `h` hours, `d` days, `w` weeks)
+**Wait format:** Number + unit (`m` minutes, `h` hours, `d` days, `w` weeks)
 
-### Immediate Mode Fields (HTTP Actions)
+### Webhook Mode Fields (HTTP Actions)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -54,7 +54,7 @@ One of these is required:
 | `retry_strategy` | string | No | `exponential` (default) or `linear` |
 | `webhook_secret` | string | No | Secret for signing requests |
 
-### Gated Mode Fields (Human Confirmations)
+### Approval Mode Fields (Human Confirmations)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -71,13 +71,13 @@ One of these is required:
 | `gate.escalation.contacts` | array | No | Email addresses for escalation |
 | `request` | object | No | Optional HTTP request to execute after approval |
 
-### Coordination Keys (Action Grouping)
+### Dedup Keys (Action Grouping)
 
-Group related actions and control their behavior:
+Group related actions and control their behavior. Also known as `coordination_keys` for backwards compatibility.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `coordination_keys` | array | No | Keys for grouping (max 10, alphanumeric with `_:.-`) |
+| `dedup_keys` | array | No | Keys for grouping (max 10, alphanumeric with `_:.-`). Also known as `coordination_keys`. |
 | `coordination` | object | No | Coordination behavior configuration |
 | `coordination.on_create` | string | No | Behavior when creating: `replace_existing`, `skip_if_exists` |
 | `coordination.on_execute` | object | No | Execution-time conditions |
@@ -98,7 +98,7 @@ Group related actions and control their behavior:
 
 ## Examples
 
-### Immediate Mode (HTTP Action)
+### Webhook Mode (HTTP Action)
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -111,10 +111,10 @@ curl -X POST https://api.callmelater.io/v1/actions \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "mode": "immediate",
+    "mode": "webhook",
     "name": "Trial expiration webhook",
     "idempotency_key": "trial-end-user-42",
-    "intent": { "delay": "14d" },
+    "schedule": { "wait": "14d" },
     "request": {
       "method": "POST",
       "url": "https://api.example.com/webhooks/trial-expired",
@@ -140,10 +140,10 @@ $response = $client->post('https://api.callmelater.io/v1/actions', [
         'Content-Type' => 'application/json',
     ],
     'json' => [
-        'mode' => 'immediate',
+        'mode' => 'webhook',
         'name' => 'Trial expiration webhook',
         'idempotency_key' => 'trial-end-user-42',
-        'intent' => ['delay' => '14d'],
+        'schedule' => ['wait' => '14d'],
         'request' => [
             'method' => 'POST',
             'url' => 'https://api.example.com/webhooks/trial-expired',
@@ -168,10 +168,10 @@ response = requests.post(
         "Content-Type": "application/json",
     },
     json={
-        "mode": "immediate",
+        "mode": "webhook",
         "name": "Trial expiration webhook",
         "idempotency_key": "trial-end-user-42",
-        "intent": {"delay": "14d"},
+        "schedule": {"wait": "14d"},
         "request": {
             "method": "POST",
             "url": "https://api.example.com/webhooks/trial-expired",
@@ -194,10 +194,10 @@ const response = await fetch('https://api.callmelater.io/v1/actions', {
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    mode: 'immediate',
+    mode: 'webhook',
     name: 'Trial expiration webhook',
     idempotency_key: 'trial-end-user-42',
-    intent: { delay: '14d' },
+    schedule: { wait: '14d' },
     request: {
       method: 'POST',
       url: 'https://api.example.com/webhooks/trial-expired',
@@ -212,7 +212,7 @@ const action = await response.json();
 </TabItem>
 </Tabs>
 
-### Gated Mode (Human Confirmation)
+### Approval Mode (Human Confirmation)
 
 <Tabs groupId="programming-language">
 <TabItem value="curl" label="cURL" default>
@@ -222,10 +222,10 @@ curl -X POST https://api.callmelater.io/v1/actions \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "mode": "gated",
+    "mode": "approval",
     "name": "Production deployment approval",
     "idempotency_key": "deploy-approval-abc123",
-    "intent": { "delay": "30m" },
+    "schedule": { "wait": "30m" },
     "gate": {
       "message": "Please approve the production deployment for release v2.1.0",
       "recipients": ["tech-lead@example.com", "+15551234567"],
@@ -246,10 +246,10 @@ curl -X POST https://api.callmelater.io/v1/actions \
 $response = $client->post('https://api.callmelater.io/v1/actions', [
     'headers' => ['Authorization' => 'Bearer sk_live_...'],
     'json' => [
-        'mode' => 'gated',
+        'mode' => 'approval',
         'name' => 'Production deployment approval',
         'idempotency_key' => 'deploy-approval-abc123',
-        'intent' => ['delay' => '30m'],
+        'schedule' => ['wait' => '30m'],
         'gate' => [
             'message' => 'Please approve the production deployment',
             'recipients' => ['tech-lead@example.com'],
@@ -264,16 +264,16 @@ $response = $client->post('https://api.callmelater.io/v1/actions', [
 </TabItem>
 </Tabs>
 
-### Gated Mode with HTTP Request (Approval + Action)
+### Approval Mode with HTTP Request (Approval + Action)
 
 ```bash
 curl -X POST https://api.callmelater.io/v1/actions \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "mode": "gated",
+    "mode": "approval",
     "name": "Approve and deploy",
-    "intent": { "preset": "tomorrow" },
+    "schedule": { "preset": "tomorrow" },
     "gate": {
       "message": "Approve deployment to production?",
       "recipients": ["ops@example.com"],
@@ -289,7 +289,7 @@ curl -X POST https://api.callmelater.io/v1/actions \
 
 When approved, the HTTP request executes automatically.
 
-### With Coordination Keys
+### With Dedup Keys
 
 ```bash
 # Replace any existing deployment action for this service
@@ -298,8 +298,8 @@ curl -X POST https://api.callmelater.io/v1/actions \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Deploy API v2.1",
-    "intent": { "delay": "1h" },
-    "coordination_keys": ["deploy:api-service"],
+    "schedule": { "wait": "1h" },
+    "dedup_keys": ["deploy:api-service"],
     "coordination": {
       "on_create": "replace_existing"
     },
@@ -319,8 +319,8 @@ curl -X POST https://api.callmelater.io/v1/actions \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Database migration step 2",
-    "intent": { "delay": "5m" },
-    "coordination_keys": ["migration:db-upgrade"],
+    "schedule": { "wait": "5m" },
+    "dedup_keys": ["migration:db-upgrade"],
     "coordination": {
       "on_execute": {
         "condition": "wait_for_previous",
@@ -345,12 +345,12 @@ curl -X POST https://api.callmelater.io/v1/actions \
     "id": "01234567-89ab-cdef-0123-456789abcdef",
     "name": "Trial expiration webhook",
     "description": null,
-    "mode": "immediate",
-    "status": "pending_resolution",
+    "mode": "webhook",
+    "status": "scheduled",
     "timezone": "UTC",
-    "execute_at": "2025-01-19T10:30:00Z",
+    "scheduled_for": "2025-01-19T10:30:00Z",
     "idempotency_key": "trial-end-user-42",
-    "coordination_keys": [],
+    "dedup_keys": [],
     "attempt_count": 0,
     "max_attempts": 5,
     "retry_strategy": "exponential",
@@ -359,6 +359,8 @@ curl -X POST https://api.callmelater.io/v1/actions \
   }
 }
 ```
+
+Note: The response may also show `pending_resolution` (alias for `scheduled`), `execute_at` (alias for `scheduled_for`), and `coordination_keys` (alias for `dedup_keys`) for backwards compatibility.
 
 ### Skipped (200 OK) - When using skip_if_exists
 
@@ -400,7 +402,7 @@ When using `replace_existing`:
   "message": "The given data was invalid.",
   "errors": {
     "request.url": ["The request.url field is required."],
-    "coordination_keys": ["At least one coordination_key is required when using coordination.on_create."]
+    "dedup_keys": ["At least one dedup_key is required when using coordination.on_create."]
   }
 }
 ```
@@ -429,8 +431,19 @@ When using `replace_existing`:
 
 ## Notes
 
-- Actions in `immediate` mode require the `request` object
-- Actions in `gated` mode require the `gate` object
-- The `request` object is optional for `gated` mode - if provided, the HTTP call executes after approval
-- Coordination keys are useful for managing related actions (e.g., deployments, migrations)
+- Actions in `webhook` mode require the `request` object
+- Actions in `approval` mode require the `gate` object
+- The `request` object is optional for `approval` mode - if provided, the HTTP call executes after approval
+- Dedup keys are useful for managing related actions (e.g., deployments, migrations)
 - Domain verification may be required for high-volume usage to a specific domain
+
+## Backwards Compatibility
+
+The API accepts both old and new terminology:
+- `immediate` and `webhook` modes are interchangeable
+- `gated` and `approval` modes are interchangeable
+- `intent` and `schedule` fields are interchangeable
+- `delay` and `wait` fields are interchangeable
+- `execute_at` and `scheduled_for` fields are interchangeable
+- `coordination_keys` and `dedup_keys` fields are interchangeable
+- `pending_resolution` and `scheduled` statuses are interchangeable

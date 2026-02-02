@@ -24,9 +24,9 @@ class ResponseResource extends JsonResource
             'response_type' => $this->status,
             'comment' => $this->response_comment,
             'responded_at' => $this->responded_at?->toIso8601String(),
-            'team_member' => $this->whenLoaded('teamMember', fn () => $this->teamMember ? [
-                'id' => $this->teamMember->id,
-                'full_name' => $this->teamMember->full_name,
+            'contact' => $this->whenLoaded('contact', fn () => $this->contact ? [
+                'id' => $this->contact->id,
+                'full_name' => $this->contact->full_name,
             ] : null),
         ];
     }

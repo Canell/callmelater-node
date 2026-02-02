@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\Concerns\TerminologyMapping;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,6 +11,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  */
 class ActionResource extends JsonResource
 {
+    use TerminologyMapping;
+
     /**
      * Round a timestamp up to the next minute.
      * This reflects when the action will actually execute (dispatcher runs every minute).
@@ -40,11 +43,20 @@ class ActionResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'description' => $this->description,
+
+            // New terminology (primary)
+            'type' => $this->mapModeToType($this->mode),
+            'status' => $this->mapStatus($this->resolution_status),
+
+            // Legacy terminology (for backwards compatibility)
             'mode' => $this->mode,
-            'status' => $this->resolution_status,
+            'resolution_status' => $this->resolution_status,
+
             'timezone' => $this->timezone,
 
             // Scheduling - rounded up to next minute (when dispatcher actually runs)
+            // New term: scheduled_for, Legacy: execute_at
+            'scheduled_for' => $this->roundUpToNextMinute($this->execute_at_utc),
             'execute_at' => $this->roundUpToNextMinute($this->execute_at_utc),
             'executed_at' => $this->executed_at_utc?->toIso8601String(),
             'failure_reason' => $this->when($this->resolution_status === 'failed', $this->failure_reason),
@@ -91,6 +103,8 @@ class ActionResource extends JsonResource
 
             // Metadata
             'idempotency_key' => $this->idempotency_key,
+            // New term: dedup_keys, Legacy: coordination_keys
+            'dedup_keys' => $this->coordination_keys,
             'coordination_keys' => $this->coordination_keys,
             'coordination_config' => $this->when(! empty($this->coordination_config), $this->coordination_config),
             'coordination_reschedule_count' => $this->when(

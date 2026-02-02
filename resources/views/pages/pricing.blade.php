@@ -245,11 +245,11 @@
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-muted text-uppercase small fw-semibold">Pro</h5>
                             <div class="price-display mb-1">
-                                <span class="price-amount" data-monthly="19" data-annual="16">&euro;19</span>
+                                <span class="price-amount" data-monthly="9" data-annual="7.50">&euro;9</span>
                                 <span class="price-period">/month</span>
                             </div>
                             <div class="annual-note mb-3" style="display: none;">
-                                <span class="text-success small fw-medium">&euro;190/year</span>
+                                <span class="text-success small fw-medium">&euro;90/year</span>
                                 <span class="text-muted small"> (2 months free)</span>
                             </div>
                             <div class="monthly-spacer mb-3">&nbsp;</div>
@@ -258,13 +258,12 @@
                                 <li class="included">5,000 actions/month</li>
                                 <li class="included">10 retry attempts</li>
                                 <li class="included">Email reminders</li>
+                                <li class="included">Teams & Slack integration</li>
                                 <li class="included">15 SMS/month</li>
                                 <li class="included">90-day history</li>
                                 <li class="included">20 action templates</li>
-                                <li class="included">Webhook signatures</li>
                                 <li class="included">Callback webhooks</li>
                                 <li class="excluded">No team workspaces</li>
-                                <li class="excluded">Standard support</li>
                             </ul>
                             <button type="button" class="btn btn-cml-primary w-100 mt-auto subscribe-btn" data-plan="pro">Subscribe</button>
                         </div>
@@ -277,11 +276,11 @@
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title text-muted text-uppercase small fw-semibold">Business</h5>
                             <div class="price-display mb-1">
-                                <span class="price-amount" data-monthly="79" data-annual="66">&euro;79</span>
+                                <span class="price-amount" data-monthly="39" data-annual="32.50">&euro;39</span>
                                 <span class="price-period">/month</span>
                             </div>
                             <div class="annual-note mb-3" style="display: none;">
-                                <span class="text-success small fw-medium">&euro;790/year</span>
+                                <span class="text-success small fw-medium">&euro;390/year</span>
                                 <span class="text-muted small"> (2 months free)</span>
                             </div>
                             <div class="monthly-spacer mb-3">&nbsp;</div>
@@ -290,11 +289,11 @@
                                 <li class="included">25,000 actions/month</li>
                                 <li class="included">Unlimited retries</li>
                                 <li class="included">Email reminders</li>
+                                <li class="included">Teams & Slack integration</li>
                                 <li class="included">50 SMS/month</li>
                                 <li class="included">1-year history</li>
-                                <li class="included">200 action templates</li>
-                                <li class="included">Webhook signatures</li>
-                                <li class="included">Callback webhooks</li>
+                                <li class="included">Unlimited templates</li>
+                                <li class="included">Workflows</li>
                                 <li class="included">Team workspaces</li>
                                 <li class="included">Priority email support</li>
                             </ul>
@@ -316,10 +315,7 @@
                                 <li class="included">Unlimited actions</li>
                                 <li class="included">Custom SMS quota</li>
                                 <li class="included">Custom retention</li>
-                                <li class="included">Unlimited templates</li>
-                                <li class="included">Webhook signatures</li>
-                                <li class="included">Callback webhooks</li>
-                                <li class="included">Team workspaces</li>
+                                <li class="included">Unlimited workflows</li>
                                 <li class="included">Dedicated support</li>
                                 <li class="included">Custom SLA available</li>
                             </ul>

@@ -2,22 +2,22 @@
     <div class="container py-4">
         <div class="mb-4">
             <router-link to="/chains" class="text-muted text-decoration-none small">
-                &larr; Back to Chains
+                &larr; Back to Workflows
             </router-link>
         </div>
 
-        <h2 class="mb-4">Create Chain</h2>
+        <h2 class="mb-4">Create Workflow</h2>
 
         <form @submit.prevent="submitChain">
-            <!-- Chain metadata -->
+            <!-- Workflow metadata -->
             <div class="card card-cml mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0">Chain Settings</h5>
+                    <h5 class="mb-0">Workflow Settings</h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Chain Name</label>
+                            <label class="form-label">Workflow Name</label>
                             <input
                                 type="text"
                                 class="form-control"
@@ -29,7 +29,7 @@
                         <div class="col-md-6 mb-3">
                             <label class="form-label">On Step Failure</label>
                             <select class="form-select" v-model="chain.error_handling">
-                                <option value="fail_chain">Fail entire chain</option>
+                                <option value="fail_chain">Fail entire workflow</option>
                                 <option value="skip_step">Skip failed step and continue</option>
                             </select>
                         </div>
@@ -43,19 +43,19 @@
                     <h5 class="mb-0">Steps ({{ chain.steps.length }})</h5>
                     <div class="btn-group">
                         <button type="button" class="btn btn-sm btn-outline-primary" @click="addStep('http_call')">
-                            + HTTP Call
+                            + Webhook
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-primary" @click="addStep('gated')">
                             + Approval
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-primary" @click="addStep('delay')">
-                            + Delay
+                            + Wait
                         </button>
                     </div>
                 </div>
                 <div class="card-body">
                     <div v-if="chain.steps.length === 0" class="text-center py-4 text-muted">
-                        Add at least 2 steps to create a chain.
+                        Add at least 2 steps to create a workflow.
                     </div>
 
                     <div
@@ -144,7 +144,7 @@
 
                         <!-- Gated step config -->
                         <div v-else-if="step.type === 'gated'" class="step-body">
-                            <div class="mb-2">
+                            <div class="mb-3">
                                 <label class="form-label small">Message</label>
                                 <textarea
                                     class="form-control form-control-sm"
@@ -154,33 +154,23 @@
                                     required
                                 ></textarea>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-2">
-                                    <label class="form-label small">Recipients (one per line)</label>
-                                    <textarea
-                                        class="form-control form-control-sm"
-                                        v-model="step.recipientsText"
-                                        rows="2"
-                                        placeholder="manager@example.com&#10;{{input.approver_email}}"
-                                    ></textarea>
-                                </div>
-                                <div class="col-md-6 mb-2">
-                                    <label class="form-label small">Channels</label>
-                                    <div class="d-flex gap-3 mt-1">
-                                        <div class="form-check">
-                                            <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="email" :id="'email-' + index">
-                                            <label class="form-check-label" :for="'email-' + index">Email</label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="teams" :id="'teams-' + index">
-                                            <label class="form-check-label" :for="'teams-' + index">Teams</label>
-                                        </div>
-                                        <div class="form-check">
-                                            <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="slack" :id="'slack-' + index">
-                                            <label class="form-check-label" :for="'slack-' + index">Slack</label>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="mb-3">
+                                <UnifiedRecipientSelector
+                                    v-model="step.selectedRecipients"
+                                    label="Recipients"
+                                    placeholder="Search contacts, channels, or enter email/phone..."
+                                    helper-text="Select team members, chat channels, or enter email/phone manually."
+                                />
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small">Variable recipient (optional)</label>
+                                <input
+                                    type="text"
+                                    class="form-control form-control-sm"
+                                    v-model="step.recipientVariable"
+                                    placeholder="{{input.approver_email}}"
+                                >
+                                <small class="form-text text-muted">Use template variables for dynamic recipients.</small>
                             </div>
                         </div>
 
@@ -188,7 +178,7 @@
                         <div v-else-if="step.type === 'delay'" class="step-body">
                             <div class="row">
                                 <div class="col-md-4">
-                                    <label class="form-label small">Delay Duration</label>
+                                    <label class="form-label small">Wait Duration</label>
                                     <div class="input-group input-group-sm">
                                         <input
                                             type="number"
@@ -294,9 +284,16 @@
 
 <script>
 import axios from 'axios';
+import { useActionStatus } from '../composables/useActionStatus';
+import UnifiedRecipientSelector from '../components/UnifiedRecipientSelector.vue';
+
+const { formatStepType, stepTypeBadgeClass } = useActionStatus();
 
 export default {
     name: 'CreateChain',
+    components: {
+        UnifiedRecipientSelector,
+    },
     inject: ['toast'],
     data() {
         return {
@@ -311,22 +308,8 @@ export default {
         };
     },
     methods: {
-        formatStepType(type) {
-            const labels = {
-                http_call: 'HTTP Call',
-                gated: 'Approval',
-                delay: 'Delay',
-            };
-            return labels[type] || type;
-        },
-        stepTypeBadge(type) {
-            const classes = {
-                http_call: 'bg-info text-dark',
-                gated: 'bg-warning text-dark',
-                delay: 'bg-secondary',
-            };
-            return classes[type] || 'bg-secondary';
-        },
+        formatStepType,
+        stepTypeBadge: stepTypeBadgeClass,
         addStep(type) {
             const step = {
                 name: `Step ${this.chain.steps.length + 1}`,
@@ -342,9 +325,9 @@ export default {
             } else if (type === 'gated') {
                 step.gate = {
                     message: '',
-                    channels: ['email'],
                 };
-                step.recipientsText = '';
+                step.selectedRecipients = [];
+                step.recipientVariable = '';
             } else if (type === 'delay') {
                 step.delayValue = 5;
                 step.delayUnit = 'm';
@@ -391,12 +374,36 @@ export default {
                         }
                     }
                 } else if (step.type === 'gated') {
+                    // Build recipients from selected + variable
+                    const recipients = [];
+                    const channels = new Set();
+
+                    // Add selected recipients (from UnifiedRecipientSelector)
+                    if (step.selectedRecipients && step.selectedRecipients.length > 0) {
+                        step.selectedRecipients.forEach(r => {
+                            recipients.push(r.uri);
+                            // Determine channel from recipient type
+                            if (r.type === 'channel') {
+                                channels.add(r.provider || 'teams');
+                            } else if (r.contact_type === 'phone') {
+                                channels.add('sms');
+                            } else {
+                                channels.add('email');
+                            }
+                        });
+                    }
+
+                    // Add variable recipient if provided
+                    if (step.recipientVariable && step.recipientVariable.trim()) {
+                        recipients.push(step.recipientVariable.trim());
+                        // Assume email for variable recipients by default
+                        channels.add('email');
+                    }
+
                     result.gate = {
                         message: step.gate.message,
-                        channels: step.gate.channels,
-                        recipients: step.recipientsText
-                            ? step.recipientsText.split('\n').map(r => r.trim()).filter(r => r)
-                            : [],
+                        channels: Array.from(channels),
+                        recipients: recipients,
                     };
                 } else if (step.type === 'delay') {
                     result.delay = `${step.delayValue}${step.delayUnit}`;

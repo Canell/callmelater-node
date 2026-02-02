@@ -1884,7 +1884,7 @@ export default {
                 if (this.contactsSearch) {
                     params.search = this.contactsSearch;
                 }
-                const response = await axios.get('/api/v1/team-members', { params });
+                const response = await axios.get('/api/v1/contacts', { params });
                 this.contacts = response.data.data || [];
             } catch (err) {
                 console.error('Failed to load contacts:', err);
@@ -1937,7 +1937,7 @@ export default {
 
                 if (this.editingContact) {
                     // Update
-                    const response = await axios.put(`/api/v1/team-members/${this.editingContact.id}`, data);
+                    const response = await axios.put(`/api/v1/contacts/${this.editingContact.id}`, data);
                     const idx = this.contacts.findIndex(c => c.id === this.editingContact.id);
                     if (idx !== -1) {
                         this.contacts[idx] = response.data.data;
@@ -1945,7 +1945,7 @@ export default {
                     this.toast.success('Contact updated.');
                 } else {
                     // Create
-                    const response = await axios.post('/api/v1/team-members', data);
+                    const response = await axios.post('/api/v1/contacts', data);
                     this.contacts.unshift(response.data.data);
                     this.toast.success('Contact added.');
                 }
@@ -1975,7 +1975,7 @@ export default {
         },
         async doDeleteContact(contact) {
             try {
-                await axios.delete(`/api/v1/team-members/${contact.id}`);
+                await axios.delete(`/api/v1/contacts/${contact.id}`);
                 this.contacts = this.contacts.filter(c => c.id !== contact.id);
                 this.toast.success('Contact deleted.');
             } catch (err) {

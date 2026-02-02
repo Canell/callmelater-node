@@ -66,7 +66,7 @@ class ActionApiTest extends TestCase
         ]);
 
         $response->assertStatus(201)
-            ->assertJsonPath('data.name', 'HTTP Action');
+            ->assertJsonPath('data.name', 'Webhook Action');
     }
 
     public function test_can_create_action_without_mode_defaults_to_immediate(): void
@@ -94,7 +94,7 @@ class ActionApiTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('data.mode', 'immediate')
-            ->assertJsonPath('data.name', 'HTTP Action');
+            ->assertJsonPath('data.name', 'Webhook Action');
     }
 
     public function test_action_uses_user_webhook_secret_by_default(): void
@@ -581,5 +581,114 @@ class ActionApiTest extends TestCase
                 'channels' => ['email'],
             ],
         ]);
+    }
+
+    // ==================== TERMINOLOGY ALIASING ====================
+
+    public function test_can_create_action_with_new_type_webhook(): void
+    {
+        // Test new "type" field with "webhook" value (aliases to mode=immediate)
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Webhook Action',
+            'type' => 'webhook',
+            'scheduled_for' => now()->addHour()->toIso8601String(),
+            'request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.type', 'webhook')
+            ->assertJsonPath('data.mode', 'immediate');
+
+        $this->assertDatabaseHas('scheduled_actions', [
+            'name' => 'Webhook Action',
+            'mode' => 'immediate',
+        ]);
+    }
+
+    public function test_can_create_action_with_new_type_approval(): void
+    {
+        // Test new "type" field with "approval" value (aliases to mode=gated)
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Approval Action',
+            'type' => 'approval',
+            'scheduled_for' => now()->addHour()->toIso8601String(),
+            'gate' => [
+                'message' => 'Please approve',
+                'recipients' => ['test@example.com'],
+                'channels' => ['email'],
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.type', 'approval')
+            ->assertJsonPath('data.mode', 'gated');
+
+        $this->assertDatabaseHas('scheduled_actions', [
+            'name' => 'Approval Action',
+            'mode' => 'gated',
+        ]);
+    }
+
+    public function test_can_create_action_with_schedule_instead_of_intent(): void
+    {
+        // Test new "schedule" field (aliases to intent)
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Scheduled Action',
+            'type' => 'webhook',
+            'schedule' => ['wait' => '1h'],
+            'request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+        ]);
+
+        $response->assertStatus(201);
+
+        $action = ScheduledAction::find($response->json('data.id'));
+        // The wait alias should be converted to delay internally
+        $this->assertEquals('1h', $action->intent_payload['delay'] ?? $action->intent_payload['wait'] ?? null);
+    }
+
+    public function test_can_create_action_with_dedup_keys(): void
+    {
+        // Test new "dedup_keys" field (aliases to coordination_keys)
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Dedup Action',
+            'type' => 'webhook',
+            'scheduled_for' => now()->addHour()->toIso8601String(),
+            'request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+            'dedup_keys' => ['deploy:prod', 'user:123'],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.dedup_keys', ['deploy:prod', 'user:123']);
+
+        $this->assertDatabaseHas('scheduled_actions', [
+            'name' => 'Dedup Action',
+        ]);
+
+        $action = ScheduledAction::find($response->json('data.id'));
+        $this->assertEquals(['deploy:prod', 'user:123'], $action->coordination_keys);
+    }
+
+    public function test_response_includes_both_old_and_new_terminology(): void
+    {
+        $response = $this->postJson('/api/v1/actions', [
+            'name' => 'Test Action',
+            'mode' => 'immediate',
+            'execute_at' => now()->addHour()->toIso8601String(),
+            'request' => [
+                'url' => 'https://example.com/webhook',
+            ],
+        ]);
+
+        $response->assertStatus(201)
+            // New terminology
+            ->assertJsonStructure(['data' => ['type', 'status', 'scheduled_for', 'dedup_keys']])
+            // Legacy terminology (for backwards compatibility)
+            ->assertJsonStructure(['data' => ['mode', 'resolution_status', 'execute_at', 'coordination_keys']]);
     }
 }

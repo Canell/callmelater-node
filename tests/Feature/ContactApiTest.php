@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Models\TeamMember;
+use App\Models\Contact;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-class TeamMemberApiTest extends TestCase
+class ContactApiTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -23,34 +23,34 @@ class TeamMemberApiTest extends TestCase
 
     // ==================== LIST ====================
 
-    public function test_can_list_team_members(): void
+    public function test_can_list_contacts(): void
     {
-        TeamMember::factory()->count(3)->create([
+        Contact::factory()->count(3)->create([
             'account_id' => $this->user->account_id,
         ]);
 
-        // Create team member in different account (should not be visible)
+        // Create contact in different account (should not be visible)
         $otherUser = User::factory()->create();
-        TeamMember::factory()->create([
+        Contact::factory()->create([
             'account_id' => $otherUser->account_id,
         ]);
 
-        $response = $this->getJson('/api/v1/team-members');
+        $response = $this->getJson('/api/v1/contacts');
 
         $response->assertOk()
             ->assertJsonCount(3, 'data');
     }
 
-    public function test_can_search_team_members(): void
+    public function test_can_search_contacts(): void
     {
-        TeamMember::factory()->create([
+        Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'john@example.com',
         ]);
 
-        TeamMember::factory()->create([
+        Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'first_name' => 'Jane',
             'last_name' => 'Smith',
@@ -58,25 +58,25 @@ class TeamMemberApiTest extends TestCase
         ]);
 
         // Search by first name
-        $response = $this->getJson('/api/v1/team-members?search=John');
+        $response = $this->getJson('/api/v1/contacts?search=John');
         $response->assertOk()->assertJsonCount(1, 'data');
 
         // Search by last name
-        $response = $this->getJson('/api/v1/team-members?search=Smith');
+        $response = $this->getJson('/api/v1/contacts?search=Smith');
         $response->assertOk()->assertJsonCount(1, 'data');
 
         // Search by email
-        $response = $this->getJson('/api/v1/team-members?search=jane@');
+        $response = $this->getJson('/api/v1/contacts?search=jane@');
         $response->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_team_members_are_paginated(): void
+    public function test_contacts_are_paginated(): void
     {
-        TeamMember::factory()->count(30)->create([
+        Contact::factory()->count(30)->create([
             'account_id' => $this->user->account_id,
         ]);
 
-        $response = $this->getJson('/api/v1/team-members?per_page=10');
+        $response = $this->getJson('/api/v1/contacts?per_page=10');
 
         $response->assertOk()
             ->assertJsonCount(10, 'data')
@@ -89,9 +89,9 @@ class TeamMemberApiTest extends TestCase
 
     // ==================== CREATE ====================
 
-    public function test_can_create_team_member_with_email(): void
+    public function test_can_create_contact_with_email(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'john.doe@example.com',
@@ -111,7 +111,7 @@ class TeamMemberApiTest extends TestCase
             ])
             ->assertJsonPath('data.full_name', 'John Doe');
 
-        $this->assertDatabaseHas('team_members', [
+        $this->assertDatabaseHas('contacts', [
             'account_id' => $this->user->account_id,
             'first_name' => 'John',
             'last_name' => 'Doe',
@@ -119,9 +119,9 @@ class TeamMemberApiTest extends TestCase
         ]);
     }
 
-    public function test_can_create_team_member_with_phone(): void
+    public function test_can_create_contact_with_phone(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'phone' => '+15551234567',
@@ -130,15 +130,15 @@ class TeamMemberApiTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('data.phone', '+15551234567');
 
-        $this->assertDatabaseHas('team_members', [
+        $this->assertDatabaseHas('contacts', [
             'account_id' => $this->user->account_id,
             'phone' => '+15551234567',
         ]);
     }
 
-    public function test_can_create_team_member_with_both_email_and_phone(): void
+    public function test_can_create_contact_with_both_email_and_phone(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'john@example.com',
@@ -147,7 +147,7 @@ class TeamMemberApiTest extends TestCase
 
         $response->assertStatus(201);
 
-        $this->assertDatabaseHas('team_members', [
+        $this->assertDatabaseHas('contacts', [
             'email' => 'john@example.com',
             'phone' => '+15551234567',
         ]);
@@ -155,7 +155,7 @@ class TeamMemberApiTest extends TestCase
 
     public function test_create_requires_first_name(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'last_name' => 'Doe',
             'email' => 'john@example.com',
         ]);
@@ -166,7 +166,7 @@ class TeamMemberApiTest extends TestCase
 
     public function test_create_requires_last_name(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'email' => 'john@example.com',
         ]);
@@ -177,7 +177,7 @@ class TeamMemberApiTest extends TestCase
 
     public function test_create_requires_at_least_one_contact_method(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
         ]);
@@ -188,7 +188,7 @@ class TeamMemberApiTest extends TestCase
 
     public function test_create_validates_email_format(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'not-an-email',
@@ -200,7 +200,7 @@ class TeamMemberApiTest extends TestCase
 
     public function test_create_validates_phone_format(): void
     {
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'phone' => '123456', // Not E.164 format
@@ -212,12 +212,12 @@ class TeamMemberApiTest extends TestCase
 
     public function test_create_prevents_duplicate_email_in_account(): void
     {
-        TeamMember::factory()->create([
+        Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'email' => 'existing@example.com',
         ]);
 
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'existing@example.com',
@@ -229,12 +229,12 @@ class TeamMemberApiTest extends TestCase
 
     public function test_create_prevents_duplicate_phone_in_account(): void
     {
-        TeamMember::factory()->create([
+        Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'phone' => '+15551234567',
         ]);
 
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'phone' => '+15551234567',
@@ -247,12 +247,12 @@ class TeamMemberApiTest extends TestCase
     public function test_create_allows_same_email_in_different_accounts(): void
     {
         $otherUser = User::factory()->create();
-        TeamMember::factory()->create([
+        Contact::factory()->create([
             'account_id' => $otherUser->account_id,
             'email' => 'shared@example.com',
         ]);
 
-        $response = $this->postJson('/api/v1/team-members', [
+        $response = $this->postJson('/api/v1/contacts', [
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'shared@example.com',
@@ -263,44 +263,44 @@ class TeamMemberApiTest extends TestCase
 
     // ==================== SHOW ====================
 
-    public function test_can_show_team_member(): void
+    public function test_can_show_contact(): void
     {
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'first_name' => 'John',
             'last_name' => 'Doe',
         ]);
 
-        $response = $this->getJson("/api/v1/team-members/{$member->id}");
+        $response = $this->getJson("/api/v1/contacts/{$contact->id}");
 
         $response->assertOk()
-            ->assertJsonPath('data.id', $member->id)
+            ->assertJsonPath('data.id', $contact->id)
             ->assertJsonPath('data.full_name', 'John Doe');
     }
 
-    public function test_cannot_show_team_member_from_other_account(): void
+    public function test_cannot_show_contact_from_other_account(): void
     {
         $otherUser = User::factory()->create();
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $otherUser->account_id,
         ]);
 
-        $response = $this->getJson("/api/v1/team-members/{$member->id}");
+        $response = $this->getJson("/api/v1/contacts/{$contact->id}");
 
         $response->assertStatus(404);
     }
 
     // ==================== UPDATE ====================
 
-    public function test_can_update_team_member(): void
+    public function test_can_update_contact(): void
     {
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'first_name' => 'John',
             'last_name' => 'Doe',
         ]);
 
-        $response = $this->putJson("/api/v1/team-members/{$member->id}", [
+        $response = $this->putJson("/api/v1/contacts/{$contact->id}", [
             'first_name' => 'Jane',
             'last_name' => 'Smith',
         ]);
@@ -308,8 +308,8 @@ class TeamMemberApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('data.full_name', 'Jane Smith');
 
-        $this->assertDatabaseHas('team_members', [
-            'id' => $member->id,
+        $this->assertDatabaseHas('contacts', [
+            'id' => $contact->id,
             'first_name' => 'Jane',
             'last_name' => 'Smith',
         ]);
@@ -317,14 +317,14 @@ class TeamMemberApiTest extends TestCase
 
     public function test_can_update_partial_fields(): void
     {
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'first_name' => 'John',
             'last_name' => 'Doe',
             'email' => 'john@example.com',
         ]);
 
-        $response = $this->putJson("/api/v1/team-members/{$member->id}", [
+        $response = $this->putJson("/api/v1/contacts/{$contact->id}", [
             'email' => 'john.updated@example.com',
         ]);
 
@@ -335,13 +335,13 @@ class TeamMemberApiTest extends TestCase
 
     public function test_cannot_update_to_remove_all_contact_methods(): void
     {
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'email' => 'john@example.com',
             'phone' => null,
         ]);
 
-        $response = $this->putJson("/api/v1/team-members/{$member->id}", [
+        $response = $this->putJson("/api/v1/contacts/{$contact->id}", [
             'email' => null,
         ]);
 
@@ -349,14 +349,14 @@ class TeamMemberApiTest extends TestCase
             ->assertJsonValidationErrors(['email']);
     }
 
-    public function test_cannot_update_team_member_from_other_account(): void
+    public function test_cannot_update_contact_from_other_account(): void
     {
         $otherUser = User::factory()->create();
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $otherUser->account_id,
         ]);
 
-        $response = $this->putJson("/api/v1/team-members/{$member->id}", [
+        $response = $this->putJson("/api/v1/contacts/{$contact->id}", [
             'first_name' => 'Hacker',
         ]);
 
@@ -365,45 +365,45 @@ class TeamMemberApiTest extends TestCase
 
     // ==================== DELETE ====================
 
-    public function test_can_delete_team_member(): void
+    public function test_can_delete_contact(): void
     {
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $this->user->account_id,
         ]);
 
-        $response = $this->deleteJson("/api/v1/team-members/{$member->id}");
+        $response = $this->deleteJson("/api/v1/contacts/{$contact->id}");
 
         $response->assertOk();
 
-        $this->assertDatabaseMissing('team_members', [
-            'id' => $member->id,
+        $this->assertDatabaseMissing('contacts', [
+            'id' => $contact->id,
         ]);
     }
 
-    public function test_cannot_delete_team_member_from_other_account(): void
+    public function test_cannot_delete_contact_from_other_account(): void
     {
         $otherUser = User::factory()->create();
-        $member = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $otherUser->account_id,
         ]);
 
-        $response = $this->deleteJson("/api/v1/team-members/{$member->id}");
+        $response = $this->deleteJson("/api/v1/contacts/{$contact->id}");
 
         $response->assertStatus(404);
 
-        $this->assertDatabaseHas('team_members', [
-            'id' => $member->id,
+        $this->assertDatabaseHas('contacts', [
+            'id' => $contact->id,
         ]);
     }
 
     // ==================== AUTH ====================
 
-    public function test_unauthenticated_user_cannot_access_team_members(): void
+    public function test_unauthenticated_user_cannot_access_contacts(): void
     {
         // Create a fresh request without authentication
         $this->app['auth']->forgetGuards();
 
-        $response = $this->getJson('/api/v1/team-members');
+        $response = $this->getJson('/api/v1/contacts');
 
         $response->assertStatus(401);
     }

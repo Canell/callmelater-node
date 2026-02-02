@@ -6,7 +6,7 @@ use App\Mail\ResponseNotificationMail;
 use App\Models\Account;
 use App\Models\ReminderRecipient;
 use App\Models\ScheduledAction;
-use App\Models\TeamMember;
+use App\Models\Contact;
 use App\Models\User;
 use App\Services\CreatorNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -110,13 +110,13 @@ class CreatorNotificationServiceTest extends TestCase
         });
     }
 
-    public function test_uses_team_member_name_when_available(): void
+    public function test_uses_contact_name_when_available(): void
     {
         $action = $this->createGatedAction([
             'notify_creator_on_response' => true,
         ]);
 
-        $teamMember = TeamMember::factory()->create([
+        $contact = Contact::factory()->create([
             'account_id' => $this->user->account_id,
             'first_name' => 'John',
             'last_name' => 'Doe',
@@ -124,7 +124,7 @@ class CreatorNotificationServiceTest extends TestCase
 
         $respondent = $this->createRecipient($action, [
             'email' => 'john@example.com',
-            'team_member_id' => $teamMember->id,
+            'contact_id' => $contact->id,
         ]);
 
         $this->service->notifyCreator($action, 'confirm', $respondent);

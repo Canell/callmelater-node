@@ -51,7 +51,7 @@
                         </div>
                     </div>
 
-                    <!-- Coordination (optional, collapsible) -->
+                    <!-- Deduplication (optional, collapsible) -->
                     <CoordinationForm
                         v-model:keysText="coordinationKeysText"
                         :coordination="coordination"
@@ -131,73 +131,12 @@
                                 <div class="form-text">This is what recipients will see.</div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">
-                                    Recipients *
-                                </label>
-
-                                <!-- Team member selector -->
-                                <div v-if="teamMembers.length > 0" class="mb-3">
-                                    <label class="form-label small text-muted">Select from contacts:</label>
-                                    <select class="form-select" @change="addTeamMemberRecipient($event)" style="max-width: 300px;">
-                                        <option value="">Choose a contact...</option>
-                                        <option v-for="member in availableTeamMembers" :key="member.id" :value="member.id">
-                                            {{ member.full_name }} ({{ member.email || member.phone }})
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <!-- Selected team members as badges -->
-                                <div v-if="selectedTeamMembers.length > 0" class="mb-2">
-                                    <span
-                                        v-for="member in selectedTeamMembers"
-                                        :key="member.id"
-                                        class="badge bg-primary me-1 mb-1 d-inline-flex align-items-center"
-                                    >
-                                        {{ member.full_name }}
-                                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" @click="removeTeamMemberRecipient(member)"></button>
-                                    </span>
-                                </div>
-
-                                <!-- Additional recipients (manual entry) -->
-                                <div class="mb-2">
-                                    <label class="form-label small text-muted">
-                                        {{ teamMembers.length > 0 ? 'Or enter additional email/phone:' : 'Enter recipients (one per line):' }}
-                                    </label>
-                                    <!-- Account member quick-add buttons -->
-                                    <div v-if="otherAccountMembers.length > 0" class="mb-2">
-                                        <small class="text-muted d-block mb-1">Quick add account members:</small>
-                                        <div class="d-flex flex-wrap gap-1">
-                                            <div v-for="member in availableMembers" :key="member.id" class="btn-group btn-group-sm">
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-secondary"
-                                                    @click="addRecipient(member.email || member.phone)"
-                                                >
-                                                    <span class="me-1">+</span>{{ member.full_name || member.name || member.email }}
-                                                </button>
-                                                <button
-                                                    v-if="member.email && member.phone"
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
-                                                    data-bs-toggle="dropdown"
-                                                >
-                                                    <span class="visually-hidden">Toggle Dropdown</span>
-                                                </button>
-                                                <ul v-if="member.email && member.phone" class="dropdown-menu dropdown-menu-end">
-                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addRecipient(member.email)">Email: {{ member.email }}</a></li>
-                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addRecipient(member.phone)">Phone: {{ member.phone }}</a></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <textarea class="form-control" v-model="recipientsText" rows="3" placeholder="ops@example.com&#10;+32499123456"></textarea>
-                                </div>
-                                <div class="form-text">
-                                    <span v-if="hasPhoneRecipients">SMS recipients will receive a link to respond.</span>
-                                    <span v-if="userPlan === 'free' && hasPhoneRecipients" class="text-warning">
-                                        SMS requires <a href="/pricing">Pro plan</a>.
-                                    </span>
-                                </div>
+                                <UnifiedRecipientSelector
+                                    v-model="selectedRecipients"
+                                    label="Recipients *"
+                                    placeholder="Search contacts, channels, or enter email/phone..."
+                                    :helper-text="recipientHelperText"
+                                />
                             </div>
                             <div class="row mb-3">
                                 <div class="col-md-4">
@@ -232,44 +171,6 @@
                                 <input type="number" class="form-control" v-model="gate.max_snoozes" min="0" max="10" style="max-width: 100px;">
                             </div>
 
-                            <!-- Chat Integrations (Teams/Slack) -->
-                            <div class="mb-3">
-                                <label class="form-label">Chat Channels <span class="text-muted fw-normal">(optional)</span></label>
-
-                                <!-- Integration selector -->
-                                <div v-if="activeIntegrations.length > 0" class="mb-2">
-                                    <select class="form-select" @change="addIntegration($event)" style="max-width: 350px;">
-                                        <option value="">Add a Teams or Slack channel...</option>
-                                        <option v-for="integration in availableIntegrations" :key="integration.id" :value="integration.id">
-                                            {{ integration.provider === 'teams' ? '📣' : '💬' }} {{ integration.name }}
-                                            {{ integration.slack_channel_name ? `(#${integration.slack_channel_name})` : '' }}
-                                        </option>
-                                    </select>
-                                </div>
-
-                                <!-- Selected integrations as badges -->
-                                <div v-if="selectedIntegrations.length > 0" class="mb-2">
-                                    <span
-                                        v-for="integration in selectedIntegrations"
-                                        :key="integration.id"
-                                        class="badge me-1 mb-1 d-inline-flex align-items-center"
-                                        :class="integration.provider === 'teams' ? 'bg-primary' : 'bg-success'"
-                                    >
-                                        {{ integration.provider === 'teams' ? '📣' : '💬' }} {{ integration.name }}
-                                        <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" @click="removeIntegration(integration)"></button>
-                                    </span>
-                                </div>
-
-                                <!-- No integrations message -->
-                                <div v-if="activeIntegrations.length === 0" class="text-muted small">
-                                    No chat integrations configured.
-                                    <router-link to="/settings?tab=integrations">Set up Teams or Slack</router-link>
-                                </div>
-
-                                <div v-else class="form-text">
-                                    Email/SMS is automatic based on recipient type. Select channels above to also post there.
-                                </div>
-                            </div>
 
                             <!-- Notify creator on response -->
                             <div class="mb-3">
@@ -315,48 +216,14 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="mb-0">
-                                    <label class="form-label">
-                                        Escalation Contacts
-                                        <span class="text-muted fw-normal">(one per line)</span>
-                                    </label>
-                                    <!-- Account member quick-add for escalation -->
-                                    <div v-if="otherAccountMembers.length > 0 && escalation.hours" class="mb-2">
-                                        <small class="text-muted d-block mb-1">Quick add:</small>
-                                        <div class="d-flex flex-wrap gap-1">
-                                            <div v-for="member in availableEscalationMembers" :key="member.id" class="btn-group btn-group-sm">
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-secondary"
-                                                    @click="addEscalationContact(member.email || member.phone)"
-                                                >
-                                                    <span class="me-1">+</span>{{ member.full_name || member.name || member.email }}
-                                                </button>
-                                                <button
-                                                    v-if="member.email && member.phone"
-                                                    type="button"
-                                                    class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
-                                                    data-bs-toggle="dropdown"
-                                                >
-                                                    <span class="visually-hidden">Toggle Dropdown</span>
-                                                </button>
-                                                <ul v-if="member.email && member.phone" class="dropdown-menu dropdown-menu-end">
-                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addEscalationContact(member.email)">Email: {{ member.email }}</a></li>
-                                                    <li><a class="dropdown-item small" href="#" @click.prevent="addEscalationContact(member.phone)">Phone: {{ member.phone }}</a></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <textarea
-                                        class="form-control"
-                                        v-model="escalation.contacts"
-                                        rows="2"
-                                        placeholder="manager@example.com&#10;+15551234567"
-                                        :disabled="!escalation.hours"
-                                    ></textarea>
-                                    <div class="form-text">
-                                        These contacts are notified only if nobody responds in time.
-                                    </div>
+                                <div class="mb-0" :class="{ 'opacity-50': !escalation.hours }">
+                                    <UnifiedRecipientSelector
+                                        v-model="escalationRecipients"
+                                        label="Escalation Contacts"
+                                        placeholder="Search contacts or enter email/phone..."
+                                        helper-text="These contacts are notified only if nobody responds in time."
+                                        :allow-manual-entry="true"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -509,6 +376,7 @@ import axios from 'axios';
 import ModeSelector from '../components/ModeSelector.vue';
 import CoordinationForm from '../components/CoordinationForm.vue';
 import RequestConfigForm from '../components/RequestConfigForm.vue';
+import UnifiedRecipientSelector from '../components/UnifiedRecipientSelector.vue';
 
 export default {
     name: 'CreateAction',
@@ -516,6 +384,7 @@ export default {
         ModeSelector,
         CoordinationForm,
         RequestConfigForm,
+        UnifiedRecipientSelector,
     },
     data() {
         return {
@@ -541,8 +410,8 @@ export default {
                 channels: [], // Only for Teams/Slack - email/SMS auto-detected from recipients
             },
             notify_creator_on_response: false,
-            chatIntegrations: [],
-            selectedIntegrations: [],
+            // Unified recipients selector
+            selectedRecipients: [],
             // Request configuration (for immediate or gated+execute)
             request: {
                 method: 'POST',
@@ -551,23 +420,17 @@ export default {
             executeOnApproval: false,
             // Teams (Business plan)
             teams: [],
-            accountMembers: [],
-            currentUserEmail: null,
             userPlan: 'free',
-            // Team members (contacts)
-            teamMembers: [],
-            selectedTeamMembers: [],
             scheduleType: 'datetime',
             intentPreset: 'tomorrow',
             delayAmount: 1,
             delayUnit: 'h',
             headersJson: '',
             bodyJson: '',
-            recipientsText: '',
             escalation: {
                 hours: '',
-                contacts: '',
             },
+            escalationRecipients: [],
             // Coordination
             showCoordination: false,
             coordinationKeysText: '',
@@ -639,54 +502,19 @@ export default {
             return !!(this.headersJsonError || this.bodyJsonError);
         },
         hasPhoneRecipients() {
-            if (!this.recipientsText) return false;
-            const lines = this.recipientsText.split('\n').map(l => l.trim()).filter(l => l);
-            return lines.some(line => /^\+?[\d\s\-()]+$/.test(line) && line.replace(/\D/g, '').length >= 10);
-        },
-        activeIntegrations() {
-            return this.chatIntegrations.filter(i => i.is_active);
-        },
-        availableIntegrations() {
-            const selectedIds = this.selectedIntegrations.map(i => i.id);
-            return this.activeIntegrations.filter(i => !selectedIds.includes(i.id));
-        },
-        currentRecipientEmails() {
-            if (!this.recipientsText) return [];
-            return this.recipientsText
-                .split('\n')
-                .map(l => l.trim().toLowerCase())
-                .filter(l => l);
-        },
-        otherAccountMembers() {
-            // Filter out the current user from account members
-            if (!this.currentUserEmail) return this.accountMembers;
-            return this.accountMembers.filter(
-                member => member.email.toLowerCase() !== this.currentUserEmail.toLowerCase()
+            return this.selectedRecipients.some(r =>
+                r.contact_type === 'phone' || r.uri?.startsWith('phone:')
             );
         },
-        availableMembers() {
-            // Filter out members already added as recipients (and current user)
-            return this.otherAccountMembers.filter(
-                member => !this.currentRecipientEmails.includes(member.email.toLowerCase())
-            );
-        },
-        currentEscalationEmails() {
-            if (!this.escalation.contacts) return [];
-            return this.escalation.contacts
-                .split('\n')
-                .map(l => l.trim().toLowerCase())
-                .filter(l => l);
-        },
-        availableEscalationMembers() {
-            // Filter out members already added as escalation contacts (and current user)
-            return this.otherAccountMembers.filter(
-                member => !this.currentEscalationEmails.includes(member.email.toLowerCase())
-            );
-        },
-        availableTeamMembers() {
-            // Filter out already selected team members
-            const selectedIds = this.selectedTeamMembers.map(m => m.id);
-            return this.teamMembers.filter(member => !selectedIds.includes(member.id));
+        recipientHelperText() {
+            let text = '';
+            if (this.hasPhoneRecipients) {
+                text = 'SMS recipients will receive a link to respond.';
+                if (this.userPlan === 'free') {
+                    text += ' SMS requires a Pro plan.';
+                }
+            }
+            return text;
         },
         hasValidationErrors() {
             return this.hasJsonErrors || !!this.urlError || this.urlValidating;
@@ -740,34 +568,13 @@ export default {
         },
         async loadUserPlanAndTeams() {
             try {
-                // Check user's plan and get current user email
-                const [subResponse, accountResponse, teamsResponse, teamMembersResponse, integrationsResponse] = await Promise.all([
+                const [subResponse, teamsResponse] = await Promise.all([
                     axios.get('/api/subscription/status'),
-                    axios.get('/api/account'),
                     axios.get('/api/teams'),
-                    axios.get('/api/v1/team-members'),
-                    axios.get('/api/v1/integrations').catch(() => ({ data: { data: [] } })),
                 ]);
 
                 this.userPlan = subResponse.data.plan || 'free';
-                this.currentUserEmail = subResponse.data.user?.email || null;
                 this.teams = teamsResponse.data.data || [];
-                this.teamMembers = teamMembersResponse.data.data || [];
-                this.chatIntegrations = (integrationsResponse.data.data || []).filter(i => i.is_active);
-
-                // Combine members from account and all teams (deduplicated by email)
-                const accountMembers = accountResponse.data.data?.members || [];
-                const teamMembers = this.teams.flatMap(team => team.members || []);
-                const allMembers = [...accountMembers, ...teamMembers];
-
-                // Deduplicate by email
-                const seen = new Set();
-                this.accountMembers = allMembers.filter(member => {
-                    const email = member.email.toLowerCase();
-                    if (seen.has(email)) return false;
-                    seen.add(email);
-                    return true;
-                });
             } catch (err) {
                 console.error('Failed to load user plan/teams:', err);
             }
@@ -823,13 +630,80 @@ export default {
                         }
                     }
 
-                    // Recipients
-                    this.recipientsText = (g.recipients || []).join('\n');
+                    // Recipients - convert old format to new URI format
+                    const recipients = g.recipients || [];
+                    this.selectedRecipients = recipients.map(r => {
+                        // Already in URI format
+                        if (r.includes(':')) {
+                            const [type, ...rest] = r.split(':');
+                            const value = rest.join(':');
+                            return {
+                                uri: r,
+                                label: value,
+                                sublabel: type === 'email' ? 'Email' : type === 'phone' ? 'Phone' : type,
+                                type: 'manual',
+                                contact_type: type,
+                            };
+                        }
+                        // Email
+                        if (r.includes('@')) {
+                            return {
+                                uri: `email:${r}`,
+                                label: r,
+                                sublabel: 'Email',
+                                type: 'manual',
+                                contact_type: 'email',
+                            };
+                        }
+                        // Phone
+                        if (/^\+?[\d\s\-()]+$/.test(r)) {
+                            return {
+                                uri: `phone:${r}`,
+                                label: r,
+                                sublabel: 'Phone',
+                                type: 'manual',
+                                contact_type: 'phone',
+                            };
+                        }
+                        // Unknown - treat as email
+                        return {
+                            uri: `email:${r}`,
+                            label: r,
+                            sublabel: 'Email',
+                            type: 'manual',
+                            contact_type: 'email',
+                        };
+                    });
 
                     // Escalation
                     if (g.escalation) {
                         this.escalation.hours = g.escalation.after_hours || '';
-                        this.escalation.contacts = (g.escalation.contacts || []).join('\n');
+                        // Convert escalation contacts to unified recipient format
+                        if (g.escalation.contacts?.length) {
+                            this.escalationRecipients = g.escalation.contacts.map(contact => {
+                                // Check if it's already in URI format
+                                if (contact.includes(':')) {
+                                    const [type, ...rest] = contact.split(':');
+                                    const value = rest.join(':');
+                                    return {
+                                        uri: contact,
+                                        label: value,
+                                        sublabel: type === 'email' ? 'Email' : 'Phone',
+                                        type: 'manual',
+                                        contact_type: type,
+                                    };
+                                }
+                                // Legacy format - email or phone
+                                const isEmail = contact.includes('@');
+                                return {
+                                    uri: isEmail ? `email:${contact}` : `phone:${contact}`,
+                                    label: contact,
+                                    sublabel: isEmail ? 'Email' : 'Phone',
+                                    type: 'manual',
+                                    contact_type: isEmail ? 'email' : 'phone',
+                                };
+                            });
+                        }
                     }
                 }
 
@@ -998,56 +872,6 @@ export default {
                 this.urlValidating = false;
             }
         },
-        addRecipient(email) {
-            if (!email) return;
-            // Add email to recipients if not already present
-            const currentEmails = this.currentRecipientEmails;
-            if (!currentEmails.includes(email.toLowerCase())) {
-                if (this.recipientsText.trim()) {
-                    this.recipientsText += '\n' + email;
-                } else {
-                    this.recipientsText = email;
-                }
-            }
-        },
-        addEscalationContact(email) {
-            if (!email) return;
-            // Add email to escalation contacts if not already present
-            const currentEmails = this.currentEscalationEmails;
-            if (!currentEmails.includes(email.toLowerCase())) {
-                if (this.escalation.contacts?.trim()) {
-                    this.escalation.contacts += '\n' + email;
-                } else {
-                    this.escalation.contacts = email;
-                }
-            }
-        },
-        addTeamMemberRecipient(event) {
-            const memberId = event.target.value;
-            if (!memberId) return;
-            const member = this.teamMembers.find(m => m.id === memberId);
-            if (member && !this.selectedTeamMembers.some(m => m.id === memberId)) {
-                this.selectedTeamMembers.push(member);
-            }
-            // Reset the select
-            event.target.value = '';
-        },
-        removeTeamMemberRecipient(member) {
-            this.selectedTeamMembers = this.selectedTeamMembers.filter(m => m.id !== member.id);
-        },
-        addIntegration(event) {
-            const integrationId = event.target.value;
-            if (!integrationId) return;
-            const integration = this.chatIntegrations.find(i => i.id === integrationId);
-            if (integration && !this.selectedIntegrations.some(i => i.id === integrationId)) {
-                this.selectedIntegrations.push(integration);
-            }
-            // Reset the select
-            event.target.value = '';
-        },
-        removeIntegration(integration) {
-            this.selectedIntegrations = this.selectedIntegrations.filter(i => i.id !== integration.id);
-        },
         async submit() {
             this.submitting = true;
             this.error = null;
@@ -1097,43 +921,43 @@ export default {
 
                 // Gate config (for gated mode)
                 if (this.form.mode === 'gated') {
-                    // Combine selected team member IDs with manually entered recipients
-                    const manualRecipients = this.recipientsText.split('\n').map(e => e.trim()).filter(e => e);
-                    const teamMemberIds = this.selectedTeamMembers.map(m => m.id);
-                    const allRecipients = [...teamMemberIds, ...manualRecipients];
+                    // Extract recipient URIs from unified selector
+                    const recipientUris = this.selectedRecipients.map(r => r.uri);
 
                     // Auto-detect channels from recipient types
                     const autoChannels = [];
-                    const hasEmailRecipients = manualRecipients.some(r => r.includes('@'));
-                    const hasPhoneRecipients = manualRecipients.some(r => /^\+?[\d\s\-()]+$/.test(r) && r.replace(/\D/g, '').length >= 10);
-                    const hasTeamMembers = teamMemberIds.length > 0;
+                    const hasEmailRecipients = this.selectedRecipients.some(r =>
+                        r.contact_type === 'email' || r.uri?.startsWith('email:') || r.uri?.includes(':email')
+                    );
+                    const hasPhoneRecipients = this.selectedRecipients.some(r =>
+                        r.contact_type === 'phone' || r.uri?.startsWith('phone:') || r.uri?.includes(':phone')
+                    );
+                    const hasTeamsChannels = this.selectedRecipients.some(r =>
+                        r.type === 'channel' && r.provider === 'teams'
+                    );
+                    const hasSlackChannels = this.selectedRecipients.some(r =>
+                        r.type === 'channel' && r.provider === 'slack'
+                    );
 
-                    if (hasEmailRecipients || hasTeamMembers) {
-                        autoChannels.push('email');
-                    }
-                    if (hasPhoneRecipients) {
-                        autoChannels.push('sms');
-                    }
+                    if (hasEmailRecipients) autoChannels.push('email');
+                    if (hasPhoneRecipients) autoChannels.push('sms');
+                    if (hasTeamsChannels) autoChannels.push('teams');
+                    if (hasSlackChannels) autoChannels.push('slack');
 
-                    // Add channels from selected integrations
-                    const selectedTeamsIds = this.selectedIntegrations.filter(i => i.provider === 'teams').map(i => i.id);
-                    const selectedSlackIds = this.selectedIntegrations.filter(i => i.provider === 'slack').map(i => i.id);
-                    if (selectedTeamsIds.length > 0) autoChannels.push('teams');
-                    if (selectedSlackIds.length > 0) autoChannels.push('slack');
-
-                    const allChannels = [...new Set(autoChannels)];
+                    // Extract integration IDs from selected channels
+                    const integrationIds = this.selectedRecipients
+                        .filter(r => r.type === 'channel')
+                        .map(r => r.uri.replace('channel:', ''));
 
                     payload.gate = {
                         message: this.gate.message,
-                        recipients: allRecipients,
+                        recipients: recipientUris,
                         timeout: `${this.gate.timeoutValue}${this.gate.timeoutUnit}`,
                         on_timeout: this.gate.on_timeout,
                         confirmation_mode: this.gate.confirmation_mode,
                         max_snoozes: parseInt(this.gate.max_snoozes),
-                        channels: allChannels.length > 0 ? allChannels : undefined,
-                        integration_ids: this.selectedIntegrations.length > 0
-                            ? this.selectedIntegrations.map(i => i.id)
-                            : undefined,
+                        channels: autoChannels.length > 0 ? autoChannels : undefined,
+                        integration_ids: integrationIds.length > 0 ? integrationIds : undefined,
                     };
 
                     // Add notify_creator_on_response
@@ -1146,11 +970,8 @@ export default {
                         payload.gate.escalation = {
                             after_hours: parseFloat(this.escalation.hours),
                         };
-                        if (this.escalation.contacts?.trim()) {
-                            payload.gate.escalation.contacts = this.escalation.contacts
-                                .split('\n')
-                                .map(c => c.trim())
-                                .filter(c => c);
+                        if (this.escalationRecipients.length > 0) {
+                            payload.gate.escalation.contacts = this.escalationRecipients.map(r => r.uri);
                         }
                     }
                 }

@@ -3,203 +3,109 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
+use App\Http\Requests\Api\CreateContactRequest;
+use App\Http\Requests\Api\UpdateContactRequest;
+use App\Http\Resources\ContactResource;
+use App\Models\Contact;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ContactController extends Controller
 {
-    public function store(Request $request): JsonResponse
+    /**
+     * List all contacts for the authenticated user's account.
+     */
+    public function index(Request $request): AnonymousResourceCollection
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'subject' => ['required', 'string', 'in:general,support,billing,enterprise,feedback'],
-            'message' => ['required', 'string', 'max:5000'],
-            'recaptcha_token' => ['nullable', 'string'],
-        ]);
+        $query = Contact::where('account_id', $request->user()->account_id)
+            ->orderBy('first_name')
+            ->orderBy('last_name');
 
-        // Verify reCAPTCHA if configured
-        if (! $this->verifyRecaptcha($validated['recaptcha_token'] ?? null, $request->ip())) {
-            return response()->json([
-                'message' => 'Security verification failed. Please try again.',
-            ], 422);
+        // Search filter (case-insensitive)
+        if ($search = $request->input('search')) {
+            $search = strtolower($search);
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('LOWER(first_name) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(last_name) LIKE ?', ["%{$search}%"])
+                    ->orWhereRaw('LOWER(email) LIKE ?', ["%{$search}%"])
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
         }
 
-        // Check if sender is an existing user
-        $existingUser = User::where('email', $validated['email'])->first();
-        $userInfo = $this->getUserInfo($existingUser);
+        $perPage = min((int) $request->input('per_page', 25), 100);
+        $contacts = $query->paginate($perPage);
 
-        // Send email to support
-        Mail::raw($this->formatMessage($validated, $userInfo), function ($message) use ($validated) {
-            $message->to(config('mail.support_address', 'support@callmelater.io'))
-                ->replyTo($validated['email'], $validated['name'])
-                ->subject('[CallMeLater Contact] '.$this->getSubjectLabel($validated['subject']));
-        });
+        return ContactResource::collection($contacts);
+    }
+
+    /**
+     * Create a new contact.
+     */
+    public function store(CreateContactRequest $request): ContactResource
+    {
+        $contact = Contact::create([
+            'account_id' => $request->user()->account_id,
+            'first_name' => $request->input('first_name'),
+            'last_name' => $request->input('last_name'),
+            'email' => $request->input('email'),
+            'phone' => $request->input('phone'),
+        ]);
+
+        return new ContactResource($contact);
+    }
+
+    /**
+     * Get a specific contact.
+     */
+    public function show(Request $request, Contact $contact): ContactResource|JsonResponse
+    {
+        // Ensure contact belongs to user's account
+        if ($contact->account_id !== $request->user()->account_id) {
+            return response()->json([
+                'error' => 'not_found',
+                'message' => 'Contact not found.',
+            ], 404);
+        }
+
+        return new ContactResource($contact);
+    }
+
+    /**
+     * Update a contact.
+     */
+    public function update(UpdateContactRequest $request, Contact $contact): ContactResource|JsonResponse
+    {
+        // Ensure contact belongs to user's account
+        if ($contact->account_id !== $request->user()->account_id) {
+            return response()->json([
+                'error' => 'not_found',
+                'message' => 'Contact not found.',
+            ], 404);
+        }
+
+        $contact->update($request->only(['first_name', 'last_name', 'email', 'phone']));
+
+        return new ContactResource($contact);
+    }
+
+    /**
+     * Delete a contact.
+     */
+    public function destroy(Request $request, Contact $contact): JsonResponse
+    {
+        // Ensure contact belongs to user's account
+        if ($contact->account_id !== $request->user()->account_id) {
+            return response()->json([
+                'error' => 'not_found',
+                'message' => 'Contact not found.',
+            ], 404);
+        }
+
+        $contact->delete();
 
         return response()->json([
-            'message' => 'Message sent successfully',
+            'message' => 'Contact deleted successfully.',
         ]);
-    }
-
-    private function verifyRecaptcha(?string $token, ?string $ip): bool
-    {
-        $secretKey = config('services.recaptcha.secret_key');
-
-        // If reCAPTCHA is not configured, allow the request
-        if (empty($secretKey)) {
-            return true;
-        }
-
-        // If no token provided when reCAPTCHA is configured, reject
-        if (empty($token)) {
-            Log::warning('Contact form submitted without reCAPTCHA token', ['ip' => $ip]);
-
-            return false;
-        }
-
-        try {
-            $response = Http::asForm()->post('https://www.google.com/recaptcha/api/siteverify', [
-                'secret' => $secretKey,
-                'response' => $token,
-                'remoteip' => $ip,
-            ]);
-
-            $result = $response->json();
-
-            if (! ($result['success'] ?? false)) {
-                Log::warning('reCAPTCHA verification failed', [
-                    'ip' => $ip,
-                    'error_codes' => $result['error-codes'] ?? [],
-                ]);
-
-                return false;
-            }
-
-            // Check score (0.0 = bot, 1.0 = human)
-            $score = $result['score'] ?? 0;
-            $minScore = config('services.recaptcha.min_score', 0.5);
-
-            if ($score < $minScore) {
-                Log::warning('reCAPTCHA score too low', [
-                    'ip' => $ip,
-                    'score' => $score,
-                    'min_score' => $minScore,
-                ]);
-
-                return false;
-            }
-
-            // Verify action matches
-            if (($result['action'] ?? '') !== 'contact') {
-                Log::warning('reCAPTCHA action mismatch', [
-                    'ip' => $ip,
-                    'action' => $result['action'] ?? 'unknown',
-                ]);
-
-                return false;
-            }
-
-            return true;
-        } catch (\Exception $e) {
-            Log::error('reCAPTCHA verification error', [
-                'ip' => $ip,
-                'error' => $e->getMessage(),
-            ]);
-
-            // On error, allow the request (fail open) to not block legitimate users
-            return true;
-        }
-    }
-
-    private function getUserInfo(?User $user): array
-    {
-        if (! $user) {
-            return [
-                'is_user' => false,
-                'plan' => null,
-                'account_name' => null,
-                'member_since' => null,
-                'subscription_status' => null,
-                'subscription_ends_at' => null,
-            ];
-        }
-
-        $account = $user->account;
-        $subscription = $account?->subscription('default');
-
-        // Determine subscription status
-        $subscriptionStatus = 'None';
-        $subscriptionEndsAt = null;
-
-        if ($subscription) {
-            if ($subscription->canceled()) {
-                $subscriptionStatus = 'Cancelled';
-                $subscriptionEndsAt = $subscription->ends_at?->format('M j, Y');
-            } elseif ($subscription->onTrial()) {
-                $subscriptionStatus = 'Trial';
-                $subscriptionEndsAt = $subscription->trial_ends_at?->format('M j, Y');
-            } elseif ($subscription->active()) {
-                $subscriptionStatus = 'Active';
-                // Get current period end from Stripe
-                $stripeSubscription = $subscription->asStripeSubscription();
-                if ($stripeSubscription) { // @phpstan-ignore if.alwaysTrue
-                    $subscriptionEndsAt = date('M j, Y', $stripeSubscription->current_period_end); // @phpstan-ignore property.notFound
-                }
-            }
-        }
-
-        return [
-            'is_user' => true,
-            'plan' => ucfirst($user->getPlan()),
-            'account_name' => $account?->name,
-            'member_since' => $user->created_at?->format('M j, Y'),
-            'subscription_status' => $subscriptionStatus,
-            'subscription_ends_at' => $subscriptionEndsAt,
-        ];
-    }
-
-    private function formatMessage(array $data, array $userInfo): string
-    {
-        $subscriptionLine = '';
-        if ($userInfo['is_user'] && $userInfo['subscription_status']) {
-            $subscriptionLine = "\nSubscription: {$userInfo['subscription_status']}";
-            if ($userInfo['subscription_ends_at']) {
-                $label = $userInfo['subscription_status'] === 'Cancelled' ? 'Ends' : 'Renews';
-                $subscriptionLine .= " ({$label}: {$userInfo['subscription_ends_at']})";
-            }
-        }
-
-        $userSection = $userInfo['is_user']
-            ? "Existing User: Yes\nPlan: {$userInfo['plan']}\nAccount: {$userInfo['account_name']}\nMember Since: {$userInfo['member_since']}{$subscriptionLine}"
-            : 'Existing User: No';
-
-        return <<<TEXT
-New contact form submission:
-
-Name: {$data['name']}
-Email: {$data['email']}
-Subject: {$this->getSubjectLabel($data['subject'])}
-
-{$userSection}
-
-Message:
-{$data['message']}
-TEXT;
-    }
-
-    private function getSubjectLabel(string $subject): string
-    {
-        return match ($subject) {
-            'general' => 'General Inquiry',
-            'support' => 'Technical Support',
-            'billing' => 'Billing Question',
-            'enterprise' => 'Enterprise Sales',
-            'feedback' => 'Feedback',
-            default => $subject,
-        };
     }
 }

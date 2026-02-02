@@ -39,13 +39,13 @@
                                 <router-link class="nav-link" to="/dashboard">Actions</router-link>
                             </li>
                             <li class="nav-item">
-                                <router-link class="nav-link" to="/chains">Chains</router-link>
+                                <router-link class="nav-link" to="/chains">Workflows</router-link>
                             </li>
                             <li class="nav-item">
                                 <router-link class="nav-link" to="/templates">Templates</router-link>
                             </li>
                             <li class="nav-item">
-                                <router-link class="nav-link" to="/responses">Responses</router-link>
+                                <router-link class="nav-link" to="/responses">Inbox</router-link>
                             </li>
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">

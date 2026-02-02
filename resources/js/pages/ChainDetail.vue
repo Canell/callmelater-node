@@ -23,7 +23,7 @@
             <!-- Back link and header -->
             <div class="mb-4">
                 <router-link to="/chains" class="text-muted text-decoration-none small">
-                    &larr; Back to Chains
+                    &larr; Back to Workflows
                 </router-link>
             </div>
 
@@ -39,7 +39,7 @@
                     class="btn btn-outline-danger"
                     @click="confirmCancelChain"
                 >
-                    Cancel Chain
+                    Cancel Workflow
                 </button>
             </div>
 

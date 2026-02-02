@@ -58,9 +58,9 @@
                                                 <input type="radio" class="form-check-input" :checked="form.type === 'chain'" @change="setType('chain')">
                                             </div>
                                             <div class="ms-2">
-                                                <strong>Chain (Multi-step Workflow)</strong>
+                                                <strong>Workflow (Multi-step)</strong>
                                                 <p class="text-muted small mb-0 mt-1">
-                                                    Create a template for workflows with multiple HTTP calls, approvals, and delays.
+                                                    Create a template for workflows with multiple webhooks, approvals, and wait steps.
                                                 </p>
                                             </div>
                                         </div>
@@ -175,25 +175,25 @@
                         </div>
                     </div>
 
-                    <!-- Chain Steps (for chain type) -->
+                    <!-- Workflow Steps (for chain type) -->
                     <div v-if="form.type === 'chain'" class="card card-cml mb-4">
                         <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Chain Steps ({{ chainSteps.length }})</h5>
+                            <h5 class="mb-0">Workflow Steps ({{ chainSteps.length }})</h5>
                             <div class="btn-group">
                                 <button type="button" class="btn btn-sm btn-outline-primary" @click="addChainStep('http_call')">
-                                    + HTTP Call
+                                    + Webhook
                                 </button>
                                 <button type="button" class="btn btn-sm btn-outline-primary" @click="addChainStep('gated')">
                                     + Approval
                                 </button>
                                 <button type="button" class="btn btn-sm btn-outline-primary" @click="addChainStep('delay')">
-                                    + Delay
+                                    + Wait
                                 </button>
                             </div>
                         </div>
                         <div class="card-body">
                             <div v-if="chainSteps.length === 0" class="text-center py-4 text-muted border rounded bg-light">
-                                Add at least 2 steps to create a chain template.
+                                Add at least 2 steps to create a workflow template.
                             </div>
 
                             <div
@@ -282,7 +282,7 @@
 
                                 <!-- Gated step config -->
                                 <div v-else-if="step.type === 'gated'" class="step-body">
-                                    <div class="mb-2">
+                                    <div class="mb-3">
                                         <label class="form-label small">Message</label>
                                         <textarea
                                             class="form-control form-control-sm"
@@ -292,33 +292,23 @@
                                             required
                                         ></textarea>
                                     </div>
-                                    <div class="row">
-                                        <div class="col-md-6 mb-2">
-                                            <label class="form-label small">Recipients (one per line)</label>
-                                            <textarea
-                                                class="form-control form-control-sm"
-                                                v-model="step.recipientsText"
-                                                rows="2"
-                                                placeholder="manager@example.com&#10;{{approver_email}}"
-                                            ></textarea>
-                                        </div>
-                                        <div class="col-md-6 mb-2">
-                                            <label class="form-label small">Channels</label>
-                                            <div class="d-flex gap-3 mt-1">
-                                                <div class="form-check">
-                                                    <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="email" :id="'email-' + index">
-                                                    <label class="form-check-label" :for="'email-' + index">Email</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="teams" :id="'teams-' + index">
-                                                    <label class="form-check-label" :for="'teams-' + index">Teams</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input type="checkbox" class="form-check-input" v-model="step.gate.channels" value="slack" :id="'slack-' + index">
-                                                    <label class="form-check-label" :for="'slack-' + index">Slack</label>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    <div class="mb-3">
+                                        <UnifiedRecipientSelector
+                                            v-model="step.selectedRecipients"
+                                            label="Recipients"
+                                            placeholder="Search contacts, channels, or enter email/phone..."
+                                            helper-text="Select team members, chat channels, or enter email/phone manually."
+                                        />
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small">Variable recipient (optional)</label>
+                                        <input
+                                            type="text"
+                                            class="form-control form-control-sm"
+                                            v-model="step.recipientVariable"
+                                            placeholder="{{approver_email}}"
+                                        >
+                                        <small class="form-text text-muted">Use template placeholders for dynamic recipients.</small>
                                     </div>
                                 </div>
 
@@ -369,11 +359,11 @@
                                 </div>
                             </div>
 
-                            <!-- Chain error handling -->
+                            <!-- Workflow error handling -->
                             <div v-if="chainSteps.length > 0" class="mt-3 pt-3 border-top">
                                 <label class="form-label">On Step Failure</label>
                                 <select class="form-select" v-model="chainErrorHandling" style="max-width: 300px;">
-                                    <option value="fail_chain">Fail entire chain</option>
+                                    <option value="fail_chain">Fail entire workflow</option>
                                     <option value="skip_step">Skip failed step and continue</option>
                                 </select>
                             </div>
@@ -415,15 +405,15 @@
                         :show-placeholder-hint="true"
                     />
 
-                    <!-- Coordination (only for action templates) -->
+                    <!-- Deduplication (only for action templates) -->
                     <CoordinationForm
                         v-if="form.type === 'action'"
                         v-model:keysText="coordinationKeysText"
                         :coordination="coordination"
                         @update:coordination="coordination = $event"
                         :initial-expanded="showCoordination"
-                        description="Default coordination settings for actions created from this template."
-                        keys-label="Default Coordination Keys"
+                        description="Default deduplication settings for actions created from this template."
+                        keys-label="Default Dedup Keys"
                         keys-placeholder="e.g. deployment:{{service}}, env:{{environment}}"
                         :show-placeholder-hint="true"
                     />
@@ -476,10 +466,14 @@
 
 <script>
 import axios from 'axios';
+import { useActionStatus } from '../composables/useActionStatus';
 import ModeSelector from '../components/ModeSelector.vue';
 import CoordinationForm from '../components/CoordinationForm.vue';
 import RequestConfigForm from '../components/RequestConfigForm.vue';
 import GateConfigForm from '../components/GateConfigForm.vue';
+import UnifiedRecipientSelector from '../components/UnifiedRecipientSelector.vue';
+
+const { formatStepType: _formatStepType, stepTypeBadgeClass } = useActionStatus();
 
 export default {
     name: 'CreateTemplate',
@@ -488,6 +482,7 @@ export default {
         CoordinationForm,
         RequestConfigForm,
         GateConfigForm,
+        UnifiedRecipientSelector,
     },
     inject: ['toast'],
     data() {
@@ -622,9 +617,21 @@ export default {
                         } else if (step.type === 'gated') {
                             loadedStep.gate = {
                                 message: step.gate?.message || '',
-                                channels: step.gate?.channels || ['email'],
                             };
-                            loadedStep.recipientsText = (step.gate?.recipients || []).join('\n');
+                            // Parse recipients - some may be URIs, some may be template variables
+                            loadedStep.selectedRecipients = [];
+                            loadedStep.recipientVariable = '';
+                            const recipients = step.gate?.recipients || [];
+                            recipients.forEach(r => {
+                                if (r.startsWith('{{') || r.includes('@') || r.startsWith('+')) {
+                                    // It's a template variable or raw email/phone - put in variable field
+                                    if (!loadedStep.recipientVariable) {
+                                        loadedStep.recipientVariable = r;
+                                    }
+                                }
+                                // Note: URI-based recipients would need to be looked up via API
+                                // For now, we just initialize empty and let user re-select
+                            });
                         } else if (step.type === 'delay') {
                             const delayMatch = (step.delay || '5m').match(/^(\d+)([mhd])$/);
                             loadedStep.delayValue = delayMatch ? parseInt(delayMatch[1]) : 5;
@@ -704,22 +711,8 @@ export default {
         setType(type) {
             this.form.type = type;
         },
-        formatStepType(type) {
-            const labels = {
-                http_call: 'HTTP Call',
-                gated: 'Approval',
-                delay: 'Delay',
-            };
-            return labels[type] || type;
-        },
-        stepTypeBadge(type) {
-            const classes = {
-                http_call: 'bg-info text-dark',
-                gated: 'bg-warning text-dark',
-                delay: 'bg-secondary',
-            };
-            return classes[type] || 'bg-secondary';
-        },
+        formatStepType: _formatStepType,
+        stepTypeBadge: stepTypeBadgeClass,
         addChainStep(type) {
             const step = {
                 name: `Step ${this.chainSteps.length + 1}`,
@@ -735,9 +728,9 @@ export default {
             } else if (type === 'gated') {
                 step.gate = {
                     message: '',
-                    channels: ['email'],
                 };
-                step.recipientsText = '';
+                step.selectedRecipients = [];
+                step.recipientVariable = '';
             } else if (type === 'delay') {
                 step.delayValue = 5;
                 step.delayUnit = 'm';
@@ -783,12 +776,36 @@ export default {
                         }
                     }
                 } else if (step.type === 'gated') {
+                    // Build recipients from selected + variable
+                    const recipients = [];
+                    const channels = new Set();
+
+                    // Add selected recipients (from UnifiedRecipientSelector)
+                    if (step.selectedRecipients && step.selectedRecipients.length > 0) {
+                        step.selectedRecipients.forEach(r => {
+                            recipients.push(r.uri);
+                            // Determine channel from recipient type
+                            if (r.type === 'channel') {
+                                channels.add(r.provider || 'teams');
+                            } else if (r.contact_type === 'phone') {
+                                channels.add('sms');
+                            } else {
+                                channels.add('email');
+                            }
+                        });
+                    }
+
+                    // Add variable recipient if provided
+                    if (step.recipientVariable && step.recipientVariable.trim()) {
+                        recipients.push(step.recipientVariable.trim());
+                        // Assume email for variable recipients by default
+                        channels.add('email');
+                    }
+
                     result.gate = {
                         message: step.gate.message,
-                        channels: step.gate.channels,
-                        recipients: step.recipientsText
-                            ? step.recipientsText.split('\n').map(r => r.trim()).filter(r => r)
-                            : [],
+                        channels: Array.from(channels),
+                        recipients: recipients,
                     };
                 } else if (step.type === 'delay') {
                     result.delay = `${step.delayValue}${step.delayUnit}`;

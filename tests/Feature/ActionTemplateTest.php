@@ -24,6 +24,9 @@ class ActionTemplateTest extends TestCase
         parent::setUp();
         $this->user = User::factory()->create();
         $this->otherUser = User::factory()->create();
+        // Templates and chains require Pro plan
+        $this->user->account->update(['manual_plan' => 'pro']);
+        $this->otherUser->account->update(['manual_plan' => 'pro']);
         Queue::fake();
     }
 
@@ -381,14 +384,16 @@ class ActionTemplateTest extends TestCase
 
     public function test_free_plan_limited_to_templates(): void
     {
-        Sanctum::actingAs($this->user);
+        // Create a fresh free-plan user for this test
+        $freeUser = User::factory()->create();
+        Sanctum::actingAs($freeUser);
 
         // Create templates up to the free plan limit
         $limit = config('callmelater.plans.free.max_templates', 2);
 
         for ($i = 0; $i < $limit; $i++) {
             ActionTemplate::factory()->create([
-                'account_id' => $this->user->account_id,
+                'account_id' => $freeUser->account_id,
             ]);
         }
 

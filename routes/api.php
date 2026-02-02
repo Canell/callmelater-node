@@ -5,7 +5,9 @@ use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\ActionController;
 use App\Http\Controllers\Api\ChainController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\RecipientController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\ContactFormController;
 use App\Http\Controllers\Api\DomainController;
 use App\Http\Controllers\Api\HeartbeatController;
 use App\Http\Controllers\Api\IntegrationController;
@@ -14,7 +16,6 @@ use App\Http\Controllers\Api\ResponseController;
 use App\Http\Controllers\Api\ResponseDashboardController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TeamController;
-use App\Http\Controllers\Api\TeamMemberController;
 use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\UserController;
@@ -44,7 +45,7 @@ Route::post('/v1/respond', [ResponseController::class, 'respond'])
     ->middleware('throttle:reminder-response');
 
 // Public contact form (rate limited)
-Route::post('/contact', [ContactController::class, 'store'])
+Route::post('/contact', [ContactFormController::class, 'store'])
     ->middleware('throttle:contact');
 
 // Internal heartbeat endpoint (receives self-pings from health monitor)
@@ -111,12 +112,15 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
         Route::post('/domains/{domain}/verify', [DomainController::class, 'verify']);
         Route::delete('/domains/{domain}', [DomainController::class, 'destroy']);
 
-        // Team Members (Contacts)
-        Route::get('/team-members', [TeamMemberController::class, 'index']);
-        Route::post('/team-members', [TeamMemberController::class, 'store']);
-        Route::get('/team-members/{teamMember}', [TeamMemberController::class, 'show']);
-        Route::put('/team-members/{teamMember}', [TeamMemberController::class, 'update']);
-        Route::delete('/team-members/{teamMember}', [TeamMemberController::class, 'destroy']);
+        // Contacts
+        Route::get('/contacts', [ContactController::class, 'index']);
+        Route::post('/contacts', [ContactController::class, 'store']);
+        Route::get('/contacts/{contact}', [ContactController::class, 'show']);
+        Route::put('/contacts/{contact}', [ContactController::class, 'update']);
+        Route::delete('/contacts/{contact}', [ContactController::class, 'destroy']);
+
+        // Unified Recipients (for dropdown selector)
+        Route::get('/recipients', [RecipientController::class, 'index']);
 
         // Response Dashboard
         Route::get('/responses', [ResponseDashboardController::class, 'index']);

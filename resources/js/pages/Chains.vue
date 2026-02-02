@@ -13,16 +13,16 @@
 
         <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="mb-0">Chains</h2>
+            <h2 class="mb-0">Workflows</h2>
             <router-link to="/chains/create" class="btn btn-cml-primary">
-                Create Chain
+                Create Workflow
             </router-link>
         </div>
 
         <!-- Info banner -->
         <div class="alert alert-info mb-4">
-            <strong>Action Chains</strong> let you define multi-step workflows that execute sequentially.
-            Each step can be an HTTP call, a human approval gate, or a delay.
+            <strong>Workflows</strong> let you define multi-step sequences that execute in order.
+            Each step can be a webhook, a human approval, or a wait period.
         </div>
 
         <!-- Filters -->
@@ -31,7 +31,7 @@
                 <input
                     type="text"
                     class="form-control"
-                    placeholder="Search chains..."
+                    placeholder="Search workflows..."
                     v-model="searchQuery"
                     style="max-width: 300px;"
                 >
@@ -56,17 +56,17 @@
         <!-- Empty state -->
         <div v-else-if="chains.length === 0" class="text-center py-5">
             <template v-if="searchQuery || statusFilter">
-                <h5 class="text-muted mb-2">No chains found</h5>
+                <h5 class="text-muted mb-2">No workflows found</h5>
                 <p class="text-muted mb-4">Try adjusting your search or filters.</p>
                 <button class="btn btn-outline-secondary" @click="clearFilters">
                     Clear filters
                 </button>
             </template>
             <template v-else>
-                <h5 class="text-muted mb-2">No chains yet</h5>
-                <p class="text-muted mb-4">Chains let you orchestrate multi-step workflows with human approval checkpoints.</p>
+                <h5 class="text-muted mb-2">No workflows yet</h5>
+                <p class="text-muted mb-4">Workflows let you orchestrate multi-step sequences with human approval checkpoints.</p>
                 <router-link to="/chains/create" class="btn btn-cml-primary">
-                    Create your first chain
+                    Create your first workflow
                 </router-link>
             </template>
         </div>
@@ -301,7 +301,7 @@ export default {
         confirmCancelChain(chain) {
             this.confirmModal = {
                 show: true,
-                title: 'Cancel Chain',
+                title: 'Cancel Workflow',
                 message: `Cancel "${chain.name}"? All pending steps will be cancelled.`,
                 confirmText: 'Yes, Cancel',
                 variant: 'danger',
@@ -319,10 +319,10 @@ export default {
         async doCancelChain(chain) {
             try {
                 await axios.delete(`/api/v1/chains/${chain.id}`);
-                this.toast.success('Chain cancelled');
+                this.toast.success('Workflow cancelled');
                 this.loadChains();
             } catch (err) {
-                this.toast.error(err.response?.data?.message || 'Failed to cancel chain');
+                this.toast.error(err.response?.data?.message || 'Failed to cancel workflow');
             }
         },
         clearFilters() {
