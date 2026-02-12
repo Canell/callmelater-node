@@ -718,9 +718,23 @@ export default {
                     const retryAfter = data.retry_after || 60;
                     this.startCooldown(retryAfter);
                 } else {
+                    // Handle validation errors (422)
+                    let errorMessage = 'Test failed';
+                    if (err.response?.data) {
+                        const data = err.response.data;
+                        if (data.errors) {
+                            // Laravel validation errors
+                            const firstError = Object.values(data.errors)[0];
+                            errorMessage = Array.isArray(firstError) ? firstError[0] : firstError;
+                        } else if (data.message) {
+                            errorMessage = data.message;
+                        }
+                    } else if (err.message) {
+                        errorMessage = err.message;
+                    }
                     this.testResult = {
                         success: false,
-                        error: err.response?.data?.message || err.message || 'Test failed',
+                        error: errorMessage,
                         duration_ms: 0,
                     };
                 }

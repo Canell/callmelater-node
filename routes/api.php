@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\TeamController;
 use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\PublicStatusController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -136,6 +137,13 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
             Route::post('/{id}/regenerate-token', [TemplateController::class, 'regenerateToken']);
             Route::post('/{id}/toggle-active', [TemplateController::class, 'toggleActive']);
         });
+
+        // Webhooks (for receiving action events)
+        Route::get('/webhooks', [WebhookController::class, 'index']);
+        Route::post('/webhooks', [WebhookController::class, 'store']);
+        Route::get('/webhooks/{id}', [WebhookController::class, 'show']);
+        Route::patch('/webhooks/{id}', [WebhookController::class, 'update']);
+        Route::delete('/webhooks/{id}', [WebhookController::class, 'destroy']);
 
         // Chat Integrations (Teams, Slack)
         Route::prefix('integrations')->group(function () {

@@ -705,6 +705,167 @@
                         </div>
                     </div>
 
+                    <!-- Webhooks Section -->
+                    <div v-show="activeTab === 'integrations'" class="card card-cml mt-4">
+                        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">API Webhooks</h5>
+                            <button class="btn btn-cml-primary btn-sm" @click="openWebhookModal()">
+                                Add Webhook
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted mb-4">
+                                Registered webhooks receive action events (executed, failed, expired, reminder responses).
+                                Create webhooks manually or let external tools like n8n register them automatically.
+                            </p>
+
+                            <!-- Loading -->
+                            <div v-if="loadingWebhooks" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
+                            </div>
+
+                            <!-- Empty state -->
+                            <div v-else-if="webhooks.length === 0" class="text-center py-4">
+                                <div class="text-muted mb-3">
+                                    <i class="bi bi-broadcast fs-1"></i>
+                                </div>
+                                <p class="text-muted mb-3">No webhooks registered.</p>
+                                <button class="btn btn-cml-primary" @click="openWebhookModal()">
+                                    Add Your First Webhook
+                                </button>
+                            </div>
+
+                            <!-- Webhooks list -->
+                            <div v-else class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>URL</th>
+                                            <th>Events</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="webhook in webhooks" :key="webhook.id">
+                                            <td class="align-middle">
+                                                <strong>{{ webhook.name || 'Unnamed' }}</strong>
+                                            </td>
+                                            <td class="align-middle">
+                                                <code class="small text-truncate d-inline-block" style="max-width: 200px;" :title="webhook.url">
+                                                    {{ webhook.url }}
+                                                </code>
+                                            </td>
+                                            <td class="align-middle">
+                                                <span
+                                                    v-for="event in webhook.events"
+                                                    :key="event"
+                                                    class="badge bg-secondary me-1"
+                                                >
+                                                    {{ formatEventName(event) }}
+                                                </span>
+                                            </td>
+                                            <td class="align-middle">
+                                                <span :class="webhook.is_active ? 'badge bg-success' : 'badge bg-secondary'">
+                                                    {{ webhook.is_active ? 'Active' : 'Disabled' }}
+                                                </span>
+                                            </td>
+                                            <td class="align-middle text-end">
+                                                <button
+                                                    class="btn btn-sm btn-outline-secondary me-1"
+                                                    @click="toggleWebhook(webhook)"
+                                                    :disabled="togglingWebhook === webhook.id"
+                                                >
+                                                    {{ webhook.is_active ? 'Disable' : 'Enable' }}
+                                                </button>
+                                                <button
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    @click="confirmDeleteWebhook(webhook)"
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div v-if="webhooks.length > 0" class="mt-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Webhooks are signed using your account's webhook secret. Use the <strong>Security</strong> tab to view or regenerate the secret.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Webhook Modal -->
+                    <div v-if="showWebhookModal" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Add Webhook</h5>
+                                    <button type="button" class="btn-close" @click="closeWebhookModal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div v-if="webhookFormError" class="alert alert-danger">{{ webhookFormError }}</div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Name</label>
+                                        <input type="text" class="form-control" v-model="webhookForm.name" placeholder="e.g., n8n Test Workflow">
+                                        <small class="text-muted">A friendly name to identify this webhook</small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">URL *</label>
+                                        <input type="url" class="form-control" v-model="webhookForm.url" placeholder="https://...">
+                                        <small class="text-muted">The endpoint that will receive POST requests</small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Events *</label>
+                                        <div class="form-check" v-for="event in availableWebhookEvents" :key="event.value">
+                                            <input
+                                                class="form-check-input"
+                                                type="checkbox"
+                                                :id="'event-' + event.value"
+                                                :value="event.value"
+                                                v-model="webhookForm.events"
+                                            >
+                                            <label class="form-check-label" :for="'event-' + event.value">
+                                                {{ event.label }}
+                                                <small class="text-muted d-block">{{ event.description }}</small>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="alert alert-info small mb-0">
+                                        <strong>Tip:</strong> To test with n8n before publishing your workflow:
+                                        <ol class="mb-0 ps-3 mt-2">
+                                            <li>In n8n, click on "Webhook URLs" in the trigger node</li>
+                                            <li>Copy the <strong>Test URL</strong></li>
+                                            <li>Paste it here and save</li>
+                                            <li>In n8n, click "Execute step" to start listening</li>
+                                            <li>Trigger an event from CallMeLater</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" @click="closeWebhookModal">Cancel</button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-cml-primary"
+                                        @click="saveWebhook"
+                                        :disabled="savingWebhook || !webhookForm.url || webhookForm.events.length === 0"
+                                    >
+                                        {{ savingWebhook ? 'Saving...' : 'Add Webhook' }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Integration Modal -->
                     <div v-if="showIntegrationModal" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);">
                         <div class="modal-dialog">
@@ -1396,6 +1557,25 @@ export default {
             slackChannels: [],
             loadingSlackChannels: false,
 
+            // Webhooks (API/n8n integrations)
+            webhooks: [],
+            loadingWebhooks: false,
+            togglingWebhook: null,
+            showWebhookModal: false,
+            webhookForm: {
+                name: '',
+                url: '',
+                events: [],
+            },
+            webhookFormError: null,
+            savingWebhook: false,
+            availableWebhookEvents: [
+                { value: 'action.executed', label: 'Action Executed', description: 'HTTP call completed successfully' },
+                { value: 'action.failed', label: 'Action Failed', description: 'HTTP call failed after all retries' },
+                { value: 'action.expired', label: 'Action Expired', description: 'Reminder expired without response' },
+                { value: 'reminder.responded', label: 'Reminder Responded', description: 'Someone confirmed, declined, or snoozed' },
+            ],
+
             // Branding (Business only)
             branding: {
                 logo_url: '',
@@ -1523,9 +1703,10 @@ export default {
                 // Load domains
                 await this.loadDomains();
 
-                // Load integrations for paid plans
+                // Load integrations and webhooks for paid plans
                 if (this.usage.plan === 'pro' || this.usage.plan === 'business') {
                     await this.loadIntegrations();
+                    await this.loadWebhooks();
                 }
 
                 // Load branding for business plan
@@ -2268,6 +2449,110 @@ export default {
         getProviderIcon(provider) {
             return provider === 'teams' ? 'bi-microsoft-teams' : 'bi-slack';
         },
+
+        // Webhook methods
+        async loadWebhooks() {
+            this.loadingWebhooks = true;
+            try {
+                const response = await axios.get('/api/v1/webhooks');
+                this.webhooks = response.data.data || [];
+            } catch (err) {
+                console.error('Failed to load webhooks:', err);
+            } finally {
+                this.loadingWebhooks = false;
+            }
+        },
+        formatEventName(event) {
+            const names = {
+                'action.executed': 'Executed',
+                'action.failed': 'Failed',
+                'action.expired': 'Expired',
+                'reminder.responded': 'Responded',
+            };
+            return names[event] || event;
+        },
+        async toggleWebhook(webhook) {
+            this.togglingWebhook = webhook.id;
+            try {
+                const response = await axios.patch(`/api/v1/webhooks/${webhook.id}`, {
+                    is_active: !webhook.is_active,
+                });
+                webhook.is_active = response.data.data.is_active;
+                this.toast.success(webhook.is_active ? 'Webhook enabled' : 'Webhook disabled');
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to update webhook');
+            } finally {
+                this.togglingWebhook = null;
+            }
+        },
+        confirmDeleteWebhook(webhook) {
+            this.showConfirm({
+                title: 'Delete Webhook',
+                message: `Delete webhook "${webhook.name || webhook.url}"? Events will no longer be sent to this URL.`,
+                confirmText: 'Delete',
+                variant: 'danger',
+                action: 'doDeleteWebhook',
+                data: webhook,
+            });
+        },
+        async doDeleteWebhook(webhook) {
+            try {
+                await axios.delete(`/api/v1/webhooks/${webhook.id}`);
+                this.webhooks = this.webhooks.filter(w => w.id !== webhook.id);
+                this.toast.success('Webhook deleted.');
+            } catch (err) {
+                this.toast.error(err.response?.data?.message || 'Failed to delete webhook');
+            }
+        },
+        openWebhookModal() {
+            this.webhookForm = {
+                name: '',
+                url: '',
+                events: ['action.executed', 'action.failed', 'action.expired', 'reminder.responded'],
+            };
+            this.webhookFormError = null;
+            this.showWebhookModal = true;
+        },
+        closeWebhookModal() {
+            this.showWebhookModal = false;
+            this.webhookFormError = null;
+        },
+        async saveWebhook() {
+            this.savingWebhook = true;
+            this.webhookFormError = null;
+            try {
+                const response = await axios.post('/api/v1/webhooks', {
+                    name: this.webhookForm.name || null,
+                    url: this.webhookForm.url,
+                    events: this.webhookForm.events,
+                });
+                // Check if it was an update (duplicate URL) or new creation
+                if (response.data.message === 'Webhook updated') {
+                    // Find and update existing webhook
+                    const index = this.webhooks.findIndex(w => w.url === this.webhookForm.url);
+                    if (index >= 0) {
+                        this.webhooks[index] = response.data.data;
+                    } else {
+                        this.webhooks.push(response.data.data);
+                    }
+                    this.toast.success('Webhook updated (URL already existed)');
+                } else {
+                    this.webhooks.push(response.data.data);
+                    this.toast.success('Webhook created');
+                }
+                this.closeWebhookModal();
+            } catch (err) {
+                const errors = err.response?.data?.errors;
+                if (errors) {
+                    this.webhookFormError = Object.values(errors).flat().join(', ');
+                } else {
+                    this.webhookFormError = err.response?.data?.message || 'Failed to create webhook';
+                }
+            } finally {
+                this.savingWebhook = false;
+            }
+        },
+
         // Branding methods
         async loadBranding() {
             try {

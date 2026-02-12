@@ -15,13 +15,13 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Delivers action lifecycle callbacks to user-specified webhook URLs.
+ * Delivers action lifecycle callbacks to a specified webhook URL.
  *
  * Supports all event types:
  * - action.executed: HTTP action completed successfully
  * - action.failed: HTTP action failed after all retries
  * - action.expired: Reminder expired without response
- * - reminder.responded: Someone responded to a reminder (handled by DeliverReminderCallback)
+ * - reminder.responded: Someone responded to a reminder
  *
  * CRITICAL: This is a BEST-EFFORT delivery job.
  * - Callback delivery is a notification, NOT part of the action decision
@@ -54,22 +54,33 @@ class DeliverActionCallback implements ShouldQueue
      * Supported event types.
      */
     public const EVENT_EXECUTED = 'action.executed';
+
     public const EVENT_FAILED = 'action.failed';
+
     public const EVENT_EXPIRED = 'action.expired';
+
+    public const EVENT_REMINDER_RESPONDED = 'reminder.responded';
 
     /**
      * @param  array<string, mixed>  $metadata  Additional event-specific data
+     * @param  string|null  $callbackUrl  URL to deliver to (defaults to action's callback_url)
+     * @param  string|null  $webhookSecret  Secret to use for signing (defaults to account webhook secret)
+     * @param  string|null  $webhookId  ID of registered webhook (for logging)
      */
     public function __construct(
         public ScheduledAction $action,
         public string $event,
         public array $metadata = [],
         public int $attemptNumber = 1,
+        public ?string $callbackUrl = null,
+        public ?string $webhookSecret = null,
+        public ?string $webhookId = null,
     ) {}
 
     public function handle(UrlValidator $urlValidator, HttpRequestService $httpService): void
     {
-        $callbackUrl = $this->action->callback_url;
+        // Use provided URL or fall back to action's callback_url
+        $callbackUrl = $this->callbackUrl ?? $this->action->callback_url;
 
         if (! $callbackUrl) {
             return;
@@ -79,10 +90,11 @@ class DeliverActionCallback implements ShouldQueue
         try {
             $urlValidator->validate($callbackUrl);
         } catch (\InvalidArgumentException $e) {
-            $this->logAttempt(CallbackAttempt::STATUS_FAILED, null, $e->getMessage(), 0);
+            $this->logAttempt($callbackUrl, CallbackAttempt::STATUS_FAILED, null, $e->getMessage(), 0);
             $this->log('warning', 'callback_blocked', [
                 'reason' => 'security_block',
                 'detail' => $e->getMessage(),
+                'url' => $callbackUrl,
             ]);
 
             return; // Security failure - don't retry
@@ -92,8 +104,13 @@ class DeliverActionCallback implements ShouldQueue
         $startTime = microtime(true);
 
         try {
-            /** @var \App\Models\User|null $owner */
-            $owner = $this->action->owner;
+            // Determine the signing secret to use
+            $secret = $this->webhookSecret;
+            if (! $secret) {
+                /** @var \App\Models\User|null $owner */
+                $owner = $this->action->owner;
+                $secret = $owner?->webhook_secret;
+            }
 
             $response = $httpService->makeRequest(
                 [
@@ -102,7 +119,7 @@ class DeliverActionCallback implements ShouldQueue
                     'headers' => ['Content-Type' => 'application/json'],
                     'body' => $payload,
                 ],
-                $owner?->webhook_secret,
+                $secret,
                 $this->action->id,
                 $this->event
             );
@@ -111,35 +128,37 @@ class DeliverActionCallback implements ShouldQueue
             $statusCode = $response->status();
 
             if ($response->successful()) {
-                $this->logAttempt(CallbackAttempt::STATUS_SUCCESS, $statusCode, null, $durationMs);
+                $this->logAttempt($callbackUrl, CallbackAttempt::STATUS_SUCCESS, $statusCode, null, $durationMs);
                 $this->log('info', 'callback_delivered', [
                     'status_code' => $statusCode,
                     'duration_ms' => $durationMs,
                     'attempt' => $this->attemptNumber,
+                    'url' => $callbackUrl,
                 ]);
             } elseif ($response->clientError()) {
                 // 4xx - Permanent failure, don't retry
-                $this->logAttempt(CallbackAttempt::STATUS_FAILED, $statusCode, "HTTP {$statusCode}", $durationMs);
+                $this->logAttempt($callbackUrl, CallbackAttempt::STATUS_FAILED, $statusCode, "HTTP {$statusCode}", $durationMs);
                 $this->log('warning', 'callback_failed', [
                     'status_code' => $statusCode,
                     'duration_ms' => $durationMs,
                     'attempt' => $this->attemptNumber,
                     'reason' => 'client_error_permanent',
                     'retry_scheduled' => false,
+                    'url' => $callbackUrl,
                 ]);
             } else {
                 // 5xx - Server error, retry
-                $this->logAttempt(CallbackAttempt::STATUS_FAILED, $statusCode, "HTTP {$statusCode}", $durationMs);
-                $this->scheduleRetry("HTTP {$statusCode}");
+                $this->logAttempt($callbackUrl, CallbackAttempt::STATUS_FAILED, $statusCode, "HTTP {$statusCode}", $durationMs);
+                $this->scheduleRetry($callbackUrl, "HTTP {$statusCode}");
             }
         } catch (ConnectionException $e) {
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
-            $this->logAttempt(CallbackAttempt::STATUS_FAILED, null, $e->getMessage(), $durationMs);
-            $this->scheduleRetry($e->getMessage());
+            $this->logAttempt($callbackUrl, CallbackAttempt::STATUS_FAILED, null, $e->getMessage(), $durationMs);
+            $this->scheduleRetry($callbackUrl, $e->getMessage());
         } catch (\Throwable $e) {
             $durationMs = (int) ((microtime(true) - $startTime) * 1000);
-            $this->logAttempt(CallbackAttempt::STATUS_FAILED, null, $e->getMessage(), $durationMs);
-            $this->scheduleRetry($e->getMessage());
+            $this->logAttempt($callbackUrl, CallbackAttempt::STATUS_FAILED, null, $e->getMessage(), $durationMs);
+            $this->scheduleRetry($callbackUrl, $e->getMessage());
         }
     }
 
@@ -185,6 +204,15 @@ class DeliverActionCallback implements ShouldQueue
                     'recipients_count' => count($this->action->getGateRecipients()),
                 ];
                 break;
+
+            case self::EVENT_REMINDER_RESPONDED:
+                $payload['response'] = $this->metadata['response'] ?? null;
+                $payload['responder_email'] = $this->metadata['responder_email'] ?? null;
+                $payload['responded_at'] = $this->metadata['responded_at'] ?? now()->toIso8601String();
+                $payload['snooze_preset'] = $this->metadata['snooze_preset'] ?? null;
+                $payload['next_reminder_at'] = $this->metadata['next_reminder_at'] ?? null;
+                $payload['comment'] = $this->metadata['comment'] ?? null;
+                break;
         }
 
         return $payload;
@@ -193,13 +221,14 @@ class DeliverActionCallback implements ShouldQueue
     /**
      * Schedule a retry if attempts remain.
      */
-    private function scheduleRetry(string $reason): void
+    private function scheduleRetry(string $callbackUrl, string $reason): void
     {
         if ($this->attemptNumber >= self::MAX_ATTEMPTS) {
             $this->log('warning', 'callback_abandoned', [
                 'reason' => $reason,
                 'attempt' => $this->attemptNumber,
                 'max_attempts' => self::MAX_ATTEMPTS,
+                'url' => $callbackUrl,
             ]);
 
             return;
@@ -213,6 +242,9 @@ class DeliverActionCallback implements ShouldQueue
             $this->event,
             $this->metadata,
             $this->attemptNumber + 1,
+            $this->callbackUrl,
+            $this->webhookSecret,
+            $this->webhookId,
         )->delay(now()->addSeconds($delay));
 
         $this->log('info', 'callback_retry_scheduled', [
@@ -220,13 +252,14 @@ class DeliverActionCallback implements ShouldQueue
             'attempt' => $this->attemptNumber,
             'next_attempt' => $this->attemptNumber + 1,
             'delay_seconds' => $delay,
+            'url' => $callbackUrl,
         ]);
     }
 
     /**
      * Log an attempt to the callback_attempts table.
      */
-    private function logAttempt(string $status, ?int $responseCode, ?string $errorMessage, int $durationMs): void
+    private function logAttempt(string $callbackUrl, string $status, ?int $responseCode, ?string $errorMessage, int $durationMs): void
     {
         CallbackAttempt::create([
             'action_id' => $this->action->id,
@@ -251,7 +284,7 @@ class DeliverActionCallback implements ShouldQueue
             'action_id' => $this->action->id,
             'action_name' => $this->action->name,
             'callback_event' => $this->event,
-            'callback_url' => $this->action->callback_url,
+            'webhook_id' => $this->webhookId,
         ], $extra);
 
         Log::{$level}("Action Callback: {$eventName}", $context);

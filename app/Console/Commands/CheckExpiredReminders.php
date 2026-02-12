@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\DeliverActionCallback;
+use App\Services\CallbackDispatcher;
 use App\Mail\ReminderExpiredMail;
 use App\Models\ReminderEvent;
 use App\Models\ScheduledAction;
@@ -41,12 +42,10 @@ class CheckExpiredReminders extends Command
                 Mail::to($owner->email)->queue(new ReminderExpiredMail($action));
             }
 
-            // Dispatch callback for action.expired event
-            if ($action->callback_url) {
-                DeliverActionCallback::dispatch($action, DeliverActionCallback::EVENT_EXPIRED, [
-                    'expired_at' => now()->toIso8601String(),
-                ]);
-            }
+            // Dispatch callbacks for action.expired event
+            CallbackDispatcher::dispatch($action, DeliverActionCallback::EVENT_EXPIRED, [
+                'expired_at' => now()->toIso8601String(),
+            ]);
 
             $count++;
         }

@@ -5,6 +5,7 @@ import type {
 	INodeTypeDescription,
 	IWebhookResponseData,
 	IDataObject,
+	IHttpRequestMethods,
 } from 'n8n-workflow';
 import { createHmac } from 'crypto';
 
@@ -12,6 +13,19 @@ function computeSignature(payload: string, secret: string): string {
 	const hmac = createHmac('sha256', secret);
 	hmac.update(payload);
 	return `sha256=${hmac.digest('hex')}`;
+}
+
+// Map event filter to API event types
+function getEventsForFilter(filter: string): string[] {
+	if (filter === 'any') {
+		return [
+			'action.executed',
+			'action.failed',
+			'action.expired',
+			'reminder.responded',
+		];
+	}
+	return [filter];
 }
 
 export class CallMeLaterTrigger implements INodeType {
@@ -31,7 +45,7 @@ export class CallMeLaterTrigger implements INodeType {
 		credentials: [
 			{
 				name: 'callMeLaterApi',
-				required: false,
+				required: true,
 			},
 		],
 		webhooks: [
@@ -85,7 +99,7 @@ export class CallMeLaterTrigger implements INodeType {
 					password: true,
 				},
 				default: '',
-				description: 'Optional. Verify webhook signatures using this secret. Must match the secret configured in CallMeLater.',
+				description: 'Optional. Secret for verifying webhook signatures. If not provided, a random secret will be generated.',
 			},
 		],
 	};
@@ -93,16 +107,106 @@ export class CallMeLaterTrigger implements INodeType {
 	webhookMethods = {
 		default: {
 			async checkExists(this: IHookFunctions): Promise<boolean> {
-				// Webhook is always available via n8n's webhook URL
-				return true;
+				const webhookData = this.getWorkflowStaticData('node');
+				const webhookUrl = this.getNodeWebhookUrl('default');
+
+				// If we have a stored webhook ID, verify it still exists
+				if (webhookData.webhookId) {
+					try {
+						const credentials = await this.getCredentials('callMeLaterApi');
+						const apiUrl = (credentials.apiUrl as string) || 'https://callmelater.io';
+
+						const response = await this.helpers.httpRequest({
+							method: 'GET' as IHttpRequestMethods,
+							url: `${apiUrl}/api/v1/webhooks/${webhookData.webhookId}`,
+							headers: {
+								Authorization: `Bearer ${credentials.apiKey}`,
+							},
+							returnFullResponse: true,
+							ignoreHttpStatusErrors: true,
+						});
+
+						if (response.statusCode === 200) {
+							const webhook = response.body as IDataObject;
+							// Check if URL matches
+							if ((webhook.data as IDataObject)?.url === webhookUrl) {
+								return true;
+							}
+						}
+					} catch {
+						// Webhook doesn't exist or error checking
+					}
+				}
+
+				return false;
 			},
+
 			async create(this: IHookFunctions): Promise<boolean> {
-				// No registration needed - user copies webhook URL to CallMeLater
-				return true;
+				const webhookData = this.getWorkflowStaticData('node');
+				const webhookUrl = this.getNodeWebhookUrl('default');
+				const eventFilter = this.getNodeParameter('event') as string;
+				const webhookSecret = this.getNodeParameter('webhookSecret') as string;
+
+				try {
+					const credentials = await this.getCredentials('callMeLaterApi');
+					const apiUrl = (credentials.apiUrl as string) || 'https://callmelater.io';
+
+					const events = getEventsForFilter(eventFilter);
+
+					const response = await this.helpers.httpRequest({
+						method: 'POST' as IHttpRequestMethods,
+						url: `${apiUrl}/api/v1/webhooks`,
+						headers: {
+							Authorization: `Bearer ${credentials.apiKey}`,
+							'Content-Type': 'application/json',
+						},
+						body: {
+							name: `n8n: ${this.getWorkflow().name || 'Workflow'}`,
+							url: webhookUrl,
+							events,
+							...(webhookSecret && { secret: webhookSecret }),
+						},
+					});
+
+					const data = (response as IDataObject).data as IDataObject;
+					webhookData.webhookId = data.id;
+
+					return true;
+				} catch (error) {
+					// If webhook already exists for this URL, that's fine
+					if ((error as Error).message?.includes('Webhook updated')) {
+						return true;
+					}
+					throw error;
+				}
 			},
+
 			async delete(this: IHookFunctions): Promise<boolean> {
-				// No cleanup needed
-				return true;
+				const webhookData = this.getWorkflowStaticData('node');
+
+				if (!webhookData.webhookId) {
+					return true;
+				}
+
+				try {
+					const credentials = await this.getCredentials('callMeLaterApi');
+					const apiUrl = (credentials.apiUrl as string) || 'https://callmelater.io';
+
+					await this.helpers.httpRequest({
+						method: 'DELETE' as IHttpRequestMethods,
+						url: `${apiUrl}/api/v1/webhooks/${webhookData.webhookId}`,
+						headers: {
+							Authorization: `Bearer ${credentials.apiKey}`,
+						},
+						ignoreHttpStatusErrors: true,
+					});
+
+					delete webhookData.webhookId;
+					return true;
+				} catch {
+					// Ignore errors on delete
+					return true;
+				}
 			},
 		},
 	};

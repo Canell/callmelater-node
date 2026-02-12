@@ -158,11 +158,16 @@ class CreateActionRequest extends FormRequest
             'gate.escalation' => ['nullable', 'array'],
             'gate.escalation.after_hours' => ['nullable', 'numeric', 'min:0.5'],
             'gate.escalation.contacts' => ['nullable', 'array'],
-            'gate.escalation.contacts.*' => ['email'],
+            'gate.escalation.contacts.*' => ['required', 'string'],
 
             // Integration IDs (specific Teams/Slack connections to use)
             'gate.integration_ids' => ['nullable', 'array'],
             'gate.integration_ids.*' => ['string', 'uuid'],
+
+            // Attachments (URLs to files to attach to reminder emails)
+            'gate.attachments' => ['nullable', 'array', 'max:5'],
+            'gate.attachments.*.url' => ['required', 'url:http,https', 'max:2048'],
+            'gate.attachments.*.name' => ['nullable', 'string', 'max:255'],
 
             // Creator notification
             'notify_creator_on_response' => ['nullable', 'boolean'],
@@ -239,6 +244,17 @@ class CreateActionRequest extends FormRequest
                     $validator->errors()->add(
                         "gate.recipients.{$index}",
                         'Each recipient must be a valid email address, phone number (E.164 format, e.g. +15551234567), or team member ID.'
+                    );
+                }
+            }
+
+            // Validate escalation contacts (same URI format as recipients)
+            $escalationContacts = $this->input('gate.escalation.contacts', []);
+            foreach ($escalationContacts as $index => $contact) {
+                if (! $this->isValidRecipient($contact, $user->account_id)) {
+                    $validator->errors()->add(
+                        "gate.escalation.contacts.{$index}",
+                        'Each escalation contact must be a valid email address, phone number, or team member ID.'
                     );
                 }
             }

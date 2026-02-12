@@ -409,6 +409,16 @@ class ScheduledAction extends Model
         return $this->gate['escalation'] ?? null;
     }
 
+    /**
+     * Get attachments from gate config.
+     *
+     * @return array<array{url: string, name: string|null}>
+     */
+    public function getGateAttachments(): array
+    {
+        return $this->gate['attachments'] ?? [];
+    }
+
     // ========================================
     // Status Helpers
     // ========================================

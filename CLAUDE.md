@@ -98,3 +98,40 @@ Key index: `idx_dispatch_queue` on `(resolution_status, execute_at_utc, next_ret
 - Snooze edge cases (near midnight, on target day like "next Monday" on Monday)
 - Token expiry boundary conditions
 - Idempotent HTTP delivery (no duplicate successful executions)
+
+## n8n Integration
+
+The project includes a custom n8n node package in `packages/n8n-nodes-callmelater/`.
+
+### Local n8n Development
+
+```bash
+# Build the custom node
+cd packages/n8n-nodes-callmelater
+npm install
+npm run build
+
+# Start n8n with the custom node loaded
+cd ../..
+npx n8n start
+```
+
+n8n will be available at http://localhost:5678
+
+### n8n Nodes
+
+- **CallMeLater** - Create scheduled actions (HTTP calls or reminders)
+- **CallMeLater Trigger** - Receive webhook events when actions execute, fail, expire, or get responses
+
+### How the Trigger Works
+
+1. When a workflow with CallMeLater Trigger is **activated**, it auto-registers a webhook with your CallMeLater account
+2. CallMeLater sends events (executed, failed, expired, reminder.responded) to registered webhooks
+3. When the workflow is **deactivated**, the webhook is automatically deleted
+4. View registered webhooks in Settings > Integrations > API Webhooks
+
+### Useful Links
+
+- n8n docs: https://docs.n8n.io/
+- Creating nodes: https://docs.n8n.io/integrations/creating-nodes/
+- n8n community nodes: https://docs.n8n.io/integrations/community-nodes/
