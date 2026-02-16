@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\ActionChain;
 use App\Models\ScheduledAction;
 use App\Services\ChainService;
 use Illuminate\Bus\Queueable;
@@ -22,8 +23,9 @@ class DispatcherJob implements ShouldQueue
 
     public function handle(): void
     {
-        // First, recover any stuck pending_resolution actions
+        // Recover stuck states
         $this->recoverPendingResolution();
+        $this->recoverStuckChains();
 
         $dispatched = 0;
 
@@ -315,6 +317,90 @@ class DispatcherJob implements ShouldQueue
 
         if ($recovered > 0) {
             Log::info('Recovered stuck pending_resolution actions', ['count' => $recovered]);
+        }
+    }
+
+    /**
+     * Recover chains stuck because a step's action reached a terminal state
+     * without the chain being notified (e.g., intent resolution failure).
+     */
+    private function recoverStuckChains(): void
+    {
+        // Find running chains that haven't been updated in 5+ minutes
+        $stuckChains = ActionChain::query()
+            ->where('status', ActionChain::STATUS_RUNNING)
+            ->where('updated_at', '<', now()->subMinutes(5))
+            ->limit(20)
+            ->get();
+
+        if ($stuckChains->isEmpty()) {
+            return;
+        }
+
+        $chainService = app(ChainService::class);
+        $recovered = 0;
+
+        foreach ($stuckChains as $chain) {
+            // Find the current step's action
+            $currentAction = ScheduledAction::query()
+                ->where('chain_id', $chain->id)
+                ->where('chain_step', $chain->current_step)
+                ->latest()
+                ->first();
+
+            if (! $currentAction) {
+                continue;
+            }
+
+            // If the action failed, propagate the failure to the chain
+            if ($currentAction->resolution_status === ScheduledAction::STATUS_FAILED) {
+                try {
+                    $chainService->handleStepFailure(
+                        $chain,
+                        $currentAction,
+                        $currentAction->failure_reason ?? 'Step action failed'
+                    );
+                    $recovered++;
+
+                    Log::info('Recovered stuck chain (step failed)', [
+                        'chain_id' => $chain->id,
+                        'step' => $chain->current_step,
+                        'action_id' => $currentAction->id,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::error('Failed to recover stuck chain', [
+                        'chain_id' => $chain->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // If the action is executed but chain didn't advance, retry advancement
+            if ($currentAction->resolution_status === ScheduledAction::STATUS_EXECUTED) {
+                if (! $chain->isTerminal()) {
+                    try {
+                        $chainService->advanceChain($chain, $currentAction, [
+                            'status' => 'completed',
+                        ]);
+                        $recovered++;
+
+                        Log::info('Recovered stuck chain (step executed but chain not advanced)', [
+                            'chain_id' => $chain->id,
+                            'step' => $chain->current_step,
+                            'action_id' => $currentAction->id,
+                        ]);
+                    } catch (\Throwable $e) {
+                        Log::error('Failed to advance stuck chain', [
+                            'chain_id' => $chain->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+        }
+
+        if ($recovered > 0) {
+            Log::info('Recovered stuck chains', ['count' => $recovered]);
         }
     }
 }

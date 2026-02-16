@@ -49,7 +49,9 @@
       "WebFetch(domain:docs.n8n.io)",
       "Bash(npm run lint)",
       "Bash(composer update:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(xargs:*)",
+      "Bash(./vendor/bin/phpunit:*)"
     ]
   }
 }

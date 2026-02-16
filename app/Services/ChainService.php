@@ -213,7 +213,7 @@ class ChainService
         // Set intent - execute immediately (or use step's delay)
         if (isset($stepDef['delay'])) {
             $action->intent_type = ScheduledAction::INTENT_WALL_CLOCK;
-            $action->intent_payload = ['preset' => $stepDef['delay']];
+            $action->intent_payload = ['delay' => $stepDef['delay']];
         } else {
             $action->intent_type = ScheduledAction::INTENT_ABSOLUTE;
             $action->intent_payload = ['execute_at' => now()->toIso8601String()];
@@ -260,7 +260,7 @@ class ChainService
 
         // Set the delay intent
         $action->intent_type = ScheduledAction::INTENT_WALL_CLOCK;
-        $action->intent_payload = ['preset' => $stepDef['delay']];
+        $action->intent_payload = ['delay' => $stepDef['delay']];
 
         $action->resolution_status = ScheduledAction::STATUS_PENDING_RESOLUTION;
         $action->save();
