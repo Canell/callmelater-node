@@ -414,8 +414,15 @@ class ReminderBuilder
         if ($type === 'relative') {
             $value = $this->intent['value'] ?? 0;
             $unit = $this->intent['unit'] ?? 'minutes';
+            $shortUnit = match ($unit) {
+                'minutes' => 'm',
+                'hours' => 'h',
+                'days' => 'd',
+                'weeks' => 'w',
+                default => $unit,
+            };
 
-            return ['delay' => "{$value} {$unit}"];
+            return ['delay' => "{$value}{$shortUnit}"];
         }
 
         if ($type === 'preset') {

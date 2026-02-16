@@ -63,13 +63,13 @@ class HttpActionBuilderTest extends TestCase
     public function test_relative_delay(): void
     {
         $payload = $this->client->http('https://ex.com')->inHours(3)->toArray();
-        $this->assertEquals('3 hours', $payload['intent']['delay']);
+        $this->assertEquals('3h', $payload['intent']['delay']);
 
         $payload = $this->client->http('https://ex.com')->inMinutes(30)->toArray();
-        $this->assertEquals('30 minutes', $payload['intent']['delay']);
+        $this->assertEquals('30m', $payload['intent']['delay']);
 
         $payload = $this->client->http('https://ex.com')->inDays(7)->toArray();
-        $this->assertEquals('7 days', $payload['intent']['delay']);
+        $this->assertEquals('7d', $payload['intent']['delay']);
     }
 
     public function test_retry_config(): void

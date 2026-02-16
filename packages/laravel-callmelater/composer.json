@@ -1,12 +1,18 @@
 {
     "name": "callmelater/laravel",
     "description": "Laravel SDK for CallMeLater - Schedule HTTP calls and interactive reminders",
-    "keywords": ["laravel", "callmelater", "scheduler", "reminders", "webhooks", "deferred"],
+    "keywords": ["laravel", "callmelater", "scheduler", "reminders", "webhooks", "deferred", "cron", "queue"],
     "license": "MIT",
+    "homepage": "https://callmelater.io",
+    "support": {
+        "issues": "https://github.com/Canell/callmelater-laravel/issues",
+        "source": "https://github.com/Canell/callmelater-laravel"
+    },
     "authors": [
         {
             "name": "CallMeLater",
-            "email": "support@callmelater.io"
+            "email": "support@callmelater.io",
+            "homepage": "https://callmelater.io"
         }
     ],
     "require": {
@@ -38,6 +44,9 @@
                 "CallMeLater": "CallMeLater\\Laravel\\Facades\\CallMeLater"
             }
         }
+    },
+    "config": {
+        "sort-packages": true
     },
     "minimum-stability": "dev",
     "prefer-stable": true

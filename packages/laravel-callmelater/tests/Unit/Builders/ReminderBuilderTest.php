@@ -124,7 +124,7 @@ class ReminderBuilderTest extends TestCase
         $this->assertEquals('next_monday', $payload['intent']['preset']);
 
         $payload = $this->client->reminder('Test')->to('a@ex.com')->inDays(3)->toArray();
-        $this->assertEquals('3 days', $payload['intent']['delay']);
+        $this->assertEquals('3d', $payload['intent']['delay']);
 
         $payload = $this->client->reminder('Test')->to('a@ex.com')->at('2026-06-15 09:00')->toArray();
         $this->assertEquals('2026-06-15 09:00', $payload['intent']['at']);
