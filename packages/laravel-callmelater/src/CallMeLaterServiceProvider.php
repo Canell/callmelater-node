@@ -4,6 +4,7 @@ namespace CallMeLater\Laravel;
 
 use CallMeLater\Laravel\Commands\CancelActionCommand;
 use CallMeLater\Laravel\Commands\ListActionsCommand;
+use CallMeLater\Laravel\Exceptions\ConfigurationException;
 use Illuminate\Support\ServiceProvider;
 
 class CallMeLaterServiceProvider extends ServiceProvider
@@ -16,7 +17,7 @@ class CallMeLaterServiceProvider extends ServiceProvider
             $config = $app['config']['callmelater'];
 
             if (empty($config['api_token'])) {
-                throw new \RuntimeException(
+                throw new ConfigurationException(
                     'CallMeLater API token not configured. Set CALLMELATER_API_TOKEN in your .env file.'
                 );
             }

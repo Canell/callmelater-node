@@ -47,7 +47,9 @@
       "Bash(/opt/homebrew/bin/php:*)",
       "WebFetch(domain:zeplo.io)",
       "WebFetch(domain:docs.n8n.io)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(composer update:*)",
+      "Bash(python3:*)"
     ]
   }
 }

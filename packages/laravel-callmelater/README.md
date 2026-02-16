@@ -95,7 +95,7 @@ $action = CallMeLater::get('action_id_here');
 // List actions with filters
 $actions = CallMeLater::list([
     'status' => 'resolved',
-    'type' => 'http',
+    'type' => 'webhook',       // 'webhook' for HTTP calls, 'approval' for reminders
     'per_page' => 50,
 ]);
 
@@ -105,63 +105,36 @@ CallMeLater::cancel('action_id_here');
 
 ### Handling Webhooks
 
-Create a route and controller to handle incoming webhooks:
+The SDK provides a built-in webhook handler that verifies signatures and dispatches Laravel events automatically:
 
 ```php
 // routes/web.php
-Route::post('/webhooks/callmelater', [CallMeLaterWebhookController::class, 'handle']);
-```
-
-```php
-// app/Http/Controllers/CallMeLaterWebhookController.php
-namespace App\Http\Controllers;
-
 use CallMeLater\Laravel\Facades\CallMeLater;
-use CallMeLater\Laravel\Events\ActionExecuted;
-use CallMeLater\Laravel\Events\ActionFailed;
-use CallMeLater\Laravel\Events\ActionExpired;
-use CallMeLater\Laravel\Events\ReminderResponded;
-use Illuminate\Http\Request;
 
-class CallMeLaterWebhookController extends Controller
-{
-    public function handle(Request $request)
-    {
-        // Verify the signature
-        CallMeLater::verifySignature($request);
-
-        $event = $request->input('event');
-        $payload = $request->all();
-
-        // Dispatch Laravel events based on webhook type
-        match ($event) {
-            'action.executed' => ActionExecuted::dispatch(
-                ...ActionExecuted::fromPayload($payload)->toArray()
-            ),
-            'action.failed' => ActionFailed::dispatch(
-                ...ActionFailed::fromPayload($payload)->toArray()
-            ),
-            'action.expired' => ActionExpired::dispatch(
-                ...ActionExpired::fromPayload($payload)->toArray()
-            ),
-            'reminder.responded' => ReminderResponded::dispatch(
-                ...ReminderResponded::fromPayload($payload)->toArray()
-            ),
-            default => null,
-        };
-
-        return response()->json(['received' => true]);
-    }
-}
+Route::post('/webhooks/callmelater', function (Illuminate\Http\Request $request) {
+    CallMeLater::webhooks()->handle($request);
+    return response()->json(['received' => true]);
+});
 ```
 
-Or use the middleware for automatic signature verification:
+This verifies the `X-CallMeLater-Signature` header and dispatches the appropriate Laravel event (`ActionExecuted`, `ActionFailed`, `ActionExpired`, or `ReminderResponded`).
+
+You can also skip signature verification (useful in local development) or disable event dispatching:
 
 ```php
-// routes/web.php
+// Skip signature verification
+CallMeLater::webhooks()->skipVerification()->handle($request);
+
+// Handle without dispatching events (returns the parsed payload)
+$payload = CallMeLater::webhooks()->withoutEvents()->handle($request);
+```
+
+Alternatively, use the middleware for route-level signature verification:
+
+```php
 use CallMeLater\Laravel\Http\Middleware\VerifyCallMeLaterSignature;
 
-Route::post('/webhooks/callmelater', [CallMeLaterWebhookController::class, 'handle'])
+Route::post('/webhooks/callmelater', [WebhookController::class, 'handle'])
     ->middleware(VerifyCallMeLaterSignature::class);
 ```
 
@@ -202,7 +175,7 @@ class HandleReminderResponse
 ```bash
 # List your scheduled actions
 php artisan callmelater:list
-php artisan callmelater:list --status=resolved --type=http
+php artisan callmelater:list --status=resolved --type=webhook
 
 # Cancel an action
 php artisan callmelater:cancel action_id_here
@@ -232,6 +205,63 @@ class OrderController extends Controller
 }
 ```
 
+## Debugging
+
+Both builders provide methods to inspect the API payload before sending:
+
+```php
+// Inspect the payload as an array
+$payload = CallMeLater::http('https://api.example.com/process')
+    ->post()
+    ->payload(['user_id' => 123])
+    ->inHours(2)
+    ->toArray();
+
+// Dump and die (useful during development)
+CallMeLater::reminder('Test')
+    ->to('user@example.com')
+    ->message('Debug this')
+    ->inHours(1)
+    ->dd();
+```
+
+## Error Handling
+
+The SDK throws specific exceptions for different error types:
+
+```
+CallMeLaterException (base)
+├── ConfigurationException     — Missing API token or webhook secret
+└── ApiException               — API returned an error response
+    └── AuthenticationException — 401 Unauthorized
+
+SignatureVerificationException — Invalid webhook signature (extends InvalidArgumentException)
+```
+
+### Catching API Errors
+
+```php
+use CallMeLater\Laravel\Exceptions\ApiException;
+use CallMeLater\Laravel\Exceptions\AuthenticationException;
+
+try {
+    CallMeLater::http('https://example.com')->send();
+} catch (AuthenticationException $e) {
+    // Invalid or expired API token
+    logger()->error('Auth failed: ' . $e->getMessage());
+} catch (ApiException $e) {
+    // Access the HTTP status code
+    $e->getStatusCode();       // 422, 404, 500, etc.
+
+    // Access the full validation error bag (for 422 responses)
+    $e->getValidationErrors(); // ['mode' => ['The selected mode is invalid.'], ...]
+    $e->getErrorBag();         // Alias for getValidationErrors()
+
+    // Access the raw response body
+    $e->getResponseBody();
+}
+```
+
 ## API Reference
 
 ### HTTP Action Builder
@@ -241,6 +271,7 @@ class OrderController extends Controller
 | `method(string $method)` | Set HTTP method (GET, POST, PUT, PATCH, DELETE) |
 | `get()`, `post()`, `put()`, `patch()`, `delete()` | Shortcut methods |
 | `headers(array $headers)` | Set request headers |
+| `header(string $key, string $value)` | Add a single header |
 | `payload(mixed $data)` | Set request body |
 | `name(string $name)` | Set a friendly name |
 | `at(DateTime\|string $time)` | Schedule at specific time or preset |
@@ -250,7 +281,11 @@ class OrderController extends Controller
 | `retry(int $max, string $backoff, int $delay)` | Configure retry policy |
 | `noRetry()` | Disable retries |
 | `callback(string $url)` | Set callback URL |
-| `metadata(array $data)` | Add metadata |
+| `metadata(array $data)` | Set metadata |
+| `meta(string $key, mixed $value)` | Add a single metadata entry |
+| `idempotencyKey(string $key)` | Set idempotency key |
+| `toArray()` | Get the API payload without sending |
+| `dd()` | Dump the payload and die |
 | `send()` | Send the action |
 
 ### Reminder Builder
@@ -272,7 +307,27 @@ class OrderController extends Controller
 | `attach(string $url, ?string $name)` | Add attachment |
 | `callback(string $url)` | Set callback URL |
 | `metadata(array $data)` | Add metadata |
+| `toRecipient(string $selector)` | Add a raw recipient selector URI |
+| `toArray()` | Get the API payload without sending |
+| `dd()` | Dump the payload and die |
 | `send()` | Send the reminder |
+
+### Signature Verification
+
+| Method | Description |
+|--------|-------------|
+| `CallMeLater::verifySignature($request)` | Verify signature or throw `SignatureVerificationException` |
+| `CallMeLater::isValidSignature($request)` | Returns `true`/`false` without throwing |
+
+## Testing
+
+Run the SDK test suite:
+
+```bash
+cd packages/laravel-callmelater
+composer install
+./vendor/bin/phpunit
+```
 
 ## License
 

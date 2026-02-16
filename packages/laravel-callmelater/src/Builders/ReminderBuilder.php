@@ -3,6 +3,7 @@
 namespace CallMeLater\Laravel\Builders;
 
 use CallMeLater\Laravel\CallMeLater;
+use CallMeLater\Laravel\Exceptions\CallMeLaterException;
 use Carbon\Carbon;
 use DateTimeInterface;
 
@@ -332,16 +333,16 @@ class ReminderBuilder
     }
 
     /**
-     * Send the reminder to CallMeLater.
+     * Get the payload array that would be sent to the API.
      */
-    public function send(): array
+    public function toArray(): array
     {
         if (empty($this->recipients)) {
-            throw new \InvalidArgumentException('At least one recipient is required');
+            throw new CallMeLaterException('At least one recipient is required');
         }
 
         $payload = [
-            'type' => 'gate',
+            'mode' => 'gated',
             'name' => $this->name,
             'gate' => [
                 'recipients' => $this->recipients,
@@ -362,7 +363,7 @@ class ReminderBuilder
         }
 
         if (! empty($this->intent)) {
-            $payload['intent'] = $this->intent;
+            $payload['intent'] = $this->buildIntent();
             if ($this->timezone) {
                 $payload['intent']['timezone'] = $this->timezone;
             }
@@ -376,7 +377,23 @@ class ReminderBuilder
             $payload['metadata'] = $this->metadata;
         }
 
-        return $this->client->sendAction($payload);
+        return $payload;
+    }
+
+    /**
+     * Dump the payload and die (for debugging).
+     */
+    public function dd(): never
+    {
+        dd($this->toArray());
+    }
+
+    /**
+     * Send the reminder to CallMeLater.
+     */
+    public function send(): array
+    {
+        return $this->client->sendAction($this->toArray());
     }
 
     /**
@@ -385,5 +402,30 @@ class ReminderBuilder
     public function dispatch(): array
     {
         return $this->send();
+    }
+
+    /**
+     * Convert the SDK intent format to the API intent format.
+     */
+    protected function buildIntent(): array
+    {
+        $type = $this->intent['type'] ?? null;
+
+        if ($type === 'relative') {
+            $value = $this->intent['value'] ?? 0;
+            $unit = $this->intent['unit'] ?? 'minutes';
+
+            return ['delay' => "{$value} {$unit}"];
+        }
+
+        if ($type === 'preset') {
+            return ['preset' => $this->intent['value']];
+        }
+
+        if ($type === 'datetime') {
+            return ['at' => $this->intent['value']];
+        }
+
+        return $this->intent;
     }
 }

@@ -3,6 +3,8 @@
 namespace CallMeLater\Laravel\Http\Middleware;
 
 use CallMeLater\Laravel\CallMeLater;
+use CallMeLater\Laravel\Exceptions\ConfigurationException;
+use CallMeLater\Laravel\Exceptions\SignatureVerificationException;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,12 +25,12 @@ class VerifyCallMeLaterSignature
     {
         try {
             $this->callMeLater->verifySignature($request);
-        } catch (\InvalidArgumentException $e) {
+        } catch (SignatureVerificationException $e) {
             return response()->json([
                 'error' => 'Invalid signature',
                 'message' => $e->getMessage(),
             ], 401);
-        } catch (\RuntimeException $e) {
+        } catch (ConfigurationException $e) {
             return response()->json([
                 'error' => 'Configuration error',
                 'message' => $e->getMessage(),

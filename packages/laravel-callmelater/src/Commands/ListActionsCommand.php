@@ -9,7 +9,7 @@ class ListActionsCommand extends Command
 {
     protected $signature = 'callmelater:list
                             {--status= : Filter by status (pending, resolved, executed, etc.)}
-                            {--type= : Filter by type (http, gate)}
+                            {--type= : Filter by type (webhook, approval)}
                             {--limit=20 : Number of results to show}';
 
     protected $description = 'List your scheduled CallMeLater actions';
@@ -37,9 +37,9 @@ class ListActionsCommand extends Command
                 $rows[] = [
                     $action['id'],
                     substr($action['name'] ?? '(unnamed)', 0, 30),
-                    $action['type'],
-                    $action['resolution_status'],
-                    $action['execute_at_utc'] ?? '-',
+                    $action['type'] ?? $action['mode'] ?? '-',
+                    $action['resolution_status'] ?? $action['status'] ?? '-',
+                    $action['execute_at'] ?? $action['scheduled_for'] ?? '-',
                 ];
             }
 
@@ -48,8 +48,19 @@ class ListActionsCommand extends Command
                 $rows
             );
 
+            $total = $result['meta']['total'] ?? 0;
+            $to = $result['meta']['to'] ?? count($actions);
+
+            // Handle case where total/to may be arrays
+            if (is_array($total)) {
+                $total = $total[0] ?? 0;
+            }
+            if (is_array($to)) {
+                $to = $to[0] ?? 0;
+            }
+
             $this->newLine();
-            $this->info("Showing {$result['meta']['to']} of {$result['meta']['total']} actions.");
+            $this->info("Showing {$to} of {$total} actions.");
 
             return self::SUCCESS;
         } catch (\Exception $e) {

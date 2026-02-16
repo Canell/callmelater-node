@@ -284,25 +284,27 @@ class HttpActionBuilder
     }
 
     /**
-     * Send the action to CallMeLater.
+     * Get the payload array that would be sent to the API.
      */
-    public function send(): array
+    public function toArray(): array
     {
-        $payload = [
-            'type' => 'http',
-            'http' => [
-                'url' => $this->url,
-                'method' => $this->method,
-            ],
+        $request = [
+            'url' => $this->url,
+            'method' => $this->method,
         ];
 
         if (! empty($this->headers)) {
-            $payload['http']['headers'] = $this->headers;
+            $request['headers'] = $this->headers;
         }
 
         if ($this->payload !== null) {
-            $payload['http']['body'] = $this->payload;
+            $request['body'] = $this->payload;
         }
+
+        $payload = [
+            'mode' => 'immediate',
+            'request' => $request,
+        ];
 
         if ($this->name) {
             $payload['name'] = $this->name;
@@ -313,14 +315,19 @@ class HttpActionBuilder
         }
 
         if (! empty($this->intent)) {
-            $payload['intent'] = $this->intent;
+            $payload['intent'] = $this->buildIntent();
             if ($this->timezone) {
                 $payload['intent']['timezone'] = $this->timezone;
             }
         }
 
         if (! empty($this->retry)) {
-            $payload['retry'] = $this->retry;
+            if (isset($this->retry['max_attempts'])) {
+                $payload['max_attempts'] = $this->retry['max_attempts'];
+            }
+            if (isset($this->retry['backoff'])) {
+                $payload['retry_strategy'] = $this->retry['backoff'];
+            }
         }
 
         if ($this->callbackUrl) {
@@ -331,7 +338,23 @@ class HttpActionBuilder
             $payload['metadata'] = $this->metadata;
         }
 
-        return $this->client->sendAction($payload);
+        return $payload;
+    }
+
+    /**
+     * Dump the payload and die (for debugging).
+     */
+    public function dd(): never
+    {
+        dd($this->toArray());
+    }
+
+    /**
+     * Send the action to CallMeLater.
+     */
+    public function send(): array
+    {
+        return $this->client->sendAction($this->toArray());
     }
 
     /**
@@ -340,5 +363,30 @@ class HttpActionBuilder
     public function dispatch(): array
     {
         return $this->send();
+    }
+
+    /**
+     * Convert the SDK intent format to the API intent format.
+     */
+    protected function buildIntent(): array
+    {
+        $type = $this->intent['type'] ?? null;
+
+        if ($type === 'relative') {
+            $value = $this->intent['value'] ?? 0;
+            $unit = $this->intent['unit'] ?? 'minutes';
+
+            return ['delay' => "{$value} {$unit}"];
+        }
+
+        if ($type === 'preset') {
+            return ['preset' => $this->intent['value']];
+        }
+
+        if ($type === 'datetime') {
+            return ['at' => $this->intent['value']];
+        }
+
+        return $this->intent;
     }
 }

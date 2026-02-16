@@ -4,6 +4,9 @@ namespace CallMeLater\Laravel;
 
 use CallMeLater\Laravel\Builders\HttpActionBuilder;
 use CallMeLater\Laravel\Builders\ReminderBuilder;
+use CallMeLater\Laravel\Exceptions\ApiException;
+use CallMeLater\Laravel\Exceptions\ConfigurationException;
+use CallMeLater\Laravel\Exceptions\SignatureVerificationException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -58,7 +61,7 @@ class CallMeLater
         $response = $this->client()->get("/api/v1/actions/{$id}");
 
         if (! $response->successful()) {
-            throw new \RuntimeException("Failed to get action: {$response->body()}");
+            throw ApiException::fromResponse($response, 'get action');
         }
 
         return $response->json('data');
@@ -72,7 +75,7 @@ class CallMeLater
         $response = $this->client()->get('/api/v1/actions', $filters);
 
         if (! $response->successful()) {
-            throw new \RuntimeException("Failed to list actions: {$response->body()}");
+            throw ApiException::fromResponse($response, 'list actions');
         }
 
         return $response->json();
@@ -83,37 +86,40 @@ class CallMeLater
      */
     public function cancel(string $id): array
     {
-        $response = $this->client()->post("/api/v1/actions/{$id}/cancel");
+        $response = $this->client()->delete("/api/v1/actions/{$id}");
 
         if (! $response->successful()) {
-            throw new \RuntimeException("Failed to cancel action: {$response->body()}");
+            throw ApiException::fromResponse($response, 'cancel action');
         }
 
-        return $response->json('data');
+        return $response->json() ?? [];
     }
 
     /**
      * Verify the signature of an incoming webhook request.
      *
-     * @throws \InvalidArgumentException if signature is missing or invalid
+     * @throws ConfigurationException if webhook secret is not configured
+     * @throws SignatureVerificationException if signature is missing or invalid
      */
     public function verifySignature(Request $request): void
     {
         if (! $this->webhookSecret) {
-            throw new \RuntimeException('Webhook secret not configured');
+            throw new ConfigurationException(
+                'Webhook secret not configured. Set CALLMELATER_WEBHOOK_SECRET in your .env file.'
+            );
         }
 
         $signature = $request->header('X-CallMeLater-Signature');
 
         if (! $signature) {
-            throw new \InvalidArgumentException('Missing webhook signature header');
+            throw new SignatureVerificationException('Missing webhook signature header');
         }
 
         $payload = $request->getContent();
         $expectedSignature = 'sha256=' . hash_hmac('sha256', $payload, $this->webhookSecret);
 
         if (! hash_equals($expectedSignature, $signature)) {
-            throw new \InvalidArgumentException('Invalid webhook signature');
+            throw new SignatureVerificationException('Invalid webhook signature');
         }
     }
 
@@ -149,8 +155,7 @@ class CallMeLater
         $response = $this->client()->post('/api/v1/actions', $payload);
 
         if (! $response->successful()) {
-            $error = $response->json('message') ?? $response->body();
-            throw new \RuntimeException("Failed to create action: {$error}");
+            throw ApiException::fromResponse($response, 'create action');
         }
 
         return $response->json('data');
