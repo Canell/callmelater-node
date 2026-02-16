@@ -2,8 +2,10 @@
 
 namespace CallMeLater\Laravel;
 
+use CallMeLater\Laravel\Builders\ChainBuilder;
 use CallMeLater\Laravel\Builders\HttpActionBuilder;
 use CallMeLater\Laravel\Builders\ReminderBuilder;
+use CallMeLater\Laravel\Builders\TemplateBuilder;
 use CallMeLater\Laravel\Exceptions\ApiException;
 use CallMeLater\Laravel\Exceptions\ConfigurationException;
 use CallMeLater\Laravel\Exceptions\SignatureVerificationException;
@@ -144,6 +146,218 @@ class CallMeLater
     {
         return new WebhookHandler($this);
     }
+
+    // ─── Chains ──────────────────────────────────────────────
+
+    /**
+     * Create a new chain builder.
+     */
+    public function chain(string $name): ChainBuilder
+    {
+        return new ChainBuilder($this, $name);
+    }
+
+    /**
+     * Send a chain payload to the API.
+     *
+     * @internal Used by ChainBuilder
+     */
+    public function sendChain(array $payload): array
+    {
+        $response = $this->client()->post('/api/v1/chains', $payload);
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'create chain');
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * Get a chain by ID.
+     */
+    public function getChain(string $id): array
+    {
+        $response = $this->client()->get("/api/v1/chains/{$id}");
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'get chain');
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * List chains with optional filters.
+     */
+    public function listChains(array $filters = []): array
+    {
+        $response = $this->client()->get('/api/v1/chains', $filters);
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'list chains');
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Cancel a chain by ID.
+     */
+    public function cancelChain(string $id): array
+    {
+        $response = $this->client()->post("/api/v1/chains/{$id}/cancel");
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'cancel chain');
+        }
+
+        return $response->json() ?? [];
+    }
+
+    // ─── Templates ────────────────────────────────────────────
+
+    /**
+     * Create a new template builder.
+     */
+    public function template(string $name): TemplateBuilder
+    {
+        return new TemplateBuilder($this, $name);
+    }
+
+    /**
+     * Send a template payload to the API.
+     *
+     * @internal Used by TemplateBuilder
+     */
+    public function sendTemplate(array $payload): array
+    {
+        $response = $this->client()->post('/api/v1/templates', $payload);
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'create template');
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * Update a template by ID.
+     *
+     * @internal Used by TemplateBuilder
+     */
+    public function updateTemplate(string $id, array $payload): array
+    {
+        $response = $this->client()->put("/api/v1/templates/{$id}", $payload);
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'update template');
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * Get a template by ID.
+     */
+    public function getTemplate(string $id): array
+    {
+        $response = $this->client()->get("/api/v1/templates/{$id}");
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'get template');
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * List templates with optional filters.
+     */
+    public function listTemplates(array $filters = []): array
+    {
+        $response = $this->client()->get('/api/v1/templates', $filters);
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'list templates');
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Delete a template by ID.
+     */
+    public function deleteTemplate(string $id): array
+    {
+        $response = $this->client()->delete("/api/v1/templates/{$id}");
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'delete template');
+        }
+
+        return $response->json() ?? [];
+    }
+
+    /**
+     * Regenerate the trigger token for a template.
+     */
+    public function regenerateTemplateToken(string $id): array
+    {
+        $response = $this->client()->post("/api/v1/templates/{$id}/regenerate-token");
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'regenerate template token');
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * Toggle a template's enabled/disabled state.
+     */
+    public function toggleTemplate(string $id): array
+    {
+        $response = $this->client()->post("/api/v1/templates/{$id}/toggle");
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'toggle template');
+        }
+
+        return $response->json('data');
+    }
+
+    /**
+     * Get template usage limits for the current account.
+     */
+    public function templateLimits(): array
+    {
+        $response = $this->client()->get('/api/v1/templates/limits');
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'get template limits');
+        }
+
+        return $response->json('data') ?? $response->json() ?? [];
+    }
+
+    // ─── Trigger ──────────────────────────────────────────────
+
+    /**
+     * Trigger a template by its token with placeholder values.
+     */
+    public function trigger(string $token, array $params = []): array
+    {
+        $response = $this->client()->post("/t/{$token}", $params);
+
+        if (! $response->successful()) {
+            throw ApiException::fromResponse($response, 'trigger template');
+        }
+
+        return $response->json('data');
+    }
+
+    // ─── Actions ──────────────────────────────────────────────
 
     /**
      * Send an action to the API.

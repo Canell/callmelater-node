@@ -14,9 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
 
-        // Exclude Stripe webhooks from CSRF verification
+        // Exclude webhooks and public trigger endpoints from CSRF verification
         $middleware->validateCsrfTokens(except: [
             'stripe/*',
+            't/*',
         ]);
 
         // Force JSON responses for all API requests (no Accept header required)

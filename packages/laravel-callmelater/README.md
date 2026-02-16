@@ -86,6 +86,85 @@ CallMeLater::reminder('Weekly report sign-off')
     ->send();
 ```
 
+### Chains (Multi-Step Workflows)
+
+```php
+use CallMeLater\Laravel\Facades\CallMeLater;
+
+// Build a multi-step workflow
+CallMeLater::chain('Process Order')
+    ->input(['order_id' => 456])
+    ->addHttpStep('Charge Payment')
+        ->url('https://api.stripe.com/v1/charges')
+        ->post()
+        ->body(['amount' => 2999])
+        ->maxAttempts(3)
+        ->done()
+    ->addGateStep('Approve Shipping')
+        ->message('Approve shipment for order #456?')
+        ->to('warehouse@example.com')
+        ->timeout('2d')
+        ->onTimeout('cancel')
+        ->done()
+    ->addDelayStep('Wait 1 hour')
+        ->hours(1)
+        ->done()
+    ->addHttpStep('Ship Order')
+        ->url('https://shipping.example.com/ship')
+        ->post()
+        ->body(['order_id' => '{{input.order_id}}'])
+        ->condition("{{steps.1.response.action}} == confirmed")
+        ->done()
+    ->errorHandling('fail_chain')
+    ->send();
+
+// Get a chain
+$chain = CallMeLater::getChain('chn_123');
+
+// List chains with filters
+$chains = CallMeLater::listChains(['status' => 'running']);
+
+// Cancel a running chain
+CallMeLater::cancelChain('chn_123');
+```
+
+### Templates (Reusable Action Definitions)
+
+```php
+use CallMeLater\Laravel\Facades\CallMeLater;
+
+// Create a template
+$tpl = CallMeLater::template('Invoice Reminder')
+    ->description('Sends reminder to approve an invoice')
+    ->mode('gated')
+    ->gateConfig([
+        'message' => 'Please approve invoice #{{invoice_id}}',
+        'recipients' => ['email:{{approver_email}}'],
+    ])
+    ->placeholder('invoice_id', required: true, description: 'The invoice number')
+    ->placeholder('approver_email', required: true)
+    ->send();
+
+// Trigger a template with placeholder values
+CallMeLater::trigger($tpl['trigger_token'], [
+    'invoice_id' => 'INV-001',
+    'approver_email' => 'boss@example.com',
+]);
+
+// Update a template
+CallMeLater::template('Updated Name')
+    ->description('New description')
+    ->update('tpl_123');
+
+// CRUD operations
+$template = CallMeLater::getTemplate('tpl_123');
+$templates = CallMeLater::listTemplates();
+CallMeLater::deleteTemplate('tpl_123');
+CallMeLater::toggleTemplate('tpl_123');
+CallMeLater::regenerateTemplateToken('tpl_123');
+$limits = CallMeLater::templateLimits();
+```
+
 ### Managing Actions
 
 ```php
@@ -311,6 +390,97 @@ try {
 | `toArray()` | Get the API payload without sending |
 | `dd()` | Dump the payload and die |
 | `send()` | Send the reminder |
+
+### Chain Builder
+
+| Method | Description |
+|--------|-------------|
+| `input(array $data)` | Set chain input data (available as `{{input.*}}` in steps) |
+| `addHttpStep(string $name)` | Add an HTTP step, returns `HttpStepBuilder` |
+| `addGateStep(string $name)` | Add a gate (approval) step, returns `GateStepBuilder` |
+| `addDelayStep(string $name)` | Add a delay step, returns `DelayStepBuilder` |
+| `errorHandling(string $strategy)` | Set error handling (`fail_chain`, `skip_step`, `continue`) |
+| `toArray()` | Get the API payload without sending |
+| `dd()` | Dump the payload and die |
+| `send()` | Send the chain |
+
+### HTTP Step Builder (within chains)
+
+| Method | Description |
+|--------|-------------|
+| `url(string $url)` | Set request URL |
+| `method(string $method)` | Set HTTP method |
+| `get()`, `post()`, `put()`, `patch()`, `delete()` | Method shortcuts |
+| `headers(array $headers)` | Set request headers |
+| `body(mixed $data)` | Set request body |
+| `maxAttempts(int $max)` | Set retry attempts |
+| `retryStrategy(string $strategy)` | Set retry strategy |
+| `condition(string $expr)` | Set condition expression |
+| `done()` / `add()` | Return to chain builder |
+
+### Gate Step Builder (within chains)
+
+| Method | Description |
+|--------|-------------|
+| `message(string $text)` | Set gate message |
+| `to(string $email)` | Add email recipient |
+| `toMany(array $emails)` | Add multiple recipients |
+| `toRecipient(string $uri)` | Add raw recipient URI |
+| `maxSnoozes(int $max)` | Set max snoozes |
+| `requireAll()` / `firstResponse()` | Set confirmation mode |
+| `timeout(string $duration)` | Set timeout (e.g., `'2d'`, `'24h'`) |
+| `onTimeout(string $action)` | Set timeout action (`cancel`, `continue`, `fail`) |
+| `condition(string $expr)` | Set condition expression |
+| `done()` / `add()` | Return to chain builder |
+
+### Delay Step Builder (within chains)
+
+| Method | Description |
+|--------|-------------|
+| `duration(string $dur)` | Set raw duration (e.g., `'4h30m'`) |
+| `minutes(int)`, `hours(int)`, `days(int)` | Duration shortcuts |
+| `condition(string $expr)` | Set condition expression |
+| `done()` / `add()` | Return to chain builder |
+
+### Template Builder
+
+| Method | Description |
+|--------|-------------|
+| `description(string $text)` | Set template description |
+| `type(string $type)` | Set action type (`http`, `reminder`, `chain`) |
+| `mode(string $mode)` | Set mode (`immediate`, `gated`) |
+| `timezone(string $tz)` | Set default timezone |
+| `requestConfig(array $config)` | Set HTTP request config |
+| `gateConfig(array $config)` | Set gate config |
+| `maxAttempts(int $max)` | Set retry attempts |
+| `retryStrategy(string $strategy)` | Set retry strategy |
+| `placeholder(string $key, ...)` | Add a placeholder (with `required`, `description`, `default`) |
+| `placeholders(array $list)` | Set all placeholders at once |
+| `chainSteps(array $steps)` | Set chain steps (for chain templates) |
+| `chainErrorHandling(string $strategy)` | Set chain error handling |
+| `coordinationKeys(array $keys)` | Set coordination keys |
+| `coordinationConfig(array $config)` | Set coordination config |
+| `toArray()` | Get the API payload without sending |
+| `dd()` | Dump the payload and die |
+| `send()` / `create()` | Create the template |
+| `update(string $id)` | Update an existing template |
+
+### Chain & Template Management
+
+| Method | Description |
+|--------|-------------|
+| `CallMeLater::chain($name)` | Create a chain builder |
+| `CallMeLater::getChain($id)` | Get a chain by ID |
+| `CallMeLater::listChains($filters)` | List chains |
+| `CallMeLater::cancelChain($id)` | Cancel a running chain |
+| `CallMeLater::template($name)` | Create a template builder |
+| `CallMeLater::getTemplate($id)` | Get a template by ID |
+| `CallMeLater::listTemplates($filters)` | List templates |
+| `CallMeLater::deleteTemplate($id)` | Delete a template |
+| `CallMeLater::toggleTemplate($id)` | Toggle enabled/disabled |
+| `CallMeLater::regenerateTemplateToken($id)` | Regenerate trigger token |
+| `CallMeLater::templateLimits()` | Get account template limits |
+| `CallMeLater::trigger($token, $params)` | Trigger a template |
 
 ### Signature Verification
 
