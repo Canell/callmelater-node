@@ -99,6 +99,42 @@ Key index: `idx_dispatch_queue` on `(resolution_status, execute_at_utc, next_ret
 - Token expiry boundary conditions
 - Idempotent HTTP delivery (no duplicate successful executions)
 
+## Laravel SDK
+
+The project includes a Laravel SDK package in `packages/laravel-callmelater/`.
+
+### Installation (in another Laravel project)
+
+```bash
+composer require callmelater/laravel
+```
+
+### Usage
+
+```php
+use CallMeLater\Laravel\Facades\CallMeLater;
+
+// Schedule an HTTP call
+CallMeLater::http('https://api.example.com/process')
+    ->post()
+    ->payload(['user_id' => 123])
+    ->inHours(2)
+    ->send();
+
+// Send a reminder
+CallMeLater::reminder('Approve deployment')
+    ->to('manager@example.com')
+    ->message('Please approve the production deployment')
+    ->at('tomorrow 9am')
+    ->buttons('Approve', 'Reject')
+    ->send();
+
+// Handle webhooks
+CallMeLater::webhooks()->handle($request);
+```
+
+See `packages/laravel-callmelater/README.md` for full documentation.
+
 ## n8n Integration
 
 The project includes a custom n8n node package in `packages/n8n-nodes-callmelater/`.
