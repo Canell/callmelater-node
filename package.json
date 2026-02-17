@@ -7,7 +7,8 @@
         "dev": "vite",
         "push-docs": "git subtree push --prefix=docs-site docs-public main",
         "push-n8n": "git subtree push --prefix=packages/n8n-nodes-callmelater n8n-public main",
-        "push-laravel": "git subtree push --prefix=packages/laravel-callmelater laravel-callmelater main"
+        "push-laravel": "git subtree push --prefix=packages/laravel-callmelater laravel-callmelater main",
+        "push-node": "git subtree push --prefix=packages/node-callmelater node-callmelater main"
     },
     "devDependencies": {
         "axios": "^1.13.2",

@@ -26,3 +26,4 @@ Thumbs.db
 /docs-site/build
 /docs-site/.docusaurus
 /packages/laravel-callmelater/vendor
+/packages/node-callmelater/node_modules
