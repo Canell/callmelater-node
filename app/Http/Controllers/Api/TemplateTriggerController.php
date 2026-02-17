@@ -210,14 +210,14 @@ class TemplateTriggerController extends Controller
         }
 
         // Handle intent/scheduling
-        // Allow override via params, otherwise default to immediate execution (1 second delay)
+        // Allow override via params, otherwise default to immediate execution (1 minute delay)
         if (isset($params['intent'])) {
             $data['intent'] = $params['intent'];
         } elseif (isset($params['execute_at'])) {
             $data['execute_at'] = $params['execute_at'];
         } else {
-            // Default: execute in 1 second
-            $data['intent'] = ['delay' => '1s'];
+            // Default: execute in 1 minute (minimum supported delay unit)
+            $data['intent'] = ['delay' => '1m'];
         }
 
         return $data;
