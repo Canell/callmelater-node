@@ -2,100 +2,73 @@
 sidebar_position: 1
 ---
 
-# Actions
+# Actions & Scheduling
 
-Everything in CallMeLater is an **action** — something scheduled to happen in the future.
+Everything in CallMeLater is an **action** -- something scheduled to happen in the future. Actions operate in one of two modes: **webhook** or **approval**.
 
-## Lifecycle at a Glance
+## Webhook mode
 
-Every action moves through these states:
-
-```
-scheduled → resolved → executing → executed
-                                 ↘ failed
-                    ↘ awaiting_response → executed | failed | expired
-                    ↘ cancelled
-```
-
-Note: `scheduled` is also known as `pending_resolution` for backwards compatibility.
-
-For full details, see [Action States](./states).
-
-## Modes
-
-Actions have two modes:
-
-### Webhook Mode (default)
-
-A webhook action triggers an HTTP call at a scheduled time. This is the default mode. Also known as `immediate` mode for backwards compatibility.
+Webhook mode is the default. A webhook action delivers an HTTP request to your endpoint at a scheduled time.
 
 ```json
 {
-  "schedule": {
-    "preset": "tomorrow"
-  },
+  "schedule": { "preset": "tomorrow" },
   "request": {
     "method": "POST",
     "url": "https://api.example.com/webhook",
-    "headers": {
-      "X-Custom-Header": "value"
-    },
-    "body": {
-      "event": "trial_expired",
-      "user_id": 42
-    }
+    "headers": { "X-Custom-Header": "value" },
+    "body": { "event": "trial_expired", "user_id": 42 }
   }
 }
 ```
 
-Use webhook mode for:
-- Trial expirations
-- Delayed notifications
-- Scheduled API calls
-- Cleanup tasks
-- Follow-up triggers
+Use webhook mode for trial expirations, delayed notifications, scheduled API calls, cleanup tasks, and follow-up triggers.
 
-### Approval Mode
+## Approval mode
 
-An approval action sends a message to one or more recipients, asking them to respond before any HTTP request is made. Also known as `gated` mode for backwards compatibility.
+An approval action sends an interactive message to one or more recipients and collects their response (confirm, decline, or snooze).
 
 ```json
 {
   "mode": "approval",
-  "schedule": {
-    "wait": "2h"
-  },
+  "schedule": { "wait": "2h" },
   "gate": {
     "message": "Please confirm the deployment",
     "recipients": ["ops@example.com", "+1234567890"],
-    "channels": ["email", "sms"],
     "confirmation_mode": "first_response"
-  }
+  },
+  "callback_url": "https://api.example.com/webhooks/response"
 }
 ```
 
-Use approval mode for:
-- Approval workflows
-- Human confirmations
-- Check-ins
-- Escalation chains
+:::info
+Approvals do not automatically execute anything. When someone responds, CallMeLater sends the response to your `callback_url`. Your system decides what to do next.
+:::
+
+Use approval mode for approval workflows, human confirmations, check-ins, and escalation chains.
 
 ## Scheduling
 
-Every action needs a **schedule** that defines when it should execute. Also known as `intent` for backwards compatibility.
+Every action needs a **schedule** that defines when it should fire. There are three ways to set it.
 
 ### Presets
 
-Named time references:
+Named time references, resolved relative to now (or to a timezone if provided):
 
 | Preset | When |
 |--------|------|
-| `tomorrow` | Tomorrow at 9:00 AM |
-| `next_week` | Next Monday at 9:00 AM |
-| `next_monday` ... `next_sunday` | Next specific weekday at 9:00 AM |
-| `1h`, `2h`, `4h` | In 1, 2, or 4 hours |
-| `1d`, `3d`, `7d` | In 1, 3, or 7 days |
-| `1w` | In 1 week |
+| `tomorrow` | Tomorrow at the current time |
+| `next_monday` | Next Monday at the current time |
+| `next_tuesday` | Next Tuesday at the current time |
+| `next_wednesday` | Next Wednesday at the current time |
+| `next_thursday` | Next Thursday at the current time |
+| `next_friday` | Next Friday at the current time |
+| `next_saturday` | Next Saturday at the current time |
+| `next_sunday` | Next Sunday at the current time |
+| `next_week` | Next Monday at the current time |
+| `1h`, `2h`, `4h` | 1, 2, or 4 hours from now |
+| `1d`, `3d` | 1 or 3 days from now |
+| `1w` | 1 week from now |
 
 ```json
 {
@@ -106,55 +79,167 @@ Named time references:
 }
 ```
 
-### Relative Wait
+### Relative wait
 
-A duration from now. Also known as `delay` for backwards compatibility.
+A duration from now using `schedule.wait`:
+
+```json
+{ "schedule": { "wait": "30m" } }
+```
+
+| Format | Meaning | Example |
+|--------|---------|---------|
+| `Nm` | N minutes | `5m` = 5 minutes |
+| `Nh` | N hours | `2h` = 2 hours |
+| `Nd` | N days | `1d` = 1 day |
+| `Nw` | N weeks | `1w` = 1 week |
+
+### Exact time
+
+An ISO 8601 UTC timestamp using `scheduled_for`:
+
+```json
+{
+  "scheduled_for": "2026-04-01T14:30:00Z"
+}
+```
+
+### Timezone
+
+Optional. Defaults to **UTC**. Provide a timezone when using presets so that times like `tomorrow` and `next_monday` resolve to the correct local time.
 
 ```json
 {
   "schedule": {
-    "wait": "30m"
+    "preset": "tomorrow",
+    "timezone": "Europe/Paris"
   }
 }
 ```
 
-Supported units: `m` (minutes), `h` (hours), `d` (days), `w` (weeks)
+## Lifecycle states
 
-### Exact Time
+Actions move through a series of states from creation to completion.
 
-A specific UTC timestamp. Also known as `execute_at` for backwards compatibility.
-
-```json
-{
-  "schedule": {
-    "scheduled_for": "2025-04-01T14:30:00Z"
-  }
-}
+**Webhook mode:**
+```
+scheduled → resolved → executing → executed
+                                  ↘ failed
 ```
 
-:::note Timezone Handling
-If no `timezone` is provided in the schedule, **UTC is assumed**. Always specify a timezone for presets like `tomorrow` or `next_monday` if your users expect local time.
-:::
+**Approval mode:**
+```
+scheduled → resolved → executing → awaiting_response → executed
+                                                      ↘ failed
+                                                      ↘ expired
+```
 
-## Idempotency
+Any non-terminal action can also be `cancelled`.
 
-Use `idempotency_key` to prevent duplicate actions:
+| State | Description | Next states |
+|-------|-------------|-------------|
+| `scheduled` | Schedule is being resolved to an exact timestamp | `resolved`, `cancelled` |
+| `resolved` | Waiting for the scheduled time to arrive | `executing`, `cancelled` |
+| `executing` | HTTP request or reminder is being delivered | `executed`, `failed`, `awaiting_response`, `resolved` (retry) |
+| `awaiting_response` | Reminder sent, waiting for a human reply | `executed`, `failed`, `expired`, `cancelled`, `scheduled` (snooze) |
+| `executed` | Completed successfully (terminal) | -- |
+| `failed` | Failed permanently (terminal) | `resolved` (manual retry) |
+| `expired` | Approval timed out without response (terminal) | -- |
+| `cancelled` | Cancelled before completion (terminal) | -- |
+
+## Idempotency keys
+
+Use `idempotency_key` to prevent duplicate actions when your system retries requests or a user double-clicks.
 
 ```json
 {
   "idempotency_key": "trial-end-user-42",
-  ...
+  "schedule": { "wait": "14d" },
+  "request": { "url": "https://api.example.com/expire" }
 }
 ```
 
-If you create an action with the same idempotency key:
-- If the original is still pending → returns the existing action
-- If already executed/cancelled → returns an error
+Key format patterns:
 
-You can also [cancel by idempotency key](../api/cancel-action).
+```
+trial:user:123
+deploy:v2.1
+invoice:1234:reminder
+weekly-report:2026-W07
+```
 
-## What's Next
+Keys are scoped per account, up to 255 characters, and case-sensitive.
 
-- [Action states](./states) - Understand the lifecycle
-- [Retry strategies](./retries) - Handle failures
-- [Create an action](../api/create-action) - API reference
+**Behavior when a matching key already exists:**
+
+| Existing action state | Behavior |
+|-----------------------|----------|
+| `scheduled` | Returns existing action |
+| `resolved` | Returns existing action |
+| `awaiting_response` | Returns existing action |
+| `executed` | Creates new action |
+| `failed` | Creates new action |
+| `cancelled` | Creates new action |
+
+Non-terminal states return the existing action to prevent duplicates. Terminal states allow key reuse since the original action is already complete.
+
+## Dedup keys
+
+Dedup keys group related actions together and control how they interact. Unlike idempotency keys (which prevent duplicates of the same request), dedup keys coordinate behavior across different actions that share a logical group.
+
+```json
+{
+  "dedup_keys": ["deploy:api-service"],
+  "coordination": {
+    "on_create": "cancel_and_replace"
+  },
+  "schedule": { "wait": "1h" },
+  "request": { "url": "https://ci.example.com/deploy" }
+}
+```
+
+### `on_create` behaviors
+
+Controls what happens when you create a new action with the same dedup key as an existing non-terminal action.
+
+| Behavior | Description |
+|----------|-------------|
+| `skip_if_exists` | Return the existing action instead of creating a new one (response includes `meta.skipped: true`) |
+| `cancel_and_replace` | Cancel all existing non-terminal actions with matching keys, then create the new action |
+
+### `on_execute` behaviors
+
+Controls what happens at execution time based on other actions sharing the same dedup key. This is a nested object with condition-based logic:
+
+```json
+{
+  "dedup_keys": ["deploy:api-service"],
+  "coordination": {
+    "on_execute": {
+      "condition": "skip_if_previous_pending",
+      "on_condition_not_met": "cancel",
+      "reschedule_delay": 300,
+      "max_reschedules": 10
+    }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `condition` | `skip_if_previous_pending`, `execute_if_previous_failed`, `execute_if_previous_succeeded`, or `wait_for_previous` |
+| `on_condition_not_met` | `cancel`, `reschedule`, or `fail` |
+| `reschedule_delay` | Seconds to wait before retrying when rescheduled (used with `reschedule`) |
+| `max_reschedules` | Maximum number of reschedule attempts (used with `reschedule`) |
+
+### Format rules
+
+- Alphanumeric characters plus `_`, `:`, `.`, `-`
+- No spaces, slashes, or special characters
+- Case-sensitive (`Deploy:API` and `deploy:api` are different keys)
+- Maximum 10 keys per action
+- Scoped to your account
+
+**Valid:** `deploy:production`, `user:42:notifications`, `workflow.onboarding.step-1`
+
+**Invalid:** `key with spaces`, `key/with/slashes`, `key@email.com`

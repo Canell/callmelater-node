@@ -1,129 +1,75 @@
 ---
-sidebar_position: 7
+sidebar_position: 4
 ---
 
-# Action Templates
+# Templates
 
-Create reusable action configurations with unique callable URLs. Templates let you define actions once and trigger them with a simple POST request, optionally passing dynamic values via placeholders.
-
-## Why Templates?
-
-- **No API keys needed for triggering** - Each template has a unique URL that can be called without authentication
-- **Reusable configurations** - Define request settings, gate configurations, and retry behavior once
-- **Dynamic values** - Use `{{placeholder}}` syntax to inject values at trigger time
-- **Perfect for CI/CD** - Trigger deployments or approval workflows from scripts without managing API tokens
-
-## Plan Limits
-
-| Plan | Max Templates |
-|------|---------------|
-| Free | 2 |
-| Pro | 20 |
-| Business | 200 |
-
----
+Templates let you define reusable action or chain configurations with a unique trigger URL. Each template gets a public endpoint that can be called without API key authentication, making templates ideal for CI/CD pipelines, external integrations, and no-code tools.
 
 ## Create Template
 
 ```
-POST /api/v1/templates
+POST /templates
 ```
 
 ### Request Body
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Template name (max 255 chars) |
+| `name` | string | Yes | Template name (max 255 chars). Supports `{{placeholder}}` syntax. |
 | `description` | string | No | Optional description (max 1000 chars) |
-| `mode` | string | Yes | `immediate` or `gated` |
+| `type` | string | No | `action` (default) or `chain` |
+| `mode` | string | Yes* | `webhook` or `approval`. Required when `type` is `action`. |
 | `timezone` | string | No | Default timezone (e.g., `America/New_York`) |
-| `request_config` | object | Yes* | HTTP request configuration |
-| `gate_config` | object | Yes** | Gate configuration for gated mode |
-| `max_attempts` | integer | No | Max delivery attempts (1-10, default: 5) |
-| `retry_strategy` | string | No | `exponential` (default) or `linear` |
-| `placeholders` | array | No | Placeholder definitions |
-| `default_coordination_keys` | array | No | Default coordination keys |
-| `coordination_config` | object | No | Coordination behavior settings |
 
-*Required for `immediate` mode
-**Required for `gated` mode
-
-### Request Configuration
-
-```json
-{
-  "request_config": {
-    "url": "https://api.example.com/{{service}}/deploy",
-    "method": "POST",
-    "headers": {
-      "Authorization": "Bearer {{api_token}}"
-    },
-    "body": {
-      "version": "{{version}}",
-      "environment": "{{env}}"
-    }
-  }
-}
-```
-
-### Gate Configuration
-
-```json
-{
-  "gate_config": {
-    "message": "Deploy {{service}} v{{version}} to {{env}}?",
-    "recipients": ["{{approver}}"],
-    "timeout": "4h",
-    "on_timeout": "expire",
-    "confirmation_mode": "first_response",
-    "max_snoozes": 3
-  }
-}
-```
-
-### Placeholder Definitions
-
-Define variables that can be passed when triggering:
-
-```json
-{
-  "placeholders": [
-    {
-      "name": "service",
-      "required": true,
-      "description": "Service name to deploy"
-    },
-    {
-      "name": "version",
-      "required": true,
-      "description": "Version number"
-    },
-    {
-      "name": "env",
-      "required": false,
-      "default": "staging",
-      "description": "Target environment"
-    }
-  ]
-}
-```
+**For action templates (`type: "action"`):**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Variable name (alphanumeric + underscore) |
-| `required` | boolean | No | Whether value must be provided (default: false) |
-| `default` | string | No | Default value if not provided |
-| `description` | string | No | Description for documentation |
+| `request_config` | object | Yes* | HTTP request configuration. Required for `webhook` mode. |
+| `request_config.url` | string | Yes | Destination URL. Supports `{{placeholder}}` syntax. |
+| `request_config.method` | string | No | HTTP method (default: `POST`) |
+| `request_config.headers` | object | No | Custom headers. Values support `{{placeholder}}`. |
+| `request_config.body` | object | No | JSON body. Values support `{{placeholder}}`. |
+| `gate_config` | object | Yes** | Gate configuration. Required for `approval` mode. |
+| `gate_config.message` | string | Yes | Approval message. Supports `{{placeholder}}`. |
+| `gate_config.recipients` | array | Yes | Recipient list. Values support `{{placeholder}}`. |
+| `gate_config.timeout` | string | No | Response timeout (default: `7d`) |
+| `gate_config.confirmation_mode` | string | No | `first_response` (default) or `all_required` |
+| `gate_config.max_snoozes` | integer | No | Max snooze count (default: 5) |
+| `max_attempts` | integer | No | Max delivery attempts, 1-10 (default: 5) |
+| `retry_strategy` | string | No | `exponential` (default) or `linear` |
 
-### Example: Create Deployment Template
+**For chain templates (`type: "chain"`):**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `chain_steps` | array | Yes | Array of step definitions (min 2, max 20). See [Chains](/api/chains). |
+| `chain_error_handling` | string | No | `fail_chain` (default) or `skip_step` |
+
+**Placeholders:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `placeholders` | array | No | Placeholder definitions |
+| `placeholders[].name` | string | Yes | Variable name (alphanumeric and underscore) |
+| `placeholders[].required` | boolean | No | Whether the value must be provided (default: `false`) |
+| `placeholders[].description` | string | No | Human-readable description |
+| `placeholders[].default` | string | No | Default value when not provided at trigger time |
+
+**Dedup keys:**
+
+Templates support `dedup_keys` with `{{placeholder}}` interpolation, allowing dynamic grouping at trigger time.
+
+### Example
 
 ```bash
-curl -X POST https://callmelater.io/api/v1/templates \
+curl -X POST https://api.callmelater.io/v1/templates \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Deploy {{service}}",
-    "mode": "gated",
+    "mode": "approval",
     "gate_config": {
       "message": "Deploy {{service}} v{{version}} to {{env}}?",
       "recipients": ["ops@example.com"],
@@ -138,27 +84,32 @@ curl -X POST https://callmelater.io/api/v1/templates \
       }
     },
     "placeholders": [
-      {"name": "service", "required": true},
-      {"name": "version", "required": true},
-      {"name": "env", "required": false, "default": "staging"}
-    ]
+      { "name": "service", "required": true, "description": "Service name" },
+      { "name": "version", "required": true, "description": "Version number" },
+      { "name": "env", "required": false, "default": "staging", "description": "Target environment" }
+    ],
+    "dedup_keys": ["deploy:{{service}}:{{env}}"]
   }'
 ```
 
-### Response
+### Response (201 Created)
 
 ```json
 {
   "data": {
     "id": "01abc123-...",
     "name": "Deploy {{service}}",
-    "mode": "gated",
-    "trigger_url": "https://callmelater.io/t/clmt_abc123...",
+    "mode": "approval",
+    "trigger_url": "https://api.callmelater.io/t/clmt_abc123...",
     "trigger_token": "clmt_abc123...",
-    "placeholders": [...],
+    "placeholders": [
+      { "name": "service", "required": true, "description": "Service name" },
+      { "name": "version", "required": true, "description": "Version number" },
+      { "name": "env", "required": false, "default": "staging", "description": "Target environment" }
+    ],
     "is_active": true,
     "trigger_count": 0,
-    "created_at": "2025-01-15T10:00:00Z"
+    "created_at": "2026-01-15T10:00:00Z"
   }
 }
 ```
@@ -167,50 +118,30 @@ curl -X POST https://callmelater.io/api/v1/templates \
 
 ## Trigger Template
 
-Trigger a template to create an action. This is a **public endpoint** - no API key required, authenticated by the template token.
-
 ```
 POST /t/{trigger_token}
 ```
 
+This is a **public endpoint** -- no API key authentication is required. The trigger token in the URL authenticates the request.
+
 ### Request Body
 
-Pass placeholder values and optional scheduling:
+Send placeholder values as a flat JSON object. Optionally include a `schedule` override.
 
 ```json
 {
   "service": "api-gateway",
   "version": "2.4.1",
   "env": "production",
-  "intent": {
-    "delay": "5m"
+  "schedule": {
+    "wait": "5m"
   }
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `{placeholder}` | any | Varies | Values for defined placeholders |
-| `intent` | object | No | Scheduling (default: 1 second delay) |
-| `execute_at` | string | No | Exact execution time (ISO 8601) |
-| `coordination_keys` | array | No | Additional coordination keys |
+If no `schedule` is provided, the action is created with a minimal delay (approximately 1 second).
 
-### Example: Trigger from CI/CD
-
-```bash
-# No API key needed - just the template URL
-curl -X POST https://callmelater.io/t/clmt_abc123... \
-  -H "Content-Type: application/json" \
-  -d '{
-    "service": "api-gateway",
-    "version": "2.4.1",
-    "env": "production"
-  }'
-```
-
-### Response
-
-Returns the created action:
+### Response (201 Created)
 
 ```json
 {
@@ -218,90 +149,70 @@ Returns the created action:
   "data": {
     "id": "01xyz789-...",
     "name": "Deploy api-gateway",
-    "mode": "gated",
-    "status": "pending_resolution",
+    "mode": "approval",
+    "status": "scheduled",
     "template_id": "01abc123-...",
-    "created_at": "2025-01-15T14:30:00Z"
+    "created_at": "2026-01-15T14:30:00Z"
   }
 }
 ```
 
-### Errors
+### Rate Limits
 
-| Status | Error | Description |
-|--------|-------|-------------|
-| 404 | `not_found` | Invalid token or inactive template |
-| 422 | `validation_error` | Missing required placeholders |
-| 429 | `quota_exceeded` | Account action quota exceeded |
+| Scope | Limit |
+|-------|-------|
+| Per token | 60 requests/minute |
+| Per IP | 120 requests/minute |
 
 ---
 
 ## List Templates
 
 ```
-GET /api/v1/templates
+GET /templates
 ```
 
-### Response
-
-```json
-{
-  "data": [
-    {
-      "id": "01abc123-...",
-      "name": "Deploy {{service}}",
-      "mode": "gated",
-      "trigger_url": "https://callmelater.io/t/clmt_abc123...",
-      "is_active": true,
-      "trigger_count": 42,
-      "last_triggered_at": "2025-01-15T12:00:00Z"
-    }
-  ],
-  "meta": {
-    "current_page": 1,
-    "last_page": 1,
-    "total": 1
-  }
-}
-```
+Returns a paginated list of your templates with trigger counts and last-triggered timestamps.
 
 ---
 
 ## Get Template
 
 ```
-GET /api/v1/templates/{id}
+GET /templates/{id}
 ```
+
+Returns the full template configuration including placeholders, request/gate config, and trigger statistics.
 
 ---
 
 ## Update Template
 
 ```
-PUT /api/v1/templates/{id}
+PUT /templates/{id}
 ```
 
-All fields from create are optional. Only provided fields are updated.
+Accepts the same fields as Create. Only provided fields are updated. The trigger URL is not affected.
 
 ---
 
 ## Delete Template
 
 ```
-DELETE /api/v1/templates/{id}
+DELETE /templates/{id}
 ```
 
-Returns `204 No Content` on success.
+Permanently deletes the template. The trigger URL immediately stops working. Returns `204 No Content`.
 
 ---
 
 ## Regenerate Token
 
-Generate a new trigger URL. The old URL will immediately stop working.
+```
+POST /templates/{id}/regenerate-token
+```
 
-```
-POST /api/v1/templates/{id}/regenerate-token
-```
+Generates a new trigger token and URL. The previous URL immediately stops working.
 
 ### Response
 
@@ -310,7 +221,7 @@ POST /api/v1/templates/{id}/regenerate-token
   "message": "Trigger token regenerated successfully.",
   "data": {
     "trigger_token": "clmt_newtoken...",
-    "trigger_url": "https://callmelater.io/t/clmt_newtoken..."
+    "trigger_url": "https://api.callmelater.io/t/clmt_newtoken..."
   }
 }
 ```
@@ -319,225 +230,31 @@ POST /api/v1/templates/{id}/regenerate-token
 
 ## Toggle Active
 
-Enable or disable a template. Inactive templates return 404 when triggered.
+```
+POST /templates/{id}/toggle-active
+```
 
-```
-POST /api/v1/templates/{id}/toggle-active
-```
+Enables or disables the template. Inactive templates return `404` when their trigger URL is called.
 
 ---
 
 ## Get Limits
 
-Check your template quota.
+```
+GET /templates/limits
+```
 
-```
-GET /api/v1/templates/limits
-```
+Returns the maximum number of templates allowed on your plan and your current count.
 
 ### Response
 
 ```json
 {
   "current": 2,
-  "max": 20,
-  "remaining": 18,
+  "max": 25,
+  "remaining": 23,
   "plan": "pro"
 }
 ```
 
----
-
-## Placeholder Syntax
-
-Use `{{name}}` syntax anywhere in:
-
-- Template name
-- Request URL
-- Request headers
-- Request body
-- Gate message
-- Coordination keys
-
-### Example: Dynamic Coordination Keys
-
-```json
-{
-  "default_coordination_keys": [
-    "deployment:{{service}}",
-    "env:{{env}}"
-  ],
-  "coordination_config": {
-    "on_create": "replace_existing"
-  }
-}
-```
-
-When triggered with `service=api` and `env=prod`, creates coordination keys:
-- `deployment:api`
-- `env:prod`
-
-This ensures only one pending deployment per service/environment combination.
-
----
-
-## Chain Templates
-
-Create templates that trigger multi-step workflows (chains) instead of single actions.
-
-### Create Chain Template
-
-Set `type: "chain"` and define `chain_steps` instead of `request_config` or `gate_config`:
-
-```bash
-curl -X POST https://callmelater.io/api/v1/templates \
-  -H "Authorization: Bearer sk_live_..." \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "User Onboarding {{user_email}}",
-    "type": "chain",
-    "chain_steps": [
-      {
-        "name": "Create User",
-        "type": "http_call",
-        "url": "https://api.example.com/users",
-        "method": "POST",
-        "body": {"email": "{{user_email}}"}
-      },
-      {
-        "name": "Wait for setup",
-        "type": "delay",
-        "delay": "5m"
-      },
-      {
-        "name": "Manager Approval",
-        "type": "gated",
-        "gate": {
-          "message": "Approve new user {{user_email}}?",
-          "recipients": ["{{manager_email}}"],
-          "channels": ["email"]
-        }
-      },
-      {
-        "name": "Send Welcome",
-        "type": "http_call",
-        "url": "https://api.example.com/welcome",
-        "method": "POST",
-        "body": {"email": "{{user_email}}", "user_id": "{{steps.0.response.id}}"}
-      }
-    ],
-    "chain_error_handling": "fail_chain",
-    "placeholders": [
-      {"name": "user_email", "required": true},
-      {"name": "manager_email", "required": true}
-    ]
-  }'
-```
-
-### Chain Template Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | Must be `"chain"` |
-| `chain_steps` | array | Yes | Array of step definitions (min 2, max 20) |
-| `chain_error_handling` | string | No | `fail_chain` (default) or `skip_step` |
-
-### Step Types
-
-**HTTP Call Step:**
-```json
-{
-  "name": "API Request",
-  "type": "http_call",
-  "url": "https://api.example.com/endpoint",
-  "method": "POST",
-  "headers": {"Authorization": "Bearer {{token}}"},
-  "body": {"key": "value"}
-}
-```
-
-**Approval (Gated) Step:**
-```json
-{
-  "name": "Manager Approval",
-  "type": "gated",
-  "gate": {
-    "message": "Please approve this request",
-    "recipients": ["manager@example.com"],
-    "channels": ["email", "teams", "slack"]
-  }
-}
-```
-
-**Delay Step:**
-```json
-{
-  "name": "Wait",
-  "type": "delay",
-  "delay": "5m"
-}
-```
-
-Delay format: number + unit (`m` = minutes, `h` = hours, `d` = days)
-
-### Step Conditions
-
-Add a `condition` to any step to make it conditional:
-
-```json
-{
-  "name": "Proceed if approved",
-  "type": "http_call",
-  "url": "https://api.example.com/proceed",
-  "condition": "{{steps.1.status}} == 'confirmed'"
-}
-```
-
-### Variable Interpolation
-
-In chain templates, you can reference:
-
-- **Input variables:** `{{input.field}}` or `{{field}}`
-- **Previous step responses:** `{{steps.0.response.id}}`
-- **Previous step status:** `{{steps.1.status}}`
-
-### Trigger Chain Template
-
-Triggering a chain template returns a chain (not an action):
-
-```bash
-curl -X POST https://callmelater.io/t/clmt_abc123... \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_email": "newuser@example.com",
-    "manager_email": "manager@example.com"
-  }'
-```
-
-Response:
-```json
-{
-  "message": "Chain created from template.",
-  "data": {
-    "id": "01chain789-...",
-    "name": "User Onboarding newuser@example.com",
-    "status": "pending",
-    "current_step": 0,
-    "steps": [...],
-    "created_at": "2025-01-15T14:30:00Z"
-  }
-}
-```
-
-See [Chains API](/api/chains) for managing chains.
-
----
-
-## Rate Limits
-
-Template triggers are rate-limited:
-
-| Limit | Value |
-|-------|-------|
-| Per token | 60 requests/minute |
-| Per IP | 120 requests/minute |
+Limits depend on your plan.

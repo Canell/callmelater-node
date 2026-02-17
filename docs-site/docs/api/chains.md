@@ -1,24 +1,15 @@
 ---
-sidebar_position: 8
+sidebar_position: 3
 ---
 
-# Chains API
+# Chains
 
-Chains are multi-step workflows that execute actions sequentially with data passing between steps. Each step can be a webhook, a human approval gate, or a wait.
-
-## Why Chains?
-
-- **Sequential workflows** - Execute steps in order, waiting for each to complete
-- **Human checkpoints** - Insert approval gates between automated steps
-- **Data passing** - Use responses from previous steps in later steps
-- **Error handling** - Choose to fail the chain or skip failed steps
-
----
+Chains are multi-step workflows that execute actions sequentially. Each step can be an HTTP call, a human approval gate, or a timed wait. Data flows between steps through variable interpolation.
 
 ## Create Chain
 
 ```
-POST /api/v1/chains
+POST /chains
 ```
 
 ### Request Body
@@ -27,54 +18,86 @@ POST /api/v1/chains
 |-------|------|----------|-------------|
 | `name` | string | Yes | Chain name (max 255 chars) |
 | `steps` | array | Yes | Step definitions (min 2, max 20) |
-| `input` | object | No | Input variables for interpolation |
+| `input` | object | No | Input variables available for interpolation in all steps |
 | `error_handling` | string | No | `fail_chain` (default) or `skip_step` |
 
-### Step Definition
+### Step Types
 
-Each step requires:
+Every step requires a `name`, a `type`, and optionally a `condition`.
+
+**`http_call` step**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Step name |
-| `type` | string | Yes | `webhook`, `approval`, or `wait`. Also known as `http_call`, `gated`, or `delay` for backwards compatibility. |
-| `condition` | string | No | Expression that must be true to execute |
-
-**Webhook Step:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
 | `url` | string | Yes | Request URL |
-| `method` | string | No | HTTP method (default: POST) |
+| `method` | string | No | HTTP method (default: `POST`) |
 | `headers` | object | No | Request headers |
 | `body` | object | No | Request body |
+| `max_attempts` | integer | No | Max delivery attempts (default: 5) |
+| `retry_strategy` | string | No | `exponential` (default) or `linear` |
+| `condition` | string | No | Expression that must evaluate to true for the step to run |
 
-**Approval Step:**
+**`gated` step**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `name` | string | Yes | Step name |
 | `gate.message` | string | Yes | Approval request message |
-| `gate.recipients` | array | No | Recipient emails/phones |
-| `gate.channels` | array | No | `email`, `sms`, `teams`, `slack` |
+| `gate.recipients` | array | Yes | Email addresses, phone numbers, or contact IDs |
+| `gate.timeout` | string | No | Response timeout (e.g., `4h`, `7d`). Default: `7d`. |
+| `gate.on_timeout` | string | No | `cancel` (default), `expire`, or `approve` |
+| `gate.confirmation_mode` | string | No | `first_response` (default) or `all_required` |
+| `gate.max_snoozes` | integer | No | Max snooze count (default: 5) |
+| `condition` | string | No | Expression that must evaluate to true for the step to run |
 
-**Wait Step:**
+**`delay` step**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `wait` | string | Yes | Duration (e.g., `5m`, `1h`, `2d`). Also known as `delay` for backwards compatibility. |
+| `name` | string | Yes | Step name |
+| `delay` | string | Yes | How long to pause (e.g., `5m`, `1h`, `2d`) |
+| `condition` | string | No | Expression that must evaluate to true for the step to run |
 
-### Example: Approval Workflow
+> **Note:** Responses return `webhook`, `approval`, `wait` as aliases for `http_call`, `gated`, `delay` respectively.
+
+### Variable Interpolation
+
+Steps can reference input data and results from earlier steps:
+
+- `{{input.field}}` -- Access values from the chain's `input` object
+- `{{steps.N.response.field}}` -- Access the JSON response body of step N (zero-indexed)
+- `{{steps.N.status}}` -- Access the outcome status of step N
+
+### Condition Operators
+
+| Operator | Description |
+|----------|-------------|
+| `==` | Equal |
+| `!=` | Not equal |
+| `>` | Greater than |
+| `<` | Less than |
+| `>=` | Greater than or equal |
+| `<=` | Less than or equal |
+| `contains` | String contains substring |
+| `not_contains` | String does not contain substring |
+| `starts_with` | String starts with prefix |
+| `ends_with` | String ends with suffix |
+
+Example condition: `{{steps.1.status}} == 'confirmed'`
+
+### Example
 
 ```bash
-curl -X POST https://callmelater.io/api/v1/chains \
+curl -X POST https://api.callmelater.io/v1/chains \
   -H "Authorization: Bearer sk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Expense Approval",
+    "name": "Expense Approval Workflow",
     "steps": [
       {
-        "name": "Submit Expense",
-        "type": "webhook",
+        "name": "Submit expense",
+        "type": "http_call",
         "url": "https://api.example.com/expenses",
         "method": "POST",
         "body": {
@@ -83,22 +106,24 @@ curl -X POST https://callmelater.io/api/v1/chains \
         }
       },
       {
-        "name": "Manager Approval",
-        "type": "approval",
+        "name": "Manager approval",
+        "type": "gated",
         "gate": {
           "message": "Approve expense of ${{input.amount}} for {{input.description}}?",
           "recipients": ["manager@example.com"],
-          "channels": ["email", "slack"]
+          "timeout": "4h",
+          "on_timeout": "cancel"
         }
       },
       {
-        "name": "Process Payment",
-        "type": "webhook",
+        "name": "Process payment",
+        "type": "http_call",
         "url": "https://api.example.com/payments",
         "method": "POST",
         "body": {
           "expense_id": "{{steps.0.response.id}}"
-        }
+        },
+        "condition": "{{steps.1.status}} == '\''confirmed'\''"
       }
     ],
     "input": {
@@ -108,40 +133,21 @@ curl -X POST https://callmelater.io/api/v1/chains \
   }'
 ```
 
-### Response
-
-```json
-{
-  "data": {
-    "id": "01chain789-...",
-    "name": "Expense Approval",
-    "status": "pending",
-    "current_step": 0,
-    "steps": [
-      {"name": "Submit Expense", "type": "webhook", "status": "pending"},
-      {"name": "Manager Approval", "type": "approval", "status": "pending"},
-      {"name": "Process Payment", "type": "webhook", "status": "pending"}
-    ],
-    "error_handling": "fail_chain",
-    "created_at": "2025-01-15T10:00:00Z"
-  }
-}
-```
-
 ---
 
 ## List Chains
 
 ```
-GET /api/v1/chains
+GET /chains
 ```
 
 ### Query Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `status` | string | Filter by status: `pending`, `running`, `completed`, `failed`, `cancelled` |
-| `page` | integer | Page number |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `status` | string | -- | Filter by status: `pending`, `running`, `completed`, `failed`, `cancelled` |
+| `per_page` | integer | 15 | Results per page (max 100) |
+| `page` | integer | 1 | Page number |
 
 ### Response
 
@@ -150,10 +156,10 @@ GET /api/v1/chains
   "data": [
     {
       "id": "01chain789-...",
-      "name": "Expense Approval",
+      "name": "Expense Approval Workflow",
       "status": "running",
       "current_step": 1,
-      "created_at": "2025-01-15T10:00:00Z"
+      "created_at": "2026-01-15T10:00:00Z"
     }
   ],
   "meta": {
@@ -169,8 +175,10 @@ GET /api/v1/chains
 ## Get Chain
 
 ```
-GET /api/v1/chains/{id}
+GET /chains/{id}
 ```
+
+Returns the chain with its full step array, including each step's current status, response data (in `context`), `started_at`, and `completed_at` timestamps.
 
 ### Response
 
@@ -178,36 +186,39 @@ GET /api/v1/chains/{id}
 {
   "data": {
     "id": "01chain789-...",
-    "name": "Expense Approval",
+    "name": "Expense Approval Workflow",
     "status": "running",
     "current_step": 1,
     "steps": [
       {
-        "name": "Submit Expense",
-        "type": "webhook",
-        "status": "executed",
-        "response": {"id": "exp_123", "status": "submitted"}
+        "name": "Submit expense",
+        "type": "http_call",
+        "status": "completed",
+        "started_at": "2026-01-15T10:00:05Z",
+        "completed_at": "2026-01-15T10:00:06Z"
       },
       {
-        "name": "Manager Approval",
+        "name": "Manager approval",
         "type": "approval",
-        "status": "awaiting_response"
+        "status": "running",
+        "started_at": "2026-01-15T10:00:07Z",
+        "completed_at": null
       },
       {
-        "name": "Process Payment",
-        "type": "webhook",
-        "status": "pending"
+        "name": "Process payment",
+        "type": "http_call",
+        "status": "pending",
+        "started_at": null,
+        "completed_at": null
       }
     ],
-    "input": {"amount": 150.00, "description": "Team lunch"},
     "context": {
       "steps": {
-        "0": {"status": "executed", "response": {"id": "exp_123"}}
+        "0": { "status": "completed", "response": { "id": "exp_123" } }
       }
     },
     "error_handling": "fail_chain",
-    "started_at": "2025-01-15T10:00:05Z",
-    "created_at": "2025-01-15T10:00:00Z"
+    "created_at": "2026-01-15T10:00:00Z"
   }
 }
 ```
@@ -216,11 +227,11 @@ GET /api/v1/chains/{id}
 
 ## Cancel Chain
 
-Cancel a running or pending chain. Cancels any pending actions.
+```
+DELETE /chains/{id}
+```
 
-```
-DELETE /api/v1/chains/{id}
-```
+Only chains in `pending` or `running` status can be cancelled. Cancelling a chain also cancels any currently pending steps.
 
 ### Response
 
@@ -233,138 +244,10 @@ DELETE /api/v1/chains/{id}
 }
 ```
 
-### Errors
-
-| Status | Error | Description |
-|--------|-------|-------------|
-| 400 | `invalid_status` | Cannot cancel completed/failed chains |
-| 404 | `not_found` | Chain not found |
-
 ---
 
-## Variable Interpolation
+## Statuses
 
-Chains support variable interpolation in step URLs, headers, bodies, and gate messages.
+**Chain statuses:** `pending`, `running`, `completed`, `failed`, `cancelled`
 
-### Input Variables
-
-Access input values with `{{input.field}}`:
-
-```json
-{
-  "url": "https://api.example.com/users/{{input.user_id}}",
-  "body": {
-    "name": "{{input.name}}",
-    "email": "{{input.email}}"
-  }
-}
-```
-
-### Previous Step Responses
-
-Access responses from earlier steps with `{{steps.N.response.field}}`:
-
-```json
-{
-  "body": {
-    "order_id": "{{steps.0.response.id}}",
-    "total": "{{steps.0.response.total}}"
-  }
-}
-```
-
-### Step Status
-
-Access the status of earlier steps with `{{steps.N.status}}`:
-
-- `executed` - Webhook step completed successfully
-- `failed` - Webhook step failed
-- `confirmed` - Approval step was approved
-- `declined` - Approval step was rejected
-- `skipped` - Step skipped due to condition
-
----
-
-## Step Conditions
-
-Make steps conditional based on previous step results:
-
-```json
-{
-  "name": "Send Welcome Email",
-  "type": "http_call",
-  "url": "https://api.example.com/welcome",
-  "condition": "{{steps.1.status}} == 'confirmed'"
-}
-```
-
-### Supported Operators
-
-- `==` Equal
-- `!=` Not equal
-- `>` Greater than
-- `<` Less than
-- `>=` Greater than or equal
-- `<=` Less than or equal
-- `&&` And
-- `||` Or
-
-### Examples
-
-```javascript
-// Only if previous step succeeded
-"{{steps.0.status}} == 'executed'"
-
-// Only if approval was granted
-"{{steps.1.status}} == 'confirmed'"
-
-// Only for high-value orders
-"{{steps.0.response.total}} > 1000"
-
-// Complex condition
-"{{steps.0.status}} == 'executed' && {{steps.1.status}} == 'confirmed'"
-```
-
----
-
-## Error Handling
-
-### `fail_chain` (default)
-
-If any step fails, the entire chain is marked as failed. No further steps execute.
-
-### `skip_step`
-
-If a step fails, it's marked as skipped and the chain continues to the next step.
-
-```json
-{
-  "error_handling": "skip_step"
-}
-```
-
----
-
-## Chain Statuses
-
-| Status | Description |
-|--------|-------------|
-| `pending` | Chain created, not yet started |
-| `running` | Chain is executing steps |
-| `completed` | All steps completed successfully |
-| `failed` | Chain failed (step failure with `fail_chain`) |
-| `cancelled` | Chain was manually cancelled |
-
----
-
-## Step Statuses
-
-| Status | Description |
-|--------|-------------|
-| `pending` | Step hasn't started |
-| `executing` | Step is currently running |
-| `executed` | Webhook step completed successfully |
-| `failed` | Step failed |
-| `confirmed` | Approval step was approved |
-| `declined` | Approval step was rejected |
-| `skipped` | Step skipped (condition not met or error with `skip_step`) |
+**Step statuses:** `pending`, `running`, `completed`, `failed`, `skipped`, `cancelled`

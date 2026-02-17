@@ -1,167 +1,147 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
 ---
 
-# Security
+# Security & Webhooks
 
-CallMeLater is designed with security in mind.
+## Receiving Webhooks
 
-## API Security
+When CallMeLater delivers an HTTP action, it sends a signed request to your endpoint.
 
-### Authentication
+### Request headers
 
-All API requests require a Bearer token. Tokens are scoped and can be revoked at any time.
+| Header | Description |
+|--------|-------------|
+| `Content-Type` | `application/json` |
+| `User-Agent` | `CallMeLater/1.0` |
+| `X-CallMeLater-Action-Id` | Action UUID |
+| `X-CallMeLater-Timestamp` | Unix timestamp |
+| `X-CallMeLater-Signature` | HMAC signature (if secret configured) |
 
-```bash
-Authorization: Bearer sk_live_...
+The body is the exact JSON you provided when creating the action, plus any custom headers you specified.
+
+### Response expectations
+
+| Your Response | What Happens |
+|---------------|-------------|
+| `2xx` | Success — action marked as `executed` |
+| `4xx` (except 429) | Permanent failure — no retry |
+| `429` | Rate limited — retry with backoff |
+| `5xx` | Temporary failure — retry |
+| Timeout (30s) | Retry |
+
+:::tip
+Return 200 immediately and process asynchronously. Requests timeout after 30 seconds.
+:::
+
+## Webhook Signatures
+
+Actions are signed with your webhook secret (Settings → Webhook Secret) or the per-action `webhook_secret`.
+
+```
+X-CallMeLater-Signature: sha256=5d41402abc4b2a76b9719d911017c592
 ```
 
-### HTTPS Only
+### Verifying signatures
 
-All API endpoints are served over HTTPS. HTTP requests are rejected.
+**PHP**
+```php
+$payload = file_get_contents('php://input');
+$signature = $_SERVER['HTTP_X_CALLMELATER_SIGNATURE'];
+$expected = 'sha256=' . hash_hmac('sha256', $payload, $webhookSecret);
 
-### Token Best Practices
-
-- Store tokens in environment variables, not code
-- Use minimal scopes (read-only when possible)
-- Set expiration dates for temporary access
-- Rotate tokens periodically
-- Revoke unused tokens
-
-## Webhook Security
-
-### HMAC Signatures
-
-When you provide a `webhook_secret`, outgoing requests are signed:
-
-```
-X-CallMeLater-Signature: sha256=<hmac>
-X-CallMeLater-Action-Id: <uuid>
-X-CallMeLater-Timestamp: <unix>
+if (!hash_equals($expected, $signature)) {
+    http_response_code(401);
+    exit('Invalid signature');
+}
 ```
 
-Always verify signatures in production. See [Webhooks](../api/webhooks) for implementation examples.
+**Node.js**
+```javascript
+const crypto = require('crypto');
 
-### Timestamp Validation
+function verifySignature(payload, signature, secret) {
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
 
-Reject requests with timestamps too far in the past to prevent replay attacks:
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
+```
+
+**Python**
+```python
+import hmac, hashlib
+
+def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
+    expected = 'sha256=' + hmac.new(
+        secret.encode(), payload, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+:::info
+The Node.js and Laravel SDKs handle signature verification automatically. See [Node.js SDK](/sdks/nodejs#webhooks) or [Laravel SDK](/sdks/laravel#webhooks).
+:::
+
+### Timestamp validation
+
+Reject old requests to prevent replay attacks:
 
 ```javascript
-const timestamp = req.headers['x-callmelater-timestamp'];
-const age = Date.now() / 1000 - parseInt(timestamp);
-
-if (age > 300) { // 5 minutes
-  return res.status(401).send('Request too old');
-}
+const age = Date.now() / 1000 - parseInt(req.headers['x-callmelater-timestamp']);
+if (age > 300) return res.status(401).send('Request too old'); // 5 minutes
 ```
 
 ## SSRF Protection
 
-CallMeLater prevents Server-Side Request Forgery attacks.
-
-### Blocked Destinations
-
 Requests are blocked to:
 
-- Private IP ranges (`10.x.x.x`, `192.168.x.x`, `172.16-31.x.x`)
-- Loopback addresses (`127.x.x.x`, `::1`)
-- Link-local addresses (`169.254.x.x`)
-- Cloud metadata endpoints (`169.254.169.254`)
-- Internal hostnames (`localhost`, `*.local`, `*.internal`)
+- Private IPs (`10.x.x.x`, `192.168.x.x`, `172.16-31.x.x`)
+- Loopback (`127.x.x.x`, `::1`, `localhost`)
+- Link-local (`169.254.x.x`)
+- Cloud metadata (`169.254.169.254`)
+- Internal hostnames (`*.local`, `*.internal`)
 
-### DNS Rebinding Protection
-
-Hostnames are resolved before the request, and IPs are validated. This prevents DNS rebinding attacks where a hostname resolves to a private IP.
+DNS rebinding is also prevented — hostnames are resolved and IPs validated before requests.
 
 ## IP Allowlisting
 
-If your webhook endpoint is behind a firewall, you'll need to allow incoming requests from CallMeLater's outbound IP address.
-
-### Outbound IP Address
-
-All HTTP calls from CallMeLater originate from:
+All outbound HTTP calls originate from:
 
 ```
 203.0.113.50
 ```
 
-:::tip
-You can also fetch this programmatically from our API:
-```bash
-curl https://callmelater.io/api/public/server-info
-```
-:::
+You can also fetch this from `https://callmelater.io/api/public/server-info`.
 
-### Identifying CallMeLater Requests
-
-In addition to IP allowlisting, you can identify requests from CallMeLater by these headers:
-
-| Header | Description |
-|--------|-------------|
-| `User-Agent` | `CallMeLater/1.0` |
-| `X-CallMeLater-Action-Id` | UUID of the action |
-| `X-CallMeLater-Timestamp` | Unix timestamp |
-| `X-CallMeLater-Signature` | HMAC signature (if secret configured) |
-
-### Firewall Configuration Examples
+### Firewall examples
 
 **AWS Security Group:**
 ```
-Type: Custom TCP
-Port: 443
-Source: 203.0.113.50/32
-Description: CallMeLater webhooks
+Type: Custom TCP | Port: 443 | Source: 203.0.113.50/32
 ```
-
-**Cloudflare:**
-Add to your WAF allow rules or use IP Access Rules to allow `203.0.113.50`.
 
 **nginx:**
 ```nginx
 location /webhook {
     allow 203.0.113.50;
     deny all;
-    # ... proxy settings
 }
 ```
 
 ## Data Security
 
-### Encryption at Rest
+- **Encryption at rest:** AES-256
+- **Encryption in transit:** TLS 1.2+
+- **HTTPS only:** HTTP requests are rejected
 
-All data is encrypted at rest using AES-256.
+Avoid including passwords, API keys, or PII in action payloads. Use references/IDs instead.
 
-### Encryption in Transit
+## Reporting Issues
 
-All connections use TLS 1.2 or higher.
-
-### Data Retention
-
-| Plan | Retention |
-|------|-----------|
-| Free | 7 days |
-| Pro | 90 days |
-| Business | 1 year |
-| Enterprise | Custom |
-
-After the retention period, action data is permanently deleted.
-
-### Sensitive Data
-
-Avoid including sensitive data (passwords, API keys, PII) in action payloads. If necessary:
-
-- Use references/IDs instead of actual data
-- Encrypt sensitive fields yourself
-- Consider using your own signed tokens
-
-## Rate Limiting
-
-Rate limits protect against abuse and ensure service availability. See [Rate Limits](./rate-limits) for details.
-
-## Reporting Security Issues
-
-If you discover a security vulnerability, please report it responsibly:
-
-- Email: security@callmelater.io
-- Do not disclose publicly until we've addressed the issue
-- We aim to respond within 24 hours
+Email security@callmelater.io. We respond within 24 hours.

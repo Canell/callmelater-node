@@ -9,16 +9,16 @@ All API requests require authentication using a Bearer token.
 ## Getting an API Token
 
 1. Log in to your [CallMeLater dashboard](https://app.callmelater.io)
-2. Navigate to **Settings** → **API Tokens**
+2. Navigate to **Settings** -> **API Tokens**
 3. Click **Create Token**
-4. Give it a descriptive name
-5. Copy the token — it won't be shown again
+4. Give it a descriptive name and select the required scopes
+5. Copy the token immediately -- it will not be shown again
 
-Tokens start with `sk_live_` for production.
+All tokens use the `sk_live_` prefix.
 
 ## Using Your Token
 
-Include the token in the `Authorization` header:
+Include the token in the `Authorization` header of every request:
 
 ```bash
 curl https://api.callmelater.io/v1/actions \
@@ -28,79 +28,18 @@ curl https://api.callmelater.io/v1/actions \
 
 ## Token Scopes
 
-Tokens can have different permission scopes:
-
 | Scope | Permissions |
 |-------|-------------|
-| `read` | List and view actions |
-| `write` | Create, update, and cancel actions |
+| `read` | List and retrieve actions, chains, templates, team members, quota |
+| `write` | Create, cancel, and retry actions; manage chains, templates, and team members |
 
-When creating a token, select the minimal scopes needed.
-
-## Token Management
-
-### List Tokens
-
-```bash
-GET /api/tokens
-```
-
-Returns all active tokens (values are hidden).
-
-### Create Token
-
-```bash
-POST /api/tokens
-Content-Type: application/json
-
-{
-  "name": "Production Server",
-  "abilities": ["read", "write"],
-  "expires_at": "2025-12-31"
-}
-```
-
-### Revoke Token
-
-```bash
-DELETE /api/tokens/{token_id}
-```
-
-Revoked tokens immediately stop working.
-
-## Security Best Practices
-
-### 1. Use environment variables
-
-```bash
-# .env
-CALLMELATER_API_KEY=sk_live_your_token_here
-```
-
-```javascript
-// code
-const apiKey = process.env.CALLMELATER_API_KEY;
-```
-
-### 2. Rotate tokens regularly
-
-Create new tokens and revoke old ones periodically.
-
-### 3. Use minimal scopes
-
-If you only need to read actions, use a read-only token.
-
-### 4. Set expiration dates
-
-Tokens can have expiration dates. Use them for temporary access.
-
-### 5. Monitor token usage
-
-Check the dashboard for unusual API activity.
+When creating a token, select only the scopes your integration requires.
 
 ## Error Responses
 
 ### 401 Unauthorized
+
+Returned when the token is missing, invalid, expired, or revoked.
 
 ```json
 {
@@ -108,13 +47,9 @@ Check the dashboard for unusual API activity.
 }
 ```
 
-Causes:
-- Missing `Authorization` header
-- Invalid token
-- Expired token
-- Revoked token
-
 ### 403 Forbidden
+
+Returned when the token lacks the required scope for the requested operation.
 
 ```json
 {
@@ -122,6 +57,10 @@ Causes:
 }
 ```
 
-Causes:
-- Token lacks required scope
-- Accessing another user's resources
+## Best Practices
+
+- **Store tokens in environment variables.** Never hard-code tokens in source code or commit them to version control. Use `CALLMELATER_API_KEY` in your `.env` file and reference it at runtime.
+
+- **Rotate tokens regularly.** Create a new token, update your integrations, then revoke the old one. Set expiration dates for tokens used in temporary or CI/CD contexts.
+
+- **Use the minimum required scope.** If your integration only reads action statuses, issue a `read`-only token. Reserve `write` scope for services that create or cancel actions.
