@@ -320,58 +320,6 @@
       </div>
     </section>
 
-    <!-- SDKs & Integrations -->
-    <section class="section-light">
-      <div class="container">
-        <h2 class="section-title text-center mb-2">Integrate in minutes</h2>
-        <p class="section-subtitle text-center mb-5">Official SDKs and integrations — or use the REST API from any language</p>
-        <div class="row g-4 justify-content-center">
-          <div class="col-md-6 col-lg-3">
-            <a href="https://github.com/Canell/callmelater-node" target="_blank" rel="noopener" class="integration-card">
-              <div class="integration-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 289"><path fill="#539E43" d="M128 288.464c-3.975 0-7.685-1.06-11.13-2.915l-35.247-20.936c-5.3-2.915-2.65-3.975-1.06-4.505 7.155-2.385 8.48-2.915 15.9-7.156.796-.53 1.856-.265 2.65.265l27.032 16.166c1.06.53 2.385.53 3.18 0l105.74-61.217c1.06-.53 1.59-1.59 1.59-2.915V83.08c0-1.325-.53-2.385-1.59-2.915l-105.74-60.953c-1.06-.53-2.385-.53-3.18 0L20.405 80.166c-1.06.53-1.59 1.855-1.59 2.915v122.17c0 1.06.53 2.385 1.59 2.915l28.887 16.695c15.636 7.95 25.44-1.325 25.44-10.6V93.68c0-1.59 1.325-3.18 3.18-3.18h13.25c1.59 0 3.18 1.325 3.18 3.18v120.58c0 20.936-11.396 33.126-31.272 33.126-6.095 0-10.865 0-24.38-6.625l-27.826-15.9C4.24 220.885 0 213.73 0 205.78V83.346c0-7.95 4.24-15.37 11.13-19.345L116.87 2.784c6.625-3.71 15.636-3.71 22.26 0L244.87 64c6.89 3.975 11.13 11.13 11.13 19.346V205.78c0 7.95-4.24 15.37-11.13 19.345l-105.74 61.217c-3.18 1.59-6.89 2.12-11.13 2.12zm32.596-84.009c-46.377 0-55.917-21.2-55.917-39.221 0-1.59 1.325-3.18 3.18-3.18h13.515c1.59 0 2.915 1.06 2.915 2.65 2.12 14.045 8.215 20.936 36.307 20.936 22.26 0 31.802-5.035 31.802-16.96 0-6.891-2.65-11.926-37.367-15.372-28.887-2.915-46.907-9.275-46.907-32.33 0-21.467 18.02-34.187 48.232-34.187 33.921 0 50.617 11.66 52.737 37.102 0 .795-.265 1.59-.795 2.385-.53.53-1.325 1.06-2.12 1.06h-13.78c-1.325 0-2.65-1.06-2.915-2.385-3.18-14.575-11.395-19.345-33.126-19.345-24.38 0-27.296 8.48-27.296 14.84 0 7.686 3.445 10.07 36.307 14.31 32.596 4.24 47.967 10.336 47.967 33.127-.265 23.321-19.345 36.572-53.002 36.572z"/></svg>
-              </div>
-              <h5>Node.js SDK</h5>
-              <p>TypeScript, zero dependencies, ESM + CJS</p>
-              <code class="integration-install">npm install callmelater</code>
-            </a>
-          </div>
-          <div class="col-md-6 col-lg-3">
-            <a href="https://github.com/Canell/callmelater-laravel" target="_blank" rel="noopener" class="integration-card">
-              <div class="integration-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 264"><path fill="#FF2D20" d="M255.856 59.62c.095.351.144.713.144 1.077v56.568c0 1.478-.79 2.843-2.073 3.578L206.45 148.18v56.2c0 1.478-.79 2.843-2.073 3.578l-95.958 55.398c-.21.121-.436.206-.663.282l-.252.098c-.267.088-.554.13-.838.13-.284 0-.571-.042-.838-.13a2.155 2.155 0 0 1-.252-.098 4.153 4.153 0 0 1-.663-.282L9.622 207.958a4.128 4.128 0 0 1-2.073-3.578V36.057c0-.364.049-.726.144-1.077l.028-.11c.049-.186.114-.371.193-.546.035-.077.07-.153.112-.226.056-.097.112-.19.175-.282.044-.066.094-.127.142-.19.063-.083.133-.16.204-.235.056-.055.108-.113.169-.163.076-.066.16-.126.24-.186.06-.042.114-.09.18-.126L56.685 3.16a4.129 4.129 0 0 1 4.147 0L108.38 30.9c.065.037.12.084.18.126.08.06.163.12.24.186.06.05.112.108.168.163.071.074.14.152.204.235.049.062.098.124.142.19.063.091.12.185.175.282.042.073.077.149.112.226.079.175.144.36.193.546l.028.11c.095.351.144.713.144 1.077v106.2l41.106-23.73V59.62c0-.364.049-.726.144-1.077l.028-.11c.049-.186.114-.371.193-.546.035-.077.07-.153.112-.226.056-.097.112-.19.175-.282.044-.066.094-.127.142-.19.063-.083.133-.16.204-.235.056-.055.108-.113.169-.163.076-.066.16-.126.24-.186.06-.042.114-.09.18-.126l47.548-27.472a4.129 4.129 0 0 1 4.147 0l47.548 27.472c.066.037.12.084.18.126.08.06.164.12.24.186.061.05.113.108.17.163.07.074.14.152.203.235.049.062.098.124.142.19.063.091.12.185.175.282.043.073.077.149.112.226.079.175.144.36.194.546zM247.46 114.165V64.892l-17.269 9.968-23.837 13.762v49.273zm-47.548 81.9V146.79l-23.46 13.43-71.04 40.637v49.898zM12.445 40.259v163.497l91.46 52.818V207.09L56.91 183.07l-.042-.028-.026-.018c-.075-.052-.158-.107-.233-.168-.052-.044-.1-.093-.15-.14l-.018-.018c-.067-.065-.133-.137-.193-.211-.047-.058-.088-.12-.13-.184l-.012-.022c-.052-.08-.098-.164-.138-.252a3.644 3.644 0 0 1-.098-.233l-.012-.028c-.035-.097-.063-.196-.084-.298a3.5 3.5 0 0 1-.042-.3l-.007-.035c-.014-.1-.021-.2-.021-.3V68.032L33.09 54.27l-20.645-14.01zm44.24-30.007L15.584 33.247l41.066 23.707 41.066-23.674-41.03-23.028zm22.482 205.327l23.804-13.638V68.032L85.702 77.83l-23.838 13.762v133.987zm135.834-170.78l-41.1 23.707 41.1 23.674 41.033-23.674-41.033-23.706zm-4.147 54.485L187.2 85.522l-17.268-9.968v49.273l23.837 13.762 17.269 9.935v-49.273zm-91.46 126.316l60.742-34.742 30.667-17.556-41.033-23.673-47.476 27.403-44.9 25.928z"/></svg>
-              </div>
-              <h5>Laravel SDK</h5>
-              <p>Fluent API, Facades, webhook handling</p>
-              <code class="integration-install">composer require callmelater/laravel</code>
-            </a>
-          </div>
-          <div class="col-md-6 col-lg-3">
-            <a href="https://github.com/Canell/callmelater-n8n-node" target="_blank" rel="noopener" class="integration-card">
-              <div class="integration-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="#EA4B71" d="M12.8 3.6c-1 0-1.8.8-1.8 1.8s.8 1.8 1.8 1.8 1.8-.8 1.8-1.8-.8-1.8-1.8-1.8m-6.6 6c-1 0-1.8.8-1.8 1.8s.8 1.8 1.8 1.8 1.8-.8 1.8-1.8-.8-1.8-1.8-1.8m13.2 0c-1 0-1.8.8-1.8 1.8s.8 1.8 1.8 1.8 1.8-.8 1.8-1.8-.8-1.8-1.8-1.8m-6.6 6c-1 0-1.8.8-1.8 1.8s.8 1.8 1.8 1.8 1.8-.8 1.8-1.8-.8-1.8-1.8-1.8"/></svg>
-              </div>
-              <h5>n8n Node</h5>
-              <p>Visual workflows, trigger &amp; action nodes</p>
-              <code class="integration-install">Community node</code>
-            </a>
-          </div>
-          <div class="col-md-6 col-lg-3">
-            <a :href="docsUrl" class="integration-card">
-              <div class="integration-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="#6b7280" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-              </div>
-              <h5>REST API</h5>
-              <p>Use from any language with raw HTTP</p>
-              <code class="integration-install">curl, Python, Go, Ruby, Java...</code>
-            </a>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- CTA Section -->
     <section class="cta-section">
       <div class="container text-center">
@@ -665,60 +613,6 @@ function closeVerifiedModal() {
   font-size: 0.875rem;
   color: #6b7280;
   margin-bottom: 0;
-}
-
-/* Integration Cards */
-.integration-card {
-  display: block;
-  padding: 1.5rem;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  height: 100%;
-  text-align: center;
-  text-decoration: none;
-  color: inherit;
-  transition: box-shadow 0.2s, border-color 0.2s;
-}
-
-.integration-card:hover {
-  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
-  border-color: #22c55e;
-  color: inherit;
-  text-decoration: none;
-}
-
-.integration-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.integration-card h5 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 0.375rem;
-}
-
-.integration-card p {
-  font-size: 0.8125rem;
-  color: #6b7280;
-  margin-bottom: 0.75rem;
-  line-height: 1.5;
-}
-
-.integration-install {
-  display: inline-block;
-  font-size: 0.75rem;
-  color: #22c55e;
-  background: #ecfdf5;
-  padding: 0.25rem 0.625rem;
-  border-radius: 0.25rem;
-  font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
 }
 
 /* CTA Section */
