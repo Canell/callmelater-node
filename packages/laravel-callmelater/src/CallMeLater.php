@@ -206,7 +206,7 @@ class CallMeLater
      */
     public function cancelChain(string $id): array
     {
-        $response = $this->client()->post("/api/v1/chains/{$id}/cancel");
+        $response = $this->client()->delete("/api/v1/chains/{$id}");
 
         if (! $response->successful()) {
             throw ApiException::fromResponse($response, 'cancel chain');
@@ -318,7 +318,7 @@ class CallMeLater
      */
     public function toggleTemplate(string $id): array
     {
-        $response = $this->client()->post("/api/v1/templates/{$id}/toggle");
+        $response = $this->client()->post("/api/v1/templates/{$id}/toggle-active");
 
         if (! $response->successful()) {
             throw ApiException::fromResponse($response, 'toggle template');
