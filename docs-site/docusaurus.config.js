@@ -21,6 +21,33 @@ const config = {
     locales: ['en'],
   },
 
+  plugins: [
+    [
+      'docusaurus-plugin-llms',
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: 'docs',
+        title: 'CallMeLater Documentation',
+        description: 'CallMeLater is a developer-first API for scheduling durable HTTP calls and interactive human reminders. Authenticate with Bearer tokens (sk_live_...). Two core primitives: (1) Scheduled webhooks — fire HTTP requests at a future time with automatic retries, (2) Approval reminders — send yes/no/snooze prompts via email or SMS with escalation. Also supports multi-step chains (workflows) and reusable templates. SDKs available for Node.js, Laravel/PHP, and n8n.',
+        excludeImports: true,
+        removeDuplicateHeadings: true,
+        pathTransformation: {
+          ignorePaths: ['docs'],
+        },
+        includeOrder: [
+          'index.md',
+          'quick-start.md',
+          'sdks/*',
+          'concepts/*',
+          'guides/*',
+          'api/*',
+          'reference/*',
+        ],
+      },
+    ],
+  ],
+
   presets: [
     [
       'classic',
