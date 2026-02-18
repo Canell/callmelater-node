@@ -1,7 +1,7 @@
 User-agent: *
-Disallow:
+Allow: /
 
-Sitemap: https://callmelater.io/sitemap.xml
+Sitemap: https://docs.callmelater.io/sitemap.xml
 
 # LLM-friendly documentation (llmstxt.org standard)
 LLMsTxt: https://docs.callmelater.io/llms.txt

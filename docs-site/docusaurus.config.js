@@ -16,6 +16,27 @@ const config = {
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
+  headTags: [
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'alternate',
+        type: 'text/plain',
+        title: 'LLMs.txt',
+        href: 'https://docs.callmelater.io/llms.txt',
+      },
+    },
+    {
+      tagName: 'link',
+      attributes: {
+        rel: 'alternate',
+        type: 'text/plain',
+        title: 'LLMs Full',
+        href: 'https://docs.callmelater.io/llms-full.txt',
+      },
+    },
+  ],
+
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],

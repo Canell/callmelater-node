@@ -10,6 +10,10 @@
     <!-- Favicon -->
     <link rel="icon"  href="/favicon.ico">
 
+    <!-- LLM-friendly documentation (llmstxt.org) -->
+    <link rel="alternate" type="text/plain" title="LLMs.txt" href="https://docs.callmelater.io/llms.txt">
+    <link rel="alternate" type="text/plain" title="LLMs Full" href="https://docs.callmelater.io/llms-full.txt">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
