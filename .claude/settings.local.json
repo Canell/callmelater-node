@@ -51,7 +51,8 @@
       "Bash(composer update:*)",
       "Bash(python3:*)",
       "Bash(xargs:*)",
-      "Bash(./vendor/bin/phpunit:*)"
+      "Bash(./vendor/bin/phpunit:*)",
+      "WebFetch(domain:docs.callmelater.io)"
     ]
   }
 }

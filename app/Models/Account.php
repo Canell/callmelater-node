@@ -199,6 +199,11 @@ class Account extends Model
             'manual_plan_reason' => $reason,
         ]);
 
+        // Cancel Stripe subscription when setting a manual plan to prevent double-charging
+        if ($plan && $this->subscribed('default')) {
+            $this->subscription('default')->cancelNow();
+        }
+
         // Log the override for audit trail
         AccountPlanOverride::create([
             'account_id' => $this->id,
