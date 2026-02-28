@@ -160,7 +160,14 @@ class DeliverHttpAction implements ShouldQueue
      */
     private function handleSuccess(DeliveryAttempt $attempt, int $statusCode, int $durationMs): void
     {
-        $this->action->markAsExecuted();
+        $isRecurring = $this->action->isRecurring();
+        $willRecur = $isRecurring && $this->action->shouldRecur();
+
+        if ($willRecur) {
+            $this->action->scheduleNextRecurrence();
+        } else {
+            $this->action->markAsExecuted();
+        }
 
         // Update execution cycle if present
         if ($this->action->current_execution_cycle_id) {
@@ -168,25 +175,31 @@ class DeliverHttpAction implements ShouldQueue
                 ?->markAsSuccess();
         }
 
-        // Advance chain if this action is part of one
-        if ($this->action->isChainStep()) {
+        // Advance chain only on final occurrence (non-recurring or last recurrence)
+        if (! $willRecur && $this->action->isChainStep()) {
             $this->advanceChain([
                 'status_code' => $statusCode,
                 'body' => json_decode($attempt->response_body ?? '{}', true) ?? [],
             ]);
         }
 
-        // Dispatch callbacks for action.executed event
-        \App\Services\CallbackDispatcher::dispatch($this->action, DeliverActionCallback::EVENT_EXECUTED, [
+        // Dispatch callbacks for action.executed event (fires every occurrence)
+        $callbackData = [
             'status_code' => $statusCode,
             'duration_ms' => $durationMs,
             'attempt_number' => $attempt->attempt_number,
-        ]);
+        ];
+        if ($isRecurring) {
+            $callbackData['recurrence_count'] = $this->action->recurrence_count;
+        }
+        \App\Services\CallbackDispatcher::dispatch($this->action, DeliverActionCallback::EVENT_EXECUTED, $callbackData);
 
         $this->log('info', 'delivery_success', [
             'status_code' => $statusCode,
             'duration_ms' => $durationMs,
             'attempt' => $attempt->attempt_number,
+            'recurring' => $isRecurring,
+            'will_recur' => $willRecur,
         ]);
     }
 

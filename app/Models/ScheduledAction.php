@@ -47,6 +47,9 @@ use Illuminate\Support\Facades\Mail;
  * @property string|null $replaced_by_action_id
  * @property array<string, mixed>|null $coordination_config
  * @property int $coordination_reschedule_count
+ * @property array<string, mixed>|null $recurrence_config
+ * @property int $recurrence_count
+ * @property Carbon|null $last_executed_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property-read Account|null $account
@@ -146,6 +149,9 @@ class ScheduledAction extends Model
         'replaced_by_action_id',
         'coordination_config',
         'coordination_reschedule_count',
+        'recurrence_config',
+        'recurrence_count',
+        'last_executed_at',
     ];
 
     protected function casts(): array
@@ -163,6 +169,8 @@ class ScheduledAction extends Model
             'next_retry_at' => 'datetime',
             'token_expires_at' => 'datetime',
             'last_manual_retry_at' => 'datetime',
+            'recurrence_config' => 'array',
+            'last_executed_at' => 'datetime',
         ];
     }
 
@@ -621,6 +629,12 @@ class ScheduledAction extends Model
             $this->transitionTo(self::STATUS_RESOLVED);
             $this->execute_at_utc = now();
         } else {
+            // No HTTP request — gate pass is the "execution"
+            if ($this->isRecurring() && $this->shouldRecur()) {
+                $this->scheduleNextRecurrence();
+
+                return;
+            }
             $this->transitionTo(self::STATUS_EXECUTED);
             $this->executed_at_utc = now();
         }
@@ -750,5 +764,84 @@ class ScheduledAction extends Model
     public function hasCoordinationKeys(): bool
     {
         return ! empty($this->coordination_keys);
+    }
+
+    // ========================================
+    // Recurrence Logic
+    // ========================================
+
+    /**
+     * Check if this action has recurrence configured.
+     */
+    public function isRecurring(): bool
+    {
+        return ! empty($this->recurrence_config);
+    }
+
+    /**
+     * Check if this action should recur again based on limits.
+     */
+    public function shouldRecur(): bool
+    {
+        if (! $this->isRecurring()) {
+            return false;
+        }
+
+        $config = $this->recurrence_config;
+        $endType = $config['end_type'] ?? 'never';
+
+        return match ($endType) {
+            'count' => $this->recurrence_count + 1 < ($config['max_occurrences'] ?? 1),
+            'date' => $this->calculateNextRecurrenceTime()->lte(Carbon::parse($config['end_date'])),
+            'never' => true,
+            default => false,
+        };
+    }
+
+    /**
+     * Calculate the next recurrence time from now in the user's timezone.
+     */
+    public function calculateNextRecurrenceTime(): Carbon
+    {
+        $config = $this->recurrence_config;
+        $frequency = $config['frequency'] ?? 1;
+        $unit = $config['unit'] ?? 'h';
+        $now = Carbon::now($this->timezone ?? 'UTC');
+
+        return match ($unit) {
+            'm' => $now->copy()->addMinutes($frequency),
+            'h' => $now->copy()->addHours($frequency),
+            'd' => $now->copy()->addDays($frequency),
+            'w' => $now->copy()->addWeeks($frequency),
+            'M' => $now->copy()->addMonths($frequency),
+            default => $now->copy()->addHours($frequency),
+        };
+    }
+
+    /**
+     * Schedule the next recurrence of this action.
+     * Transitions from executing back to resolved.
+     */
+    public function scheduleNextRecurrence(): void
+    {
+        $this->recurrence_count++;
+        $this->last_executed_at = now();
+
+        // Reset execution state for next occurrence
+        $this->attempt_count = 0;
+        $this->next_retry_at = null;
+        $this->failure_reason = null;
+
+        // Reset gate state for gated actions
+        if ($this->isGated()) {
+            $this->gate_passed_at = null;
+            $this->snooze_count = 0;
+            $this->token_expires_at = null;
+        }
+
+        // Calculate and set next execution time
+        $this->execute_at_utc = $this->calculateNextRecurrenceTime()->utc();
+        $this->resolution_status = self::STATUS_RESOLVED;
+        $this->save();
     }
 }

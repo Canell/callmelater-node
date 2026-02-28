@@ -72,6 +72,11 @@ class CreateActionRequest extends FormRequest
             $this->merge(['execute_at' => $this->input('scheduled_for')]);
         }
 
+        // Map repeat -> recurrence
+        if ($this->has('repeat') && ! $this->has('recurrence')) {
+            $this->merge(['recurrence' => $this->input('repeat')]);
+        }
+
         // =====================================================
         // Original transformations
         // =====================================================
@@ -171,6 +176,14 @@ class CreateActionRequest extends FormRequest
 
             // Creator notification
             'notify_creator_on_response' => ['nullable', 'boolean'],
+
+            // Recurrence (repeat)
+            'recurrence' => ['nullable', 'array'],
+            'recurrence.frequency' => ['required_with:recurrence', 'integer', 'min:1'],
+            'recurrence.unit' => ['required_with:recurrence', 'string', Rule::in(['m', 'h', 'd', 'w', 'M'])],
+            'recurrence.end_type' => ['required_with:recurrence', 'string', Rule::in(['count', 'date', 'never'])],
+            'recurrence.max_occurrences' => ['required_if:recurrence.end_type,count', 'integer', 'min:2'],
+            'recurrence.end_date' => ['required_if:recurrence.end_type,date', 'date', 'after:now'],
         ];
     }
 
@@ -268,6 +281,23 @@ class CreateActionRequest extends FormRequest
 
                 if ($exists) {
                     $validator->errors()->add('idempotency_key', 'This idempotency key has already been used.');
+                }
+            }
+
+            // Recurrence minimum interval check (>= 5 minutes)
+            if ($this->filled('recurrence.frequency') && $this->filled('recurrence.unit')) {
+                $freq = (int) $this->input('recurrence.frequency');
+                $unit = $this->input('recurrence.unit');
+                $intervalMinutes = match ($unit) {
+                    'm' => $freq,
+                    'h' => $freq * 60,
+                    'd' => $freq * 1440,
+                    'w' => $freq * 10080,
+                    'M' => $freq * 43200,
+                    default => $freq,
+                };
+                if ($intervalMinutes < 5) {
+                    $validator->errors()->add('recurrence.frequency', 'Recurrence interval must be at least 5 minutes.');
                 }
             }
 

@@ -50,6 +50,11 @@
                     <option value="immediate">Webhook</option>
                     <option value="gated">Approval</option>
                 </select>
+                <select class="form-select" v-model="recurringFilter" style="max-width: 150px;">
+                    <option value="">All actions</option>
+                    <option value="recurring">Recurring only</option>
+                    <option value="one-time">One-time only</option>
+                </select>
                 <select v-if="coordinationKeys.length" class="form-select" v-model="coordinationKeyFilter" style="max-width: 200px;">
                     <option value="">All groups</option>
                     <option v-for="key in coordinationKeys" :key="key" :value="key">
@@ -68,7 +73,7 @@
 
         <!-- Empty state -->
         <div v-else-if="actions.length === 0" class="text-center py-5">
-            <template v-if="searchQuery || statusFilter || modeFilter || coordinationKeyFilter">
+            <template v-if="searchQuery || statusFilter || modeFilter || coordinationKeyFilter || recurringFilter">
                 <h5 class="text-muted mb-2">No actions found</h5>
                 <p class="text-muted mb-4">Try adjusting your search or filters.</p>
                 <button class="btn btn-outline-secondary" @click="clearFilters">
@@ -104,6 +109,7 @@
                                 <router-link :to="`/actions/${action.id}`" class="text-decoration-none">
                                     {{ action.name }}
                                 </router-link>
+                                <span v-if="action.is_recurring" class="badge bg-info ms-1" style="font-size: 0.7em;">&#8635; repeat</span>
                             </td>
                             <td>
                                 <span class="mode-label">
@@ -117,7 +123,12 @@
                                     {{ formatStatus(action.status) }}
                                 </span>
                             </td>
-                            <td>{{ formatDate(action.execute_at) }}</td>
+                            <td>
+                                {{ formatDate(action.execute_at) }}
+                                <small v-if="action.is_recurring && action.recurrence_count > 0" class="d-block text-muted">
+                                    {{ action.recurrence_count }} execution(s) done
+                                </small>
+                            </td>
                             <td class="text-muted">{{ formatDate(action.created_at) }}</td>
                             <td>
                                 <div class="dropdown">
@@ -204,6 +215,7 @@ export default {
             statusFilter: '',
             modeFilter: '',
             coordinationKeyFilter: '',
+            recurringFilter: '',
             coordinationKeys: [],
             // Auto-refresh (runs silently in background)
             refreshInterval: null,
@@ -281,6 +293,9 @@ export default {
         },
         coordinationKeyFilter() {
             this.loadActions();
+        },
+        recurringFilter() {
+            this.loadActions();
         }
     },
     methods: {
@@ -297,6 +312,7 @@ export default {
                 if (this.statusFilter) params.status = this.statusFilter;
                 if (this.modeFilter) params.mode = this.modeFilter;
                 if (this.coordinationKeyFilter) params.coordination_key = this.coordinationKeyFilter;
+                if (this.recurringFilter) params.recurring = this.recurringFilter;
 
                 const response = await axios.get('/api/v1/actions', { params });
                 this.actions = response.data.data;
@@ -360,6 +376,7 @@ export default {
             this.statusFilter = '';
             this.modeFilter = '';
             this.coordinationKeyFilter = '';
+            this.recurringFilter = '';
             this.loadActions();
         }
     }

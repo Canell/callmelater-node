@@ -93,6 +93,27 @@
                                     </div>
                                 </div>
                             </div>
+                            <div v-if="action.is_recurring" class="mb-3">
+                                <small class="text-muted d-block">Recurrence</small>
+                                <span class="badge bg-info me-2">&#8635; Every {{ action.recurrence.frequency }} {{ recurrenceUnitLabel(action.recurrence.unit, action.recurrence.frequency) }}</span>
+                                <div class="mt-1">
+                                    <strong>{{ action.recurrence_count }}</strong> execution(s) completed
+                                </div>
+                                <div v-if="action.last_executed_at" class="small text-muted">
+                                    Last executed: {{ formatDate(action.last_executed_at) }}
+                                </div>
+                                <div class="small text-muted mt-1">
+                                    <template v-if="action.recurrence.end_type === 'count'">
+                                        {{ Math.max(0, action.recurrence.max_occurrences - action.recurrence_count) }} remaining
+                                    </template>
+                                    <template v-else-if="action.recurrence.end_type === 'date'">
+                                        Ends on {{ formatDate(action.recurrence.end_date) }}
+                                    </template>
+                                    <template v-else>
+                                        Repeats indefinitely
+                                    </template>
+                                </div>
+                            </div>
                             <div v-if="action.failure_reason" class="alert alert-danger mb-0">
                                 <small class="d-block">Failure Reason</small>
                                 {{ action.failure_reason }}
@@ -498,11 +519,17 @@ export default {
             const connectionKeywords = ['connection', 'timeout', 'refused', 'unreachable', 'network', 'dns', 'resolve'];
             return connectionKeywords.some(keyword => errorMsg.includes(keyword));
         },
+        recurrenceUnitLabel(unit, freq) {
+            const labels = { m: 'minute', h: 'hour', d: 'day', w: 'week', M: 'month' };
+            const label = labels[unit] || unit;
+            return freq > 1 ? label + 's' : label;
+        },
         confirmCancelAction() {
+            const recurringNote = this.action.is_recurring ? ' All future occurrences will also be stopped.' : '';
             this.confirmModal = {
                 show: true,
                 title: 'Cancel Action',
-                message: `Cancel "${this.action.name}"? This action will not be executed.`,
+                message: `Cancel "${this.action.name}"? This action will not be executed.${recurringNote}`,
                 confirmText: 'Yes, Cancel',
                 variant: 'danger',
             };

@@ -63,6 +63,15 @@ class ActionController extends Controller
             $query->where('mode', $request->input('mode'));
         }
 
+        // Filter by recurring
+        if ($request->filled('recurring')) {
+            if ($request->input('recurring') === 'recurring') {
+                $query->whereNotNull('recurrence_config');
+            } else {
+                $query->whereNull('recurrence_config');
+            }
+        }
+
         // Filter by coordination key
         if ($request->filled('coordination_key')) {
             $query->whereHas('coordinationKeyRecords', function ($q) use ($request) {

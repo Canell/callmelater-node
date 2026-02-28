@@ -112,8 +112,73 @@
                                             <option value="h">Hours</option>
                                             <option value="d">Days</option>
                                             <option value="w">Weeks</option>
+                                            <option value="M">Months</option>
                                         </select>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Repeat (Recurrence) -->
+                    <div class="card card-cml mb-4">
+                        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Repeat</h5>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="repeatEnabled" v-model="repeatEnabled">
+                                <label class="form-check-label" for="repeatEnabled">Enable</label>
+                            </div>
+                        </div>
+                        <div v-if="repeatEnabled" class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Every</label>
+                                    <input type="number" class="form-control" v-model="recurrence.frequency" min="1" placeholder="1">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">&nbsp;</label>
+                                    <select class="form-select" v-model="recurrence.unit">
+                                        <option value="m">Minutes</option>
+                                        <option value="h">Hours</option>
+                                        <option value="d">Days</option>
+                                        <option value="w">Weeks</option>
+                                        <option value="M">Months</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label">End condition</label>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" id="endNever" value="never" v-model="recurrence.end_type">
+                                    <label class="form-check-label" for="endNever">Never (repeats indefinitely)</label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="radio" id="endCount" value="count" v-model="recurrence.end_type">
+                                    <label class="form-check-label" for="endCount">
+                                        After
+                                        <input
+                                            type="number"
+                                            class="form-control form-control-sm d-inline-block mx-1"
+                                            v-model="recurrence.max_occurrences"
+                                            min="2"
+                                            style="width: 80px;"
+                                            :disabled="recurrence.end_type !== 'count'"
+                                        >
+                                        occurrences
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" id="endDate" value="date" v-model="recurrence.end_type">
+                                    <label class="form-check-label" for="endDate">
+                                        Until
+                                        <input
+                                            type="datetime-local"
+                                            class="form-control form-control-sm d-inline-block ms-1"
+                                            v-model="recurrence.end_date"
+                                            style="width: 220px;"
+                                            :disabled="recurrence.end_type !== 'date'"
+                                        >
+                                    </label>
                                 </div>
                             </div>
                         </div>
@@ -431,6 +496,15 @@ export default {
                 hours: '',
             },
             escalationRecipients: [],
+            // Recurrence
+            repeatEnabled: false,
+            recurrence: {
+                frequency: 1,
+                unit: 'h',
+                end_type: 'never',
+                max_occurrences: 10,
+                end_date: '',
+            },
             // Coordination
             showCoordination: false,
             coordinationKeysText: '',
@@ -645,6 +719,16 @@ export default {
                 }
 
                 this.form.callback_url = action.callback_url || '';
+
+                // Recurrence
+                if (action.is_recurring && action.recurrence) {
+                    this.repeatEnabled = true;
+                    this.recurrence.frequency = action.recurrence.frequency || 1;
+                    this.recurrence.unit = action.recurrence.unit || 'h';
+                    this.recurrence.end_type = action.recurrence.end_type || 'never';
+                    this.recurrence.max_occurrences = action.recurrence.max_occurrences || 10;
+                    this.recurrence.end_date = action.recurrence.end_date || '';
+                }
 
                 // Coordination keys
                 if (action.coordination_keys && action.coordination_keys.length > 0) {
@@ -942,6 +1026,21 @@ export default {
                 // Callback URL (for gated without request)
                 if (this.form.mode === 'gated' && !this.executeOnApproval && this.form.callback_url?.trim()) {
                     payload.callback_url = this.form.callback_url.trim();
+                }
+
+                // Recurrence
+                if (this.repeatEnabled) {
+                    payload.recurrence = {
+                        frequency: parseInt(this.recurrence.frequency),
+                        unit: this.recurrence.unit,
+                        end_type: this.recurrence.end_type,
+                    };
+                    if (this.recurrence.end_type === 'count') {
+                        payload.recurrence.max_occurrences = parseInt(this.recurrence.max_occurrences);
+                    }
+                    if (this.recurrence.end_type === 'date' && this.recurrence.end_date) {
+                        payload.recurrence.end_date = new Date(this.recurrence.end_date).toISOString();
+                    }
                 }
 
                 // Coordination keys

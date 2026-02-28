@@ -112,6 +112,12 @@ class ActionResource extends JsonResource
                 $this->coordination_reschedule_count
             ),
 
+            // Recurrence
+            'is_recurring' => $this->isRecurring(),
+            'recurrence' => $this->when($this->isRecurring(), fn () => $this->recurrence_config),
+            'recurrence_count' => $this->when($this->isRecurring(), fn () => $this->recurrence_count),
+            'last_executed_at' => $this->when($this->last_executed_at !== null, fn () => $this->last_executed_at?->toIso8601String()),
+
             // Coordination relationships
             'replaced_by' => $this->when(
                 $this->relationLoaded('replacedBy') && $this->replacedBy,

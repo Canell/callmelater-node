@@ -104,6 +104,11 @@ class ActionService
                 $action->coordination_config = $data['coordination'];
             }
 
+            // Store recurrence config
+            if (isset($data['recurrence'])) {
+                $action->recurrence_config = $data['recurrence'];
+            }
+
             $action->save();
 
             // Link replaced actions to this new action

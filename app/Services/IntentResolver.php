@@ -81,10 +81,15 @@ class IntentResolver
     }
 
     /**
-     * Resolve a relative delay string (e.g., "1h", "30m", "2d").
+     * Resolve a relative delay string (e.g., "1h", "30m", "2d", "3M").
      */
     private function resolveDelay(string $delay, Carbon $now): Carbon
     {
+        // Try month unit first (case-sensitive: M, mo, month)
+        if (preg_match('/^(\d+)(M|mo|month)s?$/', $delay, $matches)) {
+            return $now->copy()->addMonths((int) $matches[1]);
+        }
+
         // Parse delay string like "1h", "30m", "2d", "1w"
         if (! preg_match('/^(\d+)(m|min|h|hr|d|day|w|week)s?$/i', $delay, $matches)) {
             throw new \InvalidArgumentException("Invalid delay format: {$delay}");
