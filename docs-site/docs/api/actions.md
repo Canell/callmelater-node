@@ -66,6 +66,22 @@ At least one scheduling field is required.
 | `gate.attachments` | array | No | File attachments for the approval message |
 | `request` | object | No | Optional HTTP request to execute after approval is granted |
 
+### Recurrence Fields
+
+Make an action repeat on a schedule. After each successful execution, the action automatically re-schedules itself.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `recurrence.frequency` | integer | Yes | How often to repeat (min: 1) |
+| `recurrence.unit` | string | Yes | Time unit: `m` (minutes), `h` (hours), `d` (days), `w` (weeks), `M` (months) |
+| `recurrence.end_type` | string | Yes | When to stop: `never`, `count`, or `date` |
+| `recurrence.max_occurrences` | integer | Conditional | Required when `end_type` is `count`. Total executions (min: 2). |
+| `recurrence.end_date` | string | Conditional | Required when `end_type` is `date`. ISO 8601 timestamp, must be in the future. |
+
+The minimum recurrence interval is **5 minutes**.
+
+You can also use `repeat` as an alias for `recurrence`.
+
 ### Dedup Keys Fields
 
 Group related actions and control their behavior with dedup keys.
@@ -137,6 +153,30 @@ curl -X POST https://api.callmelater.io/v1/actions \
   }'
 ```
 
+### Example: Recurring Webhook
+
+```bash
+curl -X POST https://api.callmelater.io/v1/actions \
+  -H "Authorization: Bearer sk_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "webhook",
+    "name": "Hourly health check",
+    "schedule": { "wait": "5m" },
+    "request": {
+      "method": "POST",
+      "url": "https://api.example.com/health-check",
+      "body": { "source": "callmelater" }
+    },
+    "recurrence": {
+      "frequency": 1,
+      "unit": "h",
+      "end_type": "count",
+      "max_occurrences": 24
+    }
+  }'
+```
+
 ### Responses
 
 **201 Created**
@@ -156,6 +196,7 @@ curl -X POST https://api.callmelater.io/v1/actions \
     "attempt_count": 0,
     "max_attempts": 5,
     "retry_strategy": "exponential",
+    "is_recurring": false,
     "created_at": "2026-01-21T10:30:00Z",
     "updated_at": "2026-01-21T10:30:00Z"
   }
@@ -205,6 +246,7 @@ GET /actions
 | `mode` | string | -- | Filter by mode: `webhook` or `approval` |
 | `search` | string | -- | Search in name and description |
 | `dedup_key` | string | -- | Filter by dedup key |
+| `recurring` | string | -- | Filter by recurrence: `recurring` or `one-time` |
 | `per_page` | integer | 15 | Results per page (max 100) |
 | `page` | integer | 1 | Page number |
 
@@ -258,6 +300,10 @@ Returns the full action detail including delivery history and approval events.
 | `delivery_attempts` | array | HTTP delivery attempt log (webhook mode) |
 | `reminder_events` | array | Approval event timeline (approval mode) |
 | `dedup_keys` | array | Dedup keys assigned to this action |
+| `is_recurring` | boolean | Whether this action repeats |
+| `recurrence` | object | Recurrence config (when recurring) |
+| `recurrence_count` | integer | Number of completed executions (when recurring) |
+| `last_executed_at` | string | Timestamp of last execution (when recurring) |
 | `created_at` | string | Creation timestamp |
 | `updated_at` | string | Last update timestamp |
 

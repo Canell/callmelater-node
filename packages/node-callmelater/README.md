@@ -118,6 +118,54 @@ const reminder = await client.reminder('Approve deployment')
 .toRecipient('custom:uri')             // Raw URI
 ```
 
+### Recurring Actions
+
+Make any action repeat on a schedule:
+
+```ts
+// Repeat every 2 hours, up to 10 times
+await client.http('https://api.example.com/reports/generate')
+  .post()
+  .payload({ type: 'health_check' })
+  .inMinutes(5)
+  .everyHours(2)
+  .maxOccurrences(10)
+  .send();
+
+// Repeat every day forever
+await client.http('https://api.example.com/cleanup')
+  .post()
+  .inHours(1)
+  .everyDays(1)
+  .repeatForever()
+  .send();
+
+// Repeat weekly until a specific date
+await client.http('https://api.example.com/reports/weekly')
+  .post()
+  .at('next_monday')
+  .everyWeeks(1)
+  .until('2026-12-31T23:59:59Z')
+  .send();
+```
+
+#### Recurrence Options
+
+```ts
+.repeat(2, 'hours')               // Every 2 hours
+.every(1, 'days')                  // Alias for repeat()
+.everyMinutes(30)                  // Every 30 minutes
+.everyHours(2)                     // Every 2 hours
+.everyDays(1)                      // Every day
+.everyWeeks(1)                     // Every week
+.everyMonths(1)                    // Every month
+.maxOccurrences(10)                // Stop after 10 executions
+.until('2026-12-31')               // Stop after a date
+.repeatForever()                   // No end (default)
+```
+
+Recurring actions work with both HTTP actions and reminders. The minimum interval is 5 minutes.
+
 ### Gate Options
 
 ```ts

@@ -93,6 +93,7 @@ A duration from now using `schedule.wait`:
 | `Nh` | N hours | `2h` = 2 hours |
 | `Nd` | N days | `1d` = 1 day |
 | `Nw` | N weeks | `1w` = 1 week |
+| `NM` | N months | `1M` = 1 month |
 
 ### Exact time
 
@@ -146,6 +147,63 @@ Any non-terminal action can also be `cancelled`.
 | `failed` | Failed permanently (terminal) | `resolved` (manual retry) |
 | `expired` | Approval timed out without response (terminal) | -- |
 | `cancelled` | Cancelled before completion (terminal) | -- |
+
+## Recurring actions
+
+Any action can repeat on a schedule by adding a `recurrence` configuration. After each successful execution, the action automatically re-schedules itself for the next occurrence.
+
+```json
+{
+  "schedule": { "wait": "5m" },
+  "request": { "url": "https://api.example.com/health-check" },
+  "recurrence": {
+    "frequency": 1,
+    "unit": "h",
+    "end_type": "count",
+    "max_occurrences": 24
+  }
+}
+```
+
+### How it works
+
+1. The action executes normally at the scheduled time
+2. On success, it re-schedules itself by the configured interval
+3. The `recurrence_count` increments after each execution
+4. When the end condition is met, the action reaches `executed` (terminal)
+5. Cancelling the action at any point stops all future occurrences
+
+### Lifecycle
+
+A recurring action cycles through `resolved → executing → resolved` until the end condition is met:
+
+```
+resolved → executing → resolved → executing → resolved → ... → executed
+```
+
+If a recurring action fails, it stays in `failed` status and does **not** re-schedule. You can manually retry to resume the cycle.
+
+### End conditions
+
+| `end_type` | Behavior |
+|------------|----------|
+| `never` | Repeats indefinitely until cancelled |
+| `count` | Stops after `max_occurrences` total executions |
+| `date` | Stops when the next scheduled time would be after `end_date` |
+
+### Units
+
+| Unit | Meaning |
+|------|---------|
+| `m` | Minutes (minimum: 5) |
+| `h` | Hours |
+| `d` | Days |
+| `w` | Weeks |
+| `M` | Months |
+
+### Recurring approvals
+
+Approval-mode actions can also recur. Each occurrence resets the gate -- recipients must respond again for each cycle.
 
 ## Idempotency keys
 

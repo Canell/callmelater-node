@@ -32,6 +32,8 @@ class HttpActionBuilder
 
     protected array $metadata = [];
 
+    protected array $recurrence = [];
+
     public function __construct(CallMeLater $client, string $url)
     {
         $this->client = $client;
@@ -284,6 +286,119 @@ class HttpActionBuilder
     }
 
     /**
+     * Enable recurrence with a frequency and unit.
+     */
+    public function repeat(int $frequency, string $unit): self
+    {
+        $this->recurrence['frequency'] = $frequency;
+        $this->recurrence['unit'] = $this->normalizeRecurrenceUnit($unit);
+        if (! isset($this->recurrence['end_type'])) {
+            $this->recurrence['end_type'] = 'never';
+        }
+
+        return $this;
+    }
+
+    /**
+     * Alias for repeat().
+     */
+    public function every(int $frequency, string $unit): self
+    {
+        return $this->repeat($frequency, $unit);
+    }
+
+    /**
+     * Repeat every N minutes.
+     */
+    public function everyMinutes(int $minutes): self
+    {
+        return $this->repeat($minutes, 'm');
+    }
+
+    /**
+     * Repeat every N hours.
+     */
+    public function everyHours(int $hours): self
+    {
+        return $this->repeat($hours, 'h');
+    }
+
+    /**
+     * Repeat every N days.
+     */
+    public function everyDays(int $days): self
+    {
+        return $this->repeat($days, 'd');
+    }
+
+    /**
+     * Repeat every N weeks.
+     */
+    public function everyWeeks(int $weeks): self
+    {
+        return $this->repeat($weeks, 'w');
+    }
+
+    /**
+     * Repeat every N months.
+     */
+    public function everyMonths(int $months): self
+    {
+        return $this->repeat($months, 'M');
+    }
+
+    /**
+     * Set a maximum number of occurrences.
+     */
+    public function maxOccurrences(int $count): self
+    {
+        $this->recurrence['end_type'] = 'count';
+        $this->recurrence['max_occurrences'] = $count;
+
+        return $this;
+    }
+
+    /**
+     * Repeat until a specific date.
+     */
+    public function until(DateTimeInterface|Carbon|string $date): self
+    {
+        $this->recurrence['end_type'] = 'date';
+        if ($date instanceof DateTimeInterface) {
+            $this->recurrence['end_date'] = $date->format('Y-m-d\TH:i:s\Z');
+        } else {
+            $this->recurrence['end_date'] = $date;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Repeat forever (no end condition).
+     */
+    public function repeatForever(): self
+    {
+        $this->recurrence['end_type'] = 'never';
+
+        return $this;
+    }
+
+    /**
+     * Normalize a recurrence unit string to the short API format.
+     */
+    protected function normalizeRecurrenceUnit(string $unit): string
+    {
+        return match ($unit) {
+            'minutes', 'minute', 'min' => 'm',
+            'hours', 'hour' => 'h',
+            'days', 'day' => 'd',
+            'weeks', 'week' => 'w',
+            'months', 'month' => 'M',
+            default => $unit,
+        };
+    }
+
+    /**
      * Get the payload array that would be sent to the API.
      */
     public function toArray(): array
@@ -336,6 +451,10 @@ class HttpActionBuilder
 
         if (! empty($this->metadata)) {
             $payload['metadata'] = $this->metadata;
+        }
+
+        if (! empty($this->recurrence)) {
+            $payload['recurrence'] = $this->recurrence;
         }
 
         return $payload;

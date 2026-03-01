@@ -64,6 +64,14 @@ GitHub Trigger → Build & Test → CallMeLater (Create Approval) → CallMeLate
 3. CallMeLater sends approval request to the ops team
 4. When someone approves, the trigger fires and deployment continues
 
+### Recurring health checks
+
+```
+Schedule Trigger → CallMeLater (Create Webhook, repeat every 1h) → CallMeLater Trigger → Alert if unhealthy
+```
+
+Use the `recurrence` field in the API body to create recurring actions from n8n. Set `recurrence.frequency`, `recurrence.unit`, and `recurrence.end_type` in the request body.
+
 ### Scheduled follow-up
 
 ```

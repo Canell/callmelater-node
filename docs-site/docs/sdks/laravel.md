@@ -82,6 +82,38 @@ CallMeLater::reminder('Weekly report sign-off')
     ->send();
 ```
 
+## Recurring Actions
+
+```php
+// Repeat every 2 hours, up to 10 times
+CallMeLater::http('https://api.example.com/health-check')
+    ->post()
+    ->inMinutes(5)
+    ->everyHours(2)
+    ->maxOccurrences(10)
+    ->send();
+
+// Weekly report, repeats forever
+CallMeLater::http('https://api.example.com/reports/weekly')
+    ->post()
+    ->at('next_monday')
+    ->timezone('America/New_York')
+    ->everyWeeks(1)
+    ->repeatForever()
+    ->send();
+
+// Recurring reminder until end of quarter
+CallMeLater::reminder('Weekly standup check-in')
+    ->to('team@example.com')
+    ->message('Please confirm attendance')
+    ->at('next_monday')
+    ->everyWeeks(1)
+    ->until('2026-06-30T23:59:59Z')
+    ->send();
+```
+
+Recurrence options: `repeat(freq, unit)`, `every(freq, unit)`, `everyMinutes()`, `everyHours()`, `everyDays()`, `everyWeeks()`, `everyMonths()`, `maxOccurrences()`, `until()`, `repeatForever()`. Minimum interval: 5 minutes.
+
 ## Chains
 
 ```php

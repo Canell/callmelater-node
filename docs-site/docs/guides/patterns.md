@@ -247,7 +247,7 @@ curl -X POST https://callmelater.io/api/v1/actions \
 
 ## Scheduled Reports
 
-Generate a weekly report every Monday morning. When the webhook fires, re-schedule the next one from your callback handler.
+Generate a weekly report every Monday morning using recurring actions. CallMeLater handles the re-scheduling automatically.
 
 <Tabs>
 <TabItem value="nodejs" label="Node.js">
@@ -255,11 +255,12 @@ Generate a weekly report every Monday morning. When the webhook fires, re-schedu
 ```ts
 await client.http('https://api.example.com/reports/generate')
   .post()
-  .payload({ type: 'weekly_summary', week: '2026-W08' })
+  .payload({ type: 'weekly_summary' })
   .at('next_monday')
   .timezone('America/New_York')
-  .idempotencyKey('report:weekly:2026-W08')
-  .callback('https://api.example.com/callbacks/report-done')
+  .everyWeeks(1)
+  .repeatForever()
+  .idempotencyKey('report:weekly')
   .send();
 ```
 
@@ -269,11 +270,12 @@ await client.http('https://api.example.com/reports/generate')
 ```php
 CallMeLater::http('https://api.example.com/reports/generate')
     ->post()
-    ->payload(['type' => 'weekly_summary', 'week' => '2026-W08'])
+    ->payload(['type' => 'weekly_summary'])
     ->at('next_monday')
     ->timezone('America/New_York')
-    ->idempotencyKey('report:weekly:2026-W08')
-    ->callback('https://api.example.com/callbacks/report-done')
+    ->everyWeeks(1)
+    ->repeatForever()
+    ->idempotencyKey('report:weekly')
     ->send();
 ```
 
@@ -286,42 +288,32 @@ curl -X POST https://callmelater.io/api/v1/actions \
   -H "Content-Type: application/json" \
   -d '{
     "mode": "webhook",
-    "idempotency_key": "report:weekly:2026-W08",
+    "idempotency_key": "report:weekly",
     "schedule": { "preset": "next_monday" },
     "timezone": "America/New_York",
     "request": {
       "method": "POST",
       "url": "https://api.example.com/reports/generate",
-      "body": { "type": "weekly_summary", "week": "2026-W08" }
+      "body": { "type": "weekly_summary" }
     },
-    "callback_url": "https://api.example.com/callbacks/report-done"
+    "recurrence": {
+      "frequency": 1,
+      "unit": "w",
+      "end_type": "never"
+    }
   }'
 ```
 
 </TabItem>
 </Tabs>
 
-**Re-schedule from your callback:**
+**Stop the reports:** Cancel the action when you no longer need reports.
 
 ```ts
-// When the report webhook completes, schedule the next week
-app.post('/callbacks/report-done', async (req, res) => {
-  if (req.body.event === 'action.executed') {
-    const nextWeek = getNextWeekString(); // e.g. "2026-W09"
-    await client.http('https://api.example.com/reports/generate')
-      .post()
-      .payload({ type: 'weekly_summary', week: nextWeek })
-      .at('next_monday')
-      .timezone('America/New_York')
-      .idempotencyKey(`report:weekly:${nextWeek}`)
-      .callback('https://api.example.com/callbacks/report-done')
-      .send();
-  }
-  res.sendStatus(200);
-});
+await client.cancelAction({ idempotency_key: 'report:weekly' });
 ```
 
-**Tips:** Include the week in the idempotency key to prevent duplicates. Set `timezone` so "Monday morning" stays consistent across DST changes.
+**Tips:** Set `timezone` so "Monday morning" stays consistent across DST changes. Use `maxOccurrences(52)` instead of `repeatForever()` to automatically stop after a year.
 
 ---
 

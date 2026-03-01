@@ -86,6 +86,50 @@ CallMeLater::reminder('Weekly report sign-off')
     ->send();
 ```
 
+### Recurring Actions
+
+Make any action repeat on a schedule:
+
+```php
+use CallMeLater\Laravel\Facades\CallMeLater;
+
+// Repeat every 2 hours, up to 10 times
+CallMeLater::http('https://api.example.com/reports/generate')
+    ->post()
+    ->payload(['type' => 'health_check'])
+    ->inMinutes(5)
+    ->everyHours(2)
+    ->maxOccurrences(10)
+    ->send();
+
+// Repeat every day forever
+CallMeLater::http('https://api.example.com/cleanup')
+    ->post()
+    ->inHours(1)
+    ->everyDays(1)
+    ->repeatForever()
+    ->send();
+
+// Repeat weekly until a specific date
+CallMeLater::http('https://api.example.com/reports/weekly')
+    ->post()
+    ->at('next_monday')
+    ->everyWeeks(1)
+    ->until('2026-12-31T23:59:59Z')
+    ->send();
+
+// Recurring reminders
+CallMeLater::reminder('Weekly standup check-in')
+    ->to('team@example.com')
+    ->message('Please confirm your standup attendance')
+    ->at('next_monday')
+    ->everyWeeks(1)
+    ->maxOccurrences(52)
+    ->send();
+```
+
+Recurring actions work with both HTTP actions and reminders. The minimum interval is 5 minutes.
+
 ### Chains (Multi-Step Workflows)
 
 ```php
@@ -363,6 +407,12 @@ try {
 | `metadata(array $data)` | Set metadata |
 | `meta(string $key, mixed $value)` | Add a single metadata entry |
 | `idempotencyKey(string $key)` | Set idempotency key |
+| `repeat(int $freq, string $unit)` | Enable recurrence (e.g., `repeat(2, 'hours')`) |
+| `every(int $freq, string $unit)` | Alias for `repeat()` |
+| `everyMinutes(int)`, `everyHours(int)`, `everyDays(int)`, `everyWeeks(int)`, `everyMonths(int)` | Recurrence shortcuts |
+| `maxOccurrences(int $count)` | Stop after N executions |
+| `until(DateTime\|string $date)` | Stop after a date |
+| `repeatForever()` | No end condition (default) |
 | `toArray()` | Get the API payload without sending |
 | `dd()` | Dump the payload and die |
 | `send()` | Send the action |
@@ -387,6 +437,12 @@ try {
 | `callback(string $url)` | Set callback URL |
 | `metadata(array $data)` | Add metadata |
 | `toRecipient(string $selector)` | Add a raw recipient selector URI |
+| `repeat(int $freq, string $unit)` | Enable recurrence (e.g., `repeat(1, 'weeks')`) |
+| `every(int $freq, string $unit)` | Alias for `repeat()` |
+| `everyMinutes(int)`, `everyHours(int)`, `everyDays(int)`, `everyWeeks(int)`, `everyMonths(int)` | Recurrence shortcuts |
+| `maxOccurrences(int $count)` | Stop after N executions |
+| `until(DateTime\|string $date)` | Stop after a date |
+| `repeatForever()` | No end condition (default) |
 | `toArray()` | Get the API payload without sending |
 | `dd()` | Dump the payload and die |
 | `send()` | Send the reminder |
