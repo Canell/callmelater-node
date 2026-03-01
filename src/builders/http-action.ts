@@ -8,9 +8,16 @@ const PRESETS = [
 
 const UNIT_MAP: Record<string, string> = {
   minutes: 'm',
+  minute: 'm',
+  min: 'm',
   hours: 'h',
+  hour: 'h',
   days: 'd',
+  day: 'd',
   weeks: 'w',
+  week: 'w',
+  months: 'M',
+  month: 'M',
 };
 
 export class HttpActionBuilder {
@@ -26,6 +33,7 @@ export class HttpActionBuilder {
   private _retry: Record<string, unknown> = {};
   private _callbackUrl?: string;
   private _metadata: Record<string, unknown> = {};
+  private _recurrence: Record<string, unknown> = {};
 
   constructor(client: CallMeLater, url: string) {
     this._client = client;
@@ -128,6 +136,47 @@ export class HttpActionBuilder {
     return this;
   }
 
+  /** Enable recurrence with a frequency and unit. */
+  repeat(frequency: number, unit: string): this {
+    this._recurrence.frequency = frequency;
+    this._recurrence.unit = UNIT_MAP[unit] ?? unit;
+    if (!this._recurrence.end_type) {
+      this._recurrence.end_type = 'never';
+    }
+    return this;
+  }
+
+  /** Alias for repeat(). */
+  every(frequency: number, unit: string): this {
+    return this.repeat(frequency, unit);
+  }
+
+  everyMinutes(n: number): this { return this.repeat(n, 'minutes'); }
+  everyHours(n: number): this { return this.repeat(n, 'hours'); }
+  everyDays(n: number): this { return this.repeat(n, 'days'); }
+  everyWeeks(n: number): this { return this.repeat(n, 'weeks'); }
+  everyMonths(n: number): this { return this.repeat(n, 'months'); }
+
+  /** Set a maximum number of occurrences. */
+  maxOccurrences(count: number): this {
+    this._recurrence.end_type = 'count';
+    this._recurrence.max_occurrences = count;
+    return this;
+  }
+
+  /** Repeat until a specific date. */
+  until(date: string | Date): this {
+    this._recurrence.end_type = 'date';
+    this._recurrence.end_date = date instanceof Date ? date.toISOString() : date;
+    return this;
+  }
+
+  /** Repeat forever (no end condition). */
+  repeatForever(): this {
+    this._recurrence.end_type = 'never';
+    return this;
+  }
+
   toJSON(): Record<string, unknown> {
     const request: Record<string, unknown> = {
       url: this._url,
@@ -177,6 +226,10 @@ export class HttpActionBuilder {
 
     if (Object.keys(this._metadata).length > 0) {
       payload.metadata = this._metadata;
+    }
+
+    if (Object.keys(this._recurrence).length > 0) {
+      payload.recurrence = this._recurrence;
     }
 
     return payload;
