@@ -38,13 +38,12 @@ describe('CallMeLater Client', () => {
         apiUrl: 'https://custom.example.com/',
         webhookSecret: 'whsec_test',
         timezone: 'America/New_York',
-        retry: { maxAttempts: 5, backoff: 'linear', initialDelay: 30 },
+        retry: { maxAttempts: 5, retryStrategy: 'linear' },
       });
       expect(client.getTimezone()).toBe('America/New_York');
       expect(client.getRetryConfig()).toEqual({
         max_attempts: 5,
-        backoff: 'linear',
-        initial_delay: 30,
+        retry_strategy: 'linear',
       });
     });
 
@@ -105,6 +104,88 @@ describe('CallMeLater Client', () => {
         'https://callmelater.io/api/v1/actions/123',
         expect.objectContaining({ method: 'DELETE' }),
       );
+    });
+
+    it('cancelActionByKey sends DELETE with body', async () => {
+      fetchSpy.mockResolvedValueOnce(mockResponse({ message: 'Action cancelled', id: '123' }));
+
+      await client.cancelActionByKey('my-key');
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://callmelater.io/api/v1/actions',
+        expect.objectContaining({
+          method: 'DELETE',
+          body: JSON.stringify({ idempotency_key: 'my-key' }),
+        }),
+      );
+    });
+
+    it('retryAction sends POST', async () => {
+      fetchSpy.mockResolvedValueOnce(mockResponse({ message: 'Action retry initiated' }));
+
+      await client.retryAction('123');
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://callmelater.io/api/v1/actions/123/retry',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('sendActionNow sends POST', async () => {
+      fetchSpy.mockResolvedValueOnce(mockResponse({ message: 'Action execution initiated' }));
+
+      await client.sendActionNow('123');
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://callmelater.io/api/v1/actions/123/send-now',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('sendActionAgain sends POST', async () => {
+      fetchSpy.mockResolvedValueOnce(mockResponse({ message: 'Action re-execution initiated' }));
+
+      await client.sendActionAgain('123');
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://callmelater.io/api/v1/actions/123/send-again',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('testAction sends POST', async () => {
+      fetchSpy.mockResolvedValueOnce(mockResponse({ status_code: 200 }));
+
+      await client.testAction({ url: 'https://example.com', method: 'GET' });
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://callmelater.io/api/v1/actions/test',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('getQuota sends GET', async () => {
+      fetchSpy.mockResolvedValueOnce(mockResponse({ actions: { used: 10, limit: 100 } }));
+
+      const result = await client.getQuota();
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://callmelater.io/api/v1/quota',
+        expect.objectContaining({ method: 'GET' }),
+      );
+      expect(result).toHaveProperty('actions');
+    });
+
+    it('getCoordinationKeys sends GET', async () => {
+      fetchSpy.mockResolvedValueOnce(mockResponse({ keys: ['user:123'] }));
+
+      const result = await client.getCoordinationKeys();
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://callmelater.io/api/v1/coordination-keys',
+        expect.objectContaining({ method: 'GET' }),
+      );
+      expect(result).toHaveProperty('keys');
     });
 
     it('sendAction sends POST with payload', async () => {
@@ -251,12 +332,6 @@ describe('CallMeLater Client', () => {
       });
 
       await expect(client.getAction('bad-id')).rejects.toThrow(ApiError);
-
-      try {
-        await client.getAction('bad-id');
-      } catch (e) {
-        // First call already threw
-      }
     });
 
     it('throws ApiError with validation errors on 422', async () => {

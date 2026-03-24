@@ -7,15 +7,35 @@ var PRESETS = [
   "next_wednesday",
   "next_thursday",
   "next_friday",
-  "end_of_day",
-  "end_of_week",
-  "end_of_month"
+  "next_saturday",
+  "next_sunday",
+  "1_hour",
+  "1h",
+  "2_hours",
+  "2h",
+  "4_hours",
+  "4h",
+  "1_day",
+  "1d",
+  "3_days",
+  "3d",
+  "1_week",
+  "1w",
+  "1_month",
+  "1M"
 ];
 var UNIT_MAP = {
   minutes: "m",
+  minute: "m",
+  min: "m",
   hours: "h",
+  hour: "h",
   days: "d",
-  weeks: "w"
+  day: "d",
+  weeks: "w",
+  week: "w",
+  months: "M",
+  month: "M"
 };
 var HttpActionBuilder = class {
   _client;
@@ -24,12 +44,17 @@ var HttpActionBuilder = class {
   _headers = {};
   _payload = void 0;
   _name;
+  _description;
   _idempotencyKey;
   _timezone;
   _intent = {};
   _retry = {};
   _callbackUrl;
-  _metadata = {};
+  _recurrence = {};
+  _requestTimeout;
+  _webhookSecret;
+  _coordinationKeys;
+  _coordination;
   constructor(client, url) {
     this._client = client;
     this._url = url;
@@ -74,6 +99,10 @@ var HttpActionBuilder = class {
     this._name = n;
     return this;
   }
+  description(desc) {
+    this._description = desc;
+    return this;
+  }
   idempotencyKey(key) {
     this._idempotencyKey = key;
     return this;
@@ -84,12 +113,19 @@ var HttpActionBuilder = class {
   }
   at(time) {
     if (time instanceof Date) {
-      this._intent = { type: "datetime", value: formatDate(time) };
+      this._intent = { type: "execute_at", value: time.toISOString() };
     } else if (PRESETS.includes(time)) {
       this._intent = { type: "preset", value: time };
+    } else if (/^\d{2}:\d{2}(:\d{2})?$/.test(time)) {
+      this._intent = { type: "time", value: time };
     } else {
-      this._intent = { type: "datetime", value: time };
+      this._intent = { type: "execute_at", value: time };
     }
+    return this;
+  }
+  /** Schedule at a specific time, optionally on a specific date. */
+  atTime(time, on) {
+    this._intent = { type: "time", value: time, on };
     return this;
   }
   delay(amount, unit = "minutes") {
@@ -105,8 +141,8 @@ var HttpActionBuilder = class {
   inDays(n) {
     return this.delay(n, "days");
   }
-  retry(maxAttempts, backoff = "exponential", initialDelay = 60) {
-    this._retry = { max_attempts: maxAttempts, backoff, initial_delay: initialDelay };
+  retry(maxAttempts, retryStrategy = "exponential") {
+    this._retry = { max_attempts: maxAttempts, retry_strategy: retryStrategy };
     return this;
   }
   noRetry() {
@@ -120,12 +156,65 @@ var HttpActionBuilder = class {
   onComplete(url) {
     return this.callback(url);
   }
-  metadata(obj) {
-    Object.assign(this._metadata, obj);
+  requestTimeout(seconds) {
+    this._requestTimeout = seconds;
     return this;
   }
-  meta(key, value) {
-    this._metadata[key] = value;
+  webhookSecret(secret) {
+    this._webhookSecret = secret;
+    return this;
+  }
+  coordinationKeys(keys) {
+    this._coordinationKeys = keys;
+    return this;
+  }
+  coordination(config) {
+    this._coordination = config;
+    return this;
+  }
+  /** Enable recurrence with a frequency and unit. */
+  repeat(frequency, unit) {
+    this._recurrence.frequency = frequency;
+    this._recurrence.unit = UNIT_MAP[unit] ?? unit;
+    if (!this._recurrence.end_type) {
+      this._recurrence.end_type = "never";
+    }
+    return this;
+  }
+  /** Alias for repeat(). */
+  every(frequency, unit) {
+    return this.repeat(frequency, unit);
+  }
+  everyMinutes(n) {
+    return this.repeat(n, "minutes");
+  }
+  everyHours(n) {
+    return this.repeat(n, "hours");
+  }
+  everyDays(n) {
+    return this.repeat(n, "days");
+  }
+  everyWeeks(n) {
+    return this.repeat(n, "weeks");
+  }
+  everyMonths(n) {
+    return this.repeat(n, "months");
+  }
+  /** Set a maximum number of occurrences. */
+  maxOccurrences(count) {
+    this._recurrence.end_type = "count";
+    this._recurrence.max_occurrences = count;
+    return this;
+  }
+  /** Repeat until a specific date. */
+  until(date) {
+    this._recurrence.end_type = "date";
+    this._recurrence.end_date = date instanceof Date ? date.toISOString() : date;
+    return this;
+  }
+  /** Repeat forever (no end condition). */
+  repeatForever() {
+    this._recurrence.end_type = "never";
     return this;
   }
   toJSON() {
@@ -139,6 +228,9 @@ var HttpActionBuilder = class {
     if (this._payload !== void 0) {
       request.body = this._payload;
     }
+    if (this._requestTimeout !== void 0) {
+      request.timeout = this._requestTimeout;
+    }
     const payload = {
       mode: "immediate",
       request
@@ -146,28 +238,45 @@ var HttpActionBuilder = class {
     if (this._name) {
       payload.name = this._name;
     }
+    if (this._description) {
+      payload.description = this._description;
+    }
     if (this._idempotencyKey) {
       payload.idempotency_key = this._idempotencyKey;
     }
+    if (this._timezone) {
+      payload.timezone = this._timezone;
+    }
     if (Object.keys(this._intent).length > 0) {
-      payload.intent = this.buildIntent();
-      if (this._timezone) {
-        payload.intent.timezone = this._timezone;
+      const intentType = this._intent.type;
+      if (intentType === "execute_at") {
+        payload.execute_at = this._intent.value;
+      } else {
+        payload.intent = this.buildIntent();
       }
     }
     if (Object.keys(this._retry).length > 0) {
       if (this._retry.max_attempts !== void 0) {
         payload.max_attempts = this._retry.max_attempts;
       }
-      if (this._retry.backoff !== void 0) {
-        payload.retry_strategy = this._retry.backoff;
+      if (this._retry.retry_strategy !== void 0) {
+        payload.retry_strategy = this._retry.retry_strategy;
       }
     }
     if (this._callbackUrl) {
       payload.callback_url = this._callbackUrl;
     }
-    if (Object.keys(this._metadata).length > 0) {
-      payload.metadata = this._metadata;
+    if (this._webhookSecret) {
+      payload.webhook_secret = this._webhookSecret;
+    }
+    if (this._coordinationKeys) {
+      payload.coordination_keys = this._coordinationKeys;
+    }
+    if (this._coordination) {
+      payload.coordination = this._coordination;
+    }
+    if (Object.keys(this._recurrence).length > 0) {
+      payload.recurrence = this._recurrence;
     }
     return payload;
   }
@@ -188,16 +297,16 @@ var HttpActionBuilder = class {
     if (type === "preset") {
       return { preset: this._intent.value };
     }
-    if (type === "datetime") {
-      return { at: this._intent.value };
+    if (type === "time") {
+      const intent = { at: this._intent.value };
+      if (this._intent.on) {
+        intent.on = this._intent.on;
+      }
+      return intent;
     }
     return { ...this._intent };
   }
 };
-function formatDate(date) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
 
 // src/errors.ts
 var CallMeLaterError = class extends Error {
@@ -260,19 +369,40 @@ var PRESETS2 = [
   "next_wednesday",
   "next_thursday",
   "next_friday",
-  "end_of_day",
-  "end_of_week",
-  "end_of_month"
+  "next_saturday",
+  "next_sunday",
+  "1_hour",
+  "1h",
+  "2_hours",
+  "2h",
+  "4_hours",
+  "4h",
+  "1_day",
+  "1d",
+  "3_days",
+  "3d",
+  "1_week",
+  "1w",
+  "1_month",
+  "1M"
 ];
 var UNIT_MAP2 = {
   minutes: "m",
+  minute: "m",
+  min: "m",
   hours: "h",
+  hour: "h",
   days: "d",
-  weeks: "w"
+  day: "d",
+  weeks: "w",
+  week: "w",
+  months: "M",
+  month: "M"
 };
 var ReminderBuilder = class {
   _client;
   _name;
+  _description;
   _recipients = [];
   _message;
   _idempotencyKey;
@@ -280,7 +410,10 @@ var ReminderBuilder = class {
   _intent = {};
   _gate = {};
   _callbackUrl;
-  _metadata = {};
+  _recurrence = {};
+  _coordinationKeys;
+  _coordination;
+  _notifyCreatorOnResponse;
   constructor(client, name) {
     this._client = client;
     this._name = name;
@@ -312,6 +445,10 @@ var ReminderBuilder = class {
     this._message = msg;
     return this;
   }
+  description(desc) {
+    this._description = desc;
+    return this;
+  }
   idempotencyKey(key) {
     this._idempotencyKey = key;
     return this;
@@ -322,12 +459,19 @@ var ReminderBuilder = class {
   }
   at(time) {
     if (time instanceof Date) {
-      this._intent = { type: "datetime", value: formatDate2(time) };
+      this._intent = { type: "execute_at", value: time.toISOString() };
     } else if (PRESETS2.includes(time)) {
       this._intent = { type: "preset", value: time };
+    } else if (/^\d{2}:\d{2}(:\d{2})?$/.test(time)) {
+      this._intent = { type: "time", value: time };
     } else {
-      this._intent = { type: "datetime", value: time };
+      this._intent = { type: "execute_at", value: time };
     }
+    return this;
+  }
+  /** Schedule at a specific time, optionally on a specific date. */
+  atTime(time, on) {
+    this._intent = { type: "time", value: time, on };
     return this;
   }
   delay(amount, unit = "minutes") {
@@ -343,17 +487,14 @@ var ReminderBuilder = class {
   inDays(n) {
     return this.delay(n, "days");
   }
-  confirmButton(text) {
-    this._gate.confirm_text = text;
+  /** Set notification channels (e.g., 'email', 'sms', 'teams', 'slack', 'push'). */
+  channels(channels) {
+    this._gate.channels = channels;
     return this;
   }
-  declineButton(text) {
-    this._gate.decline_text = text;
-    return this;
-  }
-  buttons(confirm, decline) {
-    this._gate.confirm_text = confirm;
-    this._gate.decline_text = decline;
+  /** Set integration IDs for Teams/Slack connections. */
+  integrationIds(ids) {
+    this._gate.integration_ids = ids;
     return this;
   }
   allowSnooze(maxSnoozes = 5) {
@@ -364,8 +505,14 @@ var ReminderBuilder = class {
     this._gate.max_snoozes = 0;
     return this;
   }
-  expiresInDays(days) {
-    this._gate.token_expiry_days = days;
+  /** Set the gate timeout (e.g., '4h', '7d', '1w'). */
+  timeout(duration) {
+    this._gate.timeout = duration;
+    return this;
+  }
+  /** Set what happens when the gate times out ('cancel', 'expire', or 'approve'). */
+  onTimeout(action) {
+    this._gate.on_timeout = action;
     return this;
   }
   requireAll() {
@@ -401,12 +548,61 @@ var ReminderBuilder = class {
   onResponse(url) {
     return this.callback(url);
   }
-  metadata(obj) {
-    Object.assign(this._metadata, obj);
+  notifyCreatorOnResponse(notify = true) {
+    this._notifyCreatorOnResponse = notify;
     return this;
   }
-  meta(key, value) {
-    this._metadata[key] = value;
+  coordinationKeys(keys) {
+    this._coordinationKeys = keys;
+    return this;
+  }
+  coordination(config) {
+    this._coordination = config;
+    return this;
+  }
+  /** Enable recurrence with a frequency and unit. */
+  repeat(frequency, unit) {
+    this._recurrence.frequency = frequency;
+    this._recurrence.unit = UNIT_MAP2[unit] ?? unit;
+    if (!this._recurrence.end_type) {
+      this._recurrence.end_type = "never";
+    }
+    return this;
+  }
+  /** Alias for repeat(). */
+  every(frequency, unit) {
+    return this.repeat(frequency, unit);
+  }
+  everyMinutes(n) {
+    return this.repeat(n, "minutes");
+  }
+  everyHours(n) {
+    return this.repeat(n, "hours");
+  }
+  everyDays(n) {
+    return this.repeat(n, "days");
+  }
+  everyWeeks(n) {
+    return this.repeat(n, "weeks");
+  }
+  everyMonths(n) {
+    return this.repeat(n, "months");
+  }
+  /** Set a maximum number of occurrences. */
+  maxOccurrences(count) {
+    this._recurrence.end_type = "count";
+    this._recurrence.max_occurrences = count;
+    return this;
+  }
+  /** Repeat until a specific date. */
+  until(date) {
+    this._recurrence.end_type = "date";
+    this._recurrence.end_date = date instanceof Date ? date.toISOString() : date;
+    return this;
+  }
+  /** Repeat forever (no end condition). */
+  repeatForever() {
+    this._recurrence.end_type = "never";
     return this;
   }
   toJSON() {
@@ -425,20 +621,37 @@ var ReminderBuilder = class {
       name: this._name,
       gate
     };
+    if (this._description) {
+      payload.description = this._description;
+    }
     if (this._idempotencyKey) {
       payload.idempotency_key = this._idempotencyKey;
     }
+    if (this._timezone) {
+      payload.timezone = this._timezone;
+    }
     if (Object.keys(this._intent).length > 0) {
-      payload.intent = this.buildIntent();
-      if (this._timezone) {
-        payload.intent.timezone = this._timezone;
+      const intentType = this._intent.type;
+      if (intentType === "execute_at") {
+        payload.execute_at = this._intent.value;
+      } else {
+        payload.intent = this.buildIntent();
       }
     }
     if (this._callbackUrl) {
       payload.callback_url = this._callbackUrl;
     }
-    if (Object.keys(this._metadata).length > 0) {
-      payload.metadata = this._metadata;
+    if (this._notifyCreatorOnResponse !== void 0) {
+      payload.notify_creator_on_response = this._notifyCreatorOnResponse;
+    }
+    if (this._coordinationKeys) {
+      payload.coordination_keys = this._coordinationKeys;
+    }
+    if (this._coordination) {
+      payload.coordination = this._coordination;
+    }
+    if (Object.keys(this._recurrence).length > 0) {
+      payload.recurrence = this._recurrence;
     }
     return payload;
   }
@@ -459,16 +672,16 @@ var ReminderBuilder = class {
     if (type === "preset") {
       return { preset: this._intent.value };
     }
-    if (type === "datetime") {
-      return { at: this._intent.value };
+    if (type === "time") {
+      const intent = { at: this._intent.value };
+      if (this._intent.on) {
+        intent.on = this._intent.on;
+      }
+      return intent;
     }
     return { ...this._intent };
   }
 };
-function formatDate2(date) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
 
 // src/builders/steps/http-step.ts
 var HttpStepBuilder = class {
@@ -976,11 +1189,8 @@ var CallMeLater = class {
       if (config.retry.maxAttempts !== void 0) {
         this._retryConfig.max_attempts = config.retry.maxAttempts;
       }
-      if (config.retry.backoff !== void 0) {
-        this._retryConfig.backoff = config.retry.backoff;
-      }
-      if (config.retry.initialDelay !== void 0) {
-        this._retryConfig.initial_delay = config.retry.initialDelay;
+      if (config.retry.retryStrategy !== void 0) {
+        this._retryConfig.retry_strategy = config.retry.retryStrategy;
       }
     }
   }
@@ -1018,6 +1228,34 @@ var CallMeLater = class {
   async cancelAction(id) {
     const response = await this.request("DELETE", `/api/v1/actions/${id}`);
     return this.extractJson(response) ?? {};
+  }
+  async cancelActionByKey(idempotencyKey) {
+    const response = await this.request("DELETE", "/api/v1/actions", { idempotency_key: idempotencyKey });
+    return this.extractJson(response) ?? {};
+  }
+  async retryAction(id) {
+    const response = await this.request("POST", `/api/v1/actions/${id}/retry`);
+    return this.extractJson(response);
+  }
+  async sendActionNow(id) {
+    const response = await this.request("POST", `/api/v1/actions/${id}/send-now`);
+    return this.extractJson(response);
+  }
+  async sendActionAgain(id) {
+    const response = await this.request("POST", `/api/v1/actions/${id}/send-again`);
+    return this.extractJson(response);
+  }
+  async testAction(config) {
+    const response = await this.request("POST", "/api/v1/actions/test", config);
+    return this.extractJson(response);
+  }
+  async getQuota() {
+    const response = await this.request("GET", "/api/v1/quota");
+    return this.extractJson(response);
+  }
+  async getCoordinationKeys() {
+    const response = await this.request("GET", "/api/v1/coordination-keys");
+    return this.extractJson(response);
   }
   // ── Chains CRUD ────────────────────────────────────────
   async getChain(id) {

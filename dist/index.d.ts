@@ -7,12 +7,17 @@ declare class HttpActionBuilder {
     private _headers;
     private _payload;
     private _name?;
+    private _description?;
     private _idempotencyKey?;
     private _timezone?;
     private _intent;
     private _retry;
     private _callbackUrl?;
-    private _metadata;
+    private _recurrence;
+    private _requestTimeout?;
+    private _webhookSecret?;
+    private _coordinationKeys?;
+    private _coordination?;
     constructor(client: CallMeLater, url: string);
     method(m: string): this;
     get(): this;
@@ -25,19 +30,39 @@ declare class HttpActionBuilder {
     payload(data: unknown): this;
     body(data: unknown): this;
     name(n: string): this;
+    description(desc: string): this;
     idempotencyKey(key: string): this;
     timezone(tz: string): this;
     at(time: string | Date): this;
+    /** Schedule at a specific time, optionally on a specific date. */
+    atTime(time: string, on?: string): this;
     delay(amount: number, unit?: string): this;
     inMinutes(n: number): this;
     inHours(n: number): this;
     inDays(n: number): this;
-    retry(maxAttempts: number, backoff?: string, initialDelay?: number): this;
+    retry(maxAttempts: number, retryStrategy?: string): this;
     noRetry(): this;
     callback(url: string): this;
     onComplete(url: string): this;
-    metadata(obj: Record<string, unknown>): this;
-    meta(key: string, value: unknown): this;
+    requestTimeout(seconds: number): this;
+    webhookSecret(secret: string): this;
+    coordinationKeys(keys: string[]): this;
+    coordination(config: Record<string, unknown>): this;
+    /** Enable recurrence with a frequency and unit. */
+    repeat(frequency: number, unit: string): this;
+    /** Alias for repeat(). */
+    every(frequency: number, unit: string): this;
+    everyMinutes(n: number): this;
+    everyHours(n: number): this;
+    everyDays(n: number): this;
+    everyWeeks(n: number): this;
+    everyMonths(n: number): this;
+    /** Set a maximum number of occurrences. */
+    maxOccurrences(count: number): this;
+    /** Repeat until a specific date. */
+    until(date: string | Date): this;
+    /** Repeat forever (no end condition). */
+    repeatForever(): this;
     toJSON(): Record<string, unknown>;
     send(): Promise<Record<string, unknown>>;
     dispatch(): Promise<Record<string, unknown>>;
@@ -47,6 +72,7 @@ declare class HttpActionBuilder {
 declare class ReminderBuilder {
     private _client;
     private _name;
+    private _description?;
     private _recipients;
     private _message?;
     private _idempotencyKey?;
@@ -54,7 +80,10 @@ declare class ReminderBuilder {
     private _intent;
     private _gate;
     private _callbackUrl?;
-    private _metadata;
+    private _recurrence;
+    private _coordinationKeys?;
+    private _coordination?;
+    private _notifyCreatorOnResponse?;
     constructor(client: CallMeLater, name: string);
     to(email: string): this;
     toMany(emails: string[]): this;
@@ -62,27 +91,50 @@ declare class ReminderBuilder {
     toRecipient(recipientUri: string): this;
     toChannel(channelUuid: string): this;
     message(msg: string): this;
+    description(desc: string): this;
     idempotencyKey(key: string): this;
     timezone(tz: string): this;
     at(time: string | Date): this;
+    /** Schedule at a specific time, optionally on a specific date. */
+    atTime(time: string, on?: string): this;
     delay(amount: number, unit?: string): this;
     inMinutes(n: number): this;
     inHours(n: number): this;
     inDays(n: number): this;
-    confirmButton(text: string): this;
-    declineButton(text: string): this;
-    buttons(confirm: string, decline: string): this;
+    /** Set notification channels (e.g., 'email', 'sms', 'teams', 'slack', 'push'). */
+    channels(channels: string[]): this;
+    /** Set integration IDs for Teams/Slack connections. */
+    integrationIds(ids: string[]): this;
     allowSnooze(maxSnoozes?: number): this;
     noSnooze(): this;
-    expiresInDays(days: number): this;
+    /** Set the gate timeout (e.g., '4h', '7d', '1w'). */
+    timeout(duration: string): this;
+    /** Set what happens when the gate times out ('cancel', 'expire', or 'approve'). */
+    onTimeout(action: string): this;
     requireAll(): this;
     firstResponse(): this;
     escalateTo(contacts: string[], afterHours?: number): this;
     attach(url: string, name?: string): this;
     callback(url: string): this;
     onResponse(url: string): this;
-    metadata(obj: Record<string, unknown>): this;
-    meta(key: string, value: unknown): this;
+    notifyCreatorOnResponse(notify?: boolean): this;
+    coordinationKeys(keys: string[]): this;
+    coordination(config: Record<string, unknown>): this;
+    /** Enable recurrence with a frequency and unit. */
+    repeat(frequency: number, unit: string): this;
+    /** Alias for repeat(). */
+    every(frequency: number, unit: string): this;
+    everyMinutes(n: number): this;
+    everyHours(n: number): this;
+    everyDays(n: number): this;
+    everyWeeks(n: number): this;
+    everyMonths(n: number): this;
+    /** Set a maximum number of occurrences. */
+    maxOccurrences(count: number): this;
+    /** Repeat until a specific date. */
+    until(date: string | Date): this;
+    /** Repeat forever (no end condition). */
+    repeatForever(): this;
     toJSON(): Record<string, unknown>;
     send(): Promise<Record<string, unknown>>;
     dispatch(): Promise<Record<string, unknown>>;
@@ -245,8 +297,7 @@ interface CallMeLaterConfig {
     timezone?: string;
     retry?: {
         maxAttempts?: number;
-        backoff?: string;
-        initialDelay?: number;
+        retryStrategy?: string;
     };
 }
 declare class CallMeLater {
@@ -265,6 +316,13 @@ declare class CallMeLater {
     getAction(id: string): Promise<Record<string, unknown>>;
     listActions(filters?: Record<string, string>): Promise<Record<string, unknown>>;
     cancelAction(id: string): Promise<Record<string, unknown>>;
+    cancelActionByKey(idempotencyKey: string): Promise<Record<string, unknown>>;
+    retryAction(id: string): Promise<Record<string, unknown>>;
+    sendActionNow(id: string): Promise<Record<string, unknown>>;
+    sendActionAgain(id: string): Promise<Record<string, unknown>>;
+    testAction(config: Record<string, unknown>): Promise<Record<string, unknown>>;
+    getQuota(): Promise<Record<string, unknown>>;
+    getCoordinationKeys(): Promise<Record<string, unknown>>;
     getChain(id: string): Promise<Record<string, unknown>>;
     listChains(filters?: Record<string, string>): Promise<Record<string, unknown>>;
     cancelChain(id: string): Promise<Record<string, unknown>>;

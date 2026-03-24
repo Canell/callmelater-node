@@ -2,9 +2,11 @@ import type { CallMeLater } from '../client.js';
 import { CallMeLaterError } from '../errors.js';
 
 const PRESETS = [
-  'tomorrow', 'next_week', 'next_monday', 'next_tuesday',
-  'next_wednesday', 'next_thursday', 'next_friday', 'end_of_day',
-  'end_of_week', 'end_of_month',
+  'tomorrow', 'next_week',
+  'next_monday', 'next_tuesday', 'next_wednesday', 'next_thursday',
+  'next_friday', 'next_saturday', 'next_sunday',
+  '1_hour', '1h', '2_hours', '2h', '4_hours', '4h',
+  '1_day', '1d', '3_days', '3d', '1_week', '1w', '1_month', '1M',
 ] as const;
 
 const UNIT_MAP: Record<string, string> = {
@@ -24,6 +26,7 @@ const UNIT_MAP: Record<string, string> = {
 export class ReminderBuilder {
   private _client: CallMeLater;
   private _name: string;
+  private _description?: string;
   private _recipients: string[] = [];
   private _message?: string;
   private _idempotencyKey?: string;
@@ -31,8 +34,10 @@ export class ReminderBuilder {
   private _intent: Record<string, unknown> = {};
   private _gate: Record<string, unknown> = {};
   private _callbackUrl?: string;
-  private _metadata: Record<string, unknown> = {};
   private _recurrence: Record<string, unknown> = {};
+  private _coordinationKeys?: string[];
+  private _coordination?: Record<string, unknown>;
+  private _notifyCreatorOnResponse?: boolean;
 
   constructor(client: CallMeLater, name: string) {
     this._client = client;
@@ -72,6 +77,11 @@ export class ReminderBuilder {
     return this;
   }
 
+  description(desc: string): this {
+    this._description = desc;
+    return this;
+  }
+
   idempotencyKey(key: string): this {
     this._idempotencyKey = key;
     return this;
@@ -84,12 +94,21 @@ export class ReminderBuilder {
 
   at(time: string | Date): this {
     if (time instanceof Date) {
-      this._intent = { type: 'datetime', value: formatDate(time) };
+      this._intent = { type: 'execute_at', value: time.toISOString() };
     } else if ((PRESETS as readonly string[]).includes(time)) {
       this._intent = { type: 'preset', value: time };
+    } else if (/^\d{2}:\d{2}(:\d{2})?$/.test(time)) {
+      this._intent = { type: 'time', value: time };
     } else {
-      this._intent = { type: 'datetime', value: time };
+      // Full datetime string → use execute_at
+      this._intent = { type: 'execute_at', value: time };
     }
+    return this;
+  }
+
+  /** Schedule at a specific time, optionally on a specific date. */
+  atTime(time: string, on?: string): this {
+    this._intent = { type: 'time', value: time, on };
     return this;
   }
 
@@ -102,19 +121,15 @@ export class ReminderBuilder {
   inHours(n: number): this { return this.delay(n, 'hours'); }
   inDays(n: number): this { return this.delay(n, 'days'); }
 
-  confirmButton(text: string): this {
-    this._gate.confirm_text = text;
+  /** Set notification channels (e.g., 'email', 'sms', 'teams', 'slack', 'push'). */
+  channels(channels: string[]): this {
+    this._gate.channels = channels;
     return this;
   }
 
-  declineButton(text: string): this {
-    this._gate.decline_text = text;
-    return this;
-  }
-
-  buttons(confirm: string, decline: string): this {
-    this._gate.confirm_text = confirm;
-    this._gate.decline_text = decline;
+  /** Set integration IDs for Teams/Slack connections. */
+  integrationIds(ids: string[]): this {
+    this._gate.integration_ids = ids;
     return this;
   }
 
@@ -128,8 +143,15 @@ export class ReminderBuilder {
     return this;
   }
 
-  expiresInDays(days: number): this {
-    this._gate.token_expiry_days = days;
+  /** Set the gate timeout (e.g., '4h', '7d', '1w'). */
+  timeout(duration: string): this {
+    this._gate.timeout = duration;
+    return this;
+  }
+
+  /** Set what happens when the gate times out ('cancel', 'expire', or 'approve'). */
+  onTimeout(action: string): this {
+    this._gate.on_timeout = action;
     return this;
   }
 
@@ -172,13 +194,18 @@ export class ReminderBuilder {
     return this.callback(url);
   }
 
-  metadata(obj: Record<string, unknown>): this {
-    Object.assign(this._metadata, obj);
+  notifyCreatorOnResponse(notify: boolean = true): this {
+    this._notifyCreatorOnResponse = notify;
     return this;
   }
 
-  meta(key: string, value: unknown): this {
-    this._metadata[key] = value;
+  coordinationKeys(keys: string[]): this {
+    this._coordinationKeys = keys;
+    return this;
+  }
+
+  coordination(config: Record<string, unknown>): this {
+    this._coordination = config;
     return this;
   }
 
@@ -245,14 +272,25 @@ export class ReminderBuilder {
       gate,
     };
 
+    if (this._description) {
+      payload.description = this._description;
+    }
+
     if (this._idempotencyKey) {
       payload.idempotency_key = this._idempotencyKey;
     }
 
+    if (this._timezone) {
+      payload.timezone = this._timezone;
+    }
+
     if (Object.keys(this._intent).length > 0) {
-      payload.intent = this.buildIntent();
-      if (this._timezone) {
-        (payload.intent as Record<string, unknown>).timezone = this._timezone;
+      const intentType = this._intent.type as string | undefined;
+
+      if (intentType === 'execute_at') {
+        payload.execute_at = this._intent.value;
+      } else {
+        payload.intent = this.buildIntent();
       }
     }
 
@@ -260,8 +298,16 @@ export class ReminderBuilder {
       payload.callback_url = this._callbackUrl;
     }
 
-    if (Object.keys(this._metadata).length > 0) {
-      payload.metadata = this._metadata;
+    if (this._notifyCreatorOnResponse !== undefined) {
+      payload.notify_creator_on_response = this._notifyCreatorOnResponse;
+    }
+
+    if (this._coordinationKeys) {
+      payload.coordination_keys = this._coordinationKeys;
+    }
+
+    if (this._coordination) {
+      payload.coordination = this._coordination;
     }
 
     if (Object.keys(this._recurrence).length > 0) {
@@ -293,15 +339,14 @@ export class ReminderBuilder {
       return { preset: this._intent.value as string };
     }
 
-    if (type === 'datetime') {
-      return { at: this._intent.value as string };
+    if (type === 'time') {
+      const intent: Record<string, unknown> = { at: this._intent.value as string };
+      if (this._intent.on) {
+        intent.on = this._intent.on as string;
+      }
+      return intent;
     }
 
     return { ...this._intent };
   }
-}
-
-function formatDate(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }

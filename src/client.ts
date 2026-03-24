@@ -12,8 +12,7 @@ export interface CallMeLaterConfig {
   timezone?: string;
   retry?: {
     maxAttempts?: number;
-    backoff?: string;
-    initialDelay?: number;
+    retryStrategy?: string;
   };
 }
 
@@ -39,11 +38,8 @@ export class CallMeLater {
       if (config.retry.maxAttempts !== undefined) {
         this._retryConfig.max_attempts = config.retry.maxAttempts;
       }
-      if (config.retry.backoff !== undefined) {
-        this._retryConfig.backoff = config.retry.backoff;
-      }
-      if (config.retry.initialDelay !== undefined) {
-        this._retryConfig.initial_delay = config.retry.initialDelay;
+      if (config.retry.retryStrategy !== undefined) {
+        this._retryConfig.retry_strategy = config.retry.retryStrategy;
       }
     }
   }
@@ -92,6 +88,41 @@ export class CallMeLater {
   async cancelAction(id: string): Promise<Record<string, unknown>> {
     const response = await this.request('DELETE', `/api/v1/actions/${id}`);
     return this.extractJson(response) ?? {};
+  }
+
+  async cancelActionByKey(idempotencyKey: string): Promise<Record<string, unknown>> {
+    const response = await this.request('DELETE', '/api/v1/actions', { idempotency_key: idempotencyKey });
+    return this.extractJson(response) ?? {};
+  }
+
+  async retryAction(id: string): Promise<Record<string, unknown>> {
+    const response = await this.request('POST', `/api/v1/actions/${id}/retry`);
+    return this.extractJson(response);
+  }
+
+  async sendActionNow(id: string): Promise<Record<string, unknown>> {
+    const response = await this.request('POST', `/api/v1/actions/${id}/send-now`);
+    return this.extractJson(response);
+  }
+
+  async sendActionAgain(id: string): Promise<Record<string, unknown>> {
+    const response = await this.request('POST', `/api/v1/actions/${id}/send-again`);
+    return this.extractJson(response);
+  }
+
+  async testAction(config: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const response = await this.request('POST', '/api/v1/actions/test', config);
+    return this.extractJson(response);
+  }
+
+  async getQuota(): Promise<Record<string, unknown>> {
+    const response = await this.request('GET', '/api/v1/quota');
+    return this.extractJson(response);
+  }
+
+  async getCoordinationKeys(): Promise<Record<string, unknown>> {
+    const response = await this.request('GET', '/api/v1/coordination-keys');
+    return this.extractJson(response);
   }
 
   // ── Chains CRUD ────────────────────────────────────────

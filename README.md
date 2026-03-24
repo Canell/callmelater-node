@@ -30,7 +30,8 @@ await client.http('https://api.example.com/process')
 await client.reminder('Approve deployment')
   .to('manager@example.com')
   .message('Please approve the production deployment')
-  .buttons('Approve', 'Reject')
+  .allowSnooze(3)
+  .timeout('7d')
   .at('tomorrow')
   .send();
 ```
@@ -43,10 +44,9 @@ const client = new CallMeLater({
   apiUrl: 'https://callmelater.io',     // Optional (default)
   webhookSecret: 'whsec_...',           // Optional, for webhook verification
   timezone: 'America/New_York',         // Optional, default timezone for scheduling
-  retry: {                              // Optional, default retry config
+  retry: {                              // Optional, default retry config for HTTP actions
     maxAttempts: 3,
-    backoff: 'exponential',             // 'exponential' | 'linear' | 'fixed'
-    initialDelay: 60,                   // seconds
+    retryStrategy: 'exponential',       // 'exponential' | 'linear' | 'fixed'
   },
 });
 ```
@@ -59,12 +59,12 @@ Schedule deferred HTTP requests with retry policies:
 const action = await client.http('https://api.example.com/webhook')
   .post()                                    // or .get(), .put(), .patch(), .delete()
   .name('Process Order #123')
+  .description('Process and ship the order')
   .headers({ 'X-Api-Key': 'secret' })
   .payload({ order_id: 123 })
   .inMinutes(30)                             // or .inHours(2), .inDays(1)
-  .retry(5, 'exponential', 120)
+  .retry(5, 'exponential')
   .callback('https://myapp.com/webhook')
-  .metadata({ source: 'order-service' })
   .send();
 
 console.log(action.id); // 'act_...'
@@ -82,27 +82,50 @@ console.log(action.id); // 'act_...'
 // Presets
 .at('tomorrow')
 .at('next_monday')
-.at('end_of_day')
+.at('1h')               // also: '2h', '4h', '1d', '3d', '1w', '1M'
 
-// Specific datetime
+// Specific datetime (sent as execute_at)
 .at('2025-06-15 14:30:00')
 .at(new Date(2025, 5, 15, 14, 30))
+
+// Time only (sent as intent.at)
+.at('14:30')
+.atTime('14:30', '2025-06-15')   // time + optional date
 
 // Timezone
 .timezone('America/New_York')
 ```
 
+### HTTP Action Options
+
+```ts
+.name('Action name')
+.description('Detailed description')
+.idempotencyKey('unique-key')
+.headers({ 'X-Api-Key': 'secret' })
+.header('X-Single', 'value')
+.payload({ ... })                  // or .body({ ... })
+.retry(3, 'exponential')          // maxAttempts, strategy
+.noRetry()                         // single attempt
+.callback('https://...')           // or .onComplete('https://...')
+.requestTimeout(30)                // seconds
+.webhookSecret('secret')
+.coordinationKeys(['user:123'])
+.coordination({ on_create: 'replace_existing' })
+```
+
 ## Reminders
 
-Send interactive reminders with Yes/No/Snooze responses:
+Send interactive reminders with approve/snooze responses:
 
 ```ts
 const reminder = await client.reminder('Approve deployment')
   .to('manager@example.com')
   .message('Please approve the production deployment')
-  .buttons('Approve', 'Reject')
   .allowSnooze(3)
-  .expiresInDays(7)
+  .timeout('7d')
+  .onTimeout('cancel')
+  .channels(['email', 'push'])
   .inHours(1)
   .callback('https://myapp.com/webhook')
   .send();
@@ -116,6 +139,23 @@ const reminder = await client.reminder('Approve deployment')
 .toPhone('+1234567890')                 // SMS
 .toChannel('channel-uuid')             // Channel
 .toRecipient('custom:uri')             // Raw URI
+```
+
+### Gate Options
+
+```ts
+.message('Please approve this')
+.allowSnooze(3)                    // Max snoozes (default: 5)
+.noSnooze()                        // Disable snoozing
+.timeout('7d')                     // Gate timeout (e.g. '4h', '7d', '1w')
+.onTimeout('cancel')               // 'cancel' | 'expire' | 'approve'
+.channels(['email', 'sms', 'push', 'teams', 'slack'])
+.integrationIds(['uuid-1'])        // Teams/Slack integration IDs
+.requireAll()                      // All recipients must respond
+.firstResponse()                   // Complete on first response
+.escalateTo(['boss@co.com'], 24)   // Escalation after N hours
+.attach('https://example.com/report.pdf', 'Report')
+.notifyCreatorOnResponse()         // Notify creator when recipients respond
 ```
 
 ### Recurring Actions
@@ -145,7 +185,7 @@ await client.http('https://api.example.com/reports/weekly')
   .post()
   .at('next_monday')
   .everyWeeks(1)
-  .until('2026-12-31T23:59:59Z')
+  .until('2026-12-31')
   .send();
 ```
 
@@ -165,21 +205,6 @@ await client.http('https://api.example.com/reports/weekly')
 ```
 
 Recurring actions work with both HTTP actions and reminders. The minimum interval is 5 minutes.
-
-### Gate Options
-
-```ts
-.buttons('Approve', 'Reject')      // Set both button texts
-.confirmButton('Yes')              // Confirm text only
-.declineButton('No')               // Decline text only
-.allowSnooze(3)                    // Max snoozes (default: 5)
-.noSnooze()                        // Disable snoozing
-.expiresInDays(14)                 // Token expiry
-.requireAll()                      // All recipients must respond
-.firstResponse()                   // Complete on first response
-.escalateTo(['boss@co.com'], 24)   // Escalation after N hours
-.attach('https://example.com/report.pdf', 'Report')
-```
 
 ## Chains
 
@@ -299,6 +324,15 @@ await client.templateLimits();              // Account limits
 await client.getAction(id);
 await client.listActions({ status: 'resolved' });
 await client.cancelAction(id);
+await client.cancelActionByKey('idempotency-key');
+await client.retryAction(id);
+await client.sendActionNow(id);
+await client.sendActionAgain(id);
+await client.testAction({ url: 'https://example.com', method: 'GET' });
+
+// Quota
+await client.getQuota();
+await client.getCoordinationKeys();
 
 // Chains
 await client.getChain(id);

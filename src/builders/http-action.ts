@@ -1,9 +1,11 @@
 import type { CallMeLater } from '../client.js';
 
 const PRESETS = [
-  'tomorrow', 'next_week', 'next_monday', 'next_tuesday',
-  'next_wednesday', 'next_thursday', 'next_friday', 'end_of_day',
-  'end_of_week', 'end_of_month',
+  'tomorrow', 'next_week',
+  'next_monday', 'next_tuesday', 'next_wednesday', 'next_thursday',
+  'next_friday', 'next_saturday', 'next_sunday',
+  '1_hour', '1h', '2_hours', '2h', '4_hours', '4h',
+  '1_day', '1d', '3_days', '3d', '1_week', '1w', '1_month', '1M',
 ] as const;
 
 const UNIT_MAP: Record<string, string> = {
@@ -27,13 +29,17 @@ export class HttpActionBuilder {
   private _headers: Record<string, string> = {};
   private _payload: unknown = undefined;
   private _name?: string;
+  private _description?: string;
   private _idempotencyKey?: string;
   private _timezone?: string;
   private _intent: Record<string, unknown> = {};
   private _retry: Record<string, unknown> = {};
   private _callbackUrl?: string;
-  private _metadata: Record<string, unknown> = {};
   private _recurrence: Record<string, unknown> = {};
+  private _requestTimeout?: number;
+  private _webhookSecret?: string;
+  private _coordinationKeys?: string[];
+  private _coordination?: Record<string, unknown>;
 
   constructor(client: CallMeLater, url: string) {
     this._client = client;
@@ -77,6 +83,11 @@ export class HttpActionBuilder {
     return this;
   }
 
+  description(desc: string): this {
+    this._description = desc;
+    return this;
+  }
+
   idempotencyKey(key: string): this {
     this._idempotencyKey = key;
     return this;
@@ -89,12 +100,21 @@ export class HttpActionBuilder {
 
   at(time: string | Date): this {
     if (time instanceof Date) {
-      this._intent = { type: 'datetime', value: formatDate(time) };
+      this._intent = { type: 'execute_at', value: time.toISOString() };
     } else if ((PRESETS as readonly string[]).includes(time)) {
       this._intent = { type: 'preset', value: time };
+    } else if (/^\d{2}:\d{2}(:\d{2})?$/.test(time)) {
+      this._intent = { type: 'time', value: time };
     } else {
-      this._intent = { type: 'datetime', value: time };
+      // Full datetime string → use execute_at
+      this._intent = { type: 'execute_at', value: time };
     }
+    return this;
+  }
+
+  /** Schedule at a specific time, optionally on a specific date. */
+  atTime(time: string, on?: string): this {
+    this._intent = { type: 'time', value: time, on };
     return this;
   }
 
@@ -107,8 +127,8 @@ export class HttpActionBuilder {
   inHours(n: number): this { return this.delay(n, 'hours'); }
   inDays(n: number): this { return this.delay(n, 'days'); }
 
-  retry(maxAttempts: number, backoff: string = 'exponential', initialDelay: number = 60): this {
-    this._retry = { max_attempts: maxAttempts, backoff, initial_delay: initialDelay };
+  retry(maxAttempts: number, retryStrategy: string = 'exponential'): this {
+    this._retry = { max_attempts: maxAttempts, retry_strategy: retryStrategy };
     return this;
   }
 
@@ -126,13 +146,23 @@ export class HttpActionBuilder {
     return this.callback(url);
   }
 
-  metadata(obj: Record<string, unknown>): this {
-    Object.assign(this._metadata, obj);
+  requestTimeout(seconds: number): this {
+    this._requestTimeout = seconds;
     return this;
   }
 
-  meta(key: string, value: unknown): this {
-    this._metadata[key] = value;
+  webhookSecret(secret: string): this {
+    this._webhookSecret = secret;
+    return this;
+  }
+
+  coordinationKeys(keys: string[]): this {
+    this._coordinationKeys = keys;
+    return this;
+  }
+
+  coordination(config: Record<string, unknown>): this {
+    this._coordination = config;
     return this;
   }
 
@@ -191,6 +221,10 @@ export class HttpActionBuilder {
       request.body = this._payload;
     }
 
+    if (this._requestTimeout !== undefined) {
+      request.timeout = this._requestTimeout;
+    }
+
     const payload: Record<string, unknown> = {
       mode: 'immediate',
       request,
@@ -200,14 +234,25 @@ export class HttpActionBuilder {
       payload.name = this._name;
     }
 
+    if (this._description) {
+      payload.description = this._description;
+    }
+
     if (this._idempotencyKey) {
       payload.idempotency_key = this._idempotencyKey;
     }
 
+    if (this._timezone) {
+      payload.timezone = this._timezone;
+    }
+
     if (Object.keys(this._intent).length > 0) {
-      payload.intent = this.buildIntent();
-      if (this._timezone) {
-        (payload.intent as Record<string, unknown>).timezone = this._timezone;
+      const intentType = this._intent.type as string | undefined;
+
+      if (intentType === 'execute_at') {
+        payload.execute_at = this._intent.value;
+      } else {
+        payload.intent = this.buildIntent();
       }
     }
 
@@ -215,8 +260,8 @@ export class HttpActionBuilder {
       if (this._retry.max_attempts !== undefined) {
         payload.max_attempts = this._retry.max_attempts;
       }
-      if (this._retry.backoff !== undefined) {
-        payload.retry_strategy = this._retry.backoff;
+      if (this._retry.retry_strategy !== undefined) {
+        payload.retry_strategy = this._retry.retry_strategy;
       }
     }
 
@@ -224,8 +269,16 @@ export class HttpActionBuilder {
       payload.callback_url = this._callbackUrl;
     }
 
-    if (Object.keys(this._metadata).length > 0) {
-      payload.metadata = this._metadata;
+    if (this._webhookSecret) {
+      payload.webhook_secret = this._webhookSecret;
+    }
+
+    if (this._coordinationKeys) {
+      payload.coordination_keys = this._coordinationKeys;
+    }
+
+    if (this._coordination) {
+      payload.coordination = this._coordination;
     }
 
     if (Object.keys(this._recurrence).length > 0) {
@@ -257,15 +310,14 @@ export class HttpActionBuilder {
       return { preset: this._intent.value as string };
     }
 
-    if (type === 'datetime') {
-      return { at: this._intent.value as string };
+    if (type === 'time') {
+      const intent: Record<string, unknown> = { at: this._intent.value as string };
+      if (this._intent.on) {
+        intent.on = this._intent.on as string;
+      }
+      return intent;
     }
 
     return { ...this._intent };
   }
-}
-
-function formatDate(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }

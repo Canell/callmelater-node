@@ -75,35 +75,6 @@ describe('ReminderBuilder', () => {
       expect((payload.gate as Record<string, unknown>).message).toBe('Please approve');
     });
 
-    it('buttons() sets both confirm and decline text', () => {
-      const payload = client.reminder('Test')
-        .to('user@example.com')
-        .buttons('Approve', 'Reject')
-        .toJSON();
-
-      const gate = payload.gate as Record<string, unknown>;
-      expect(gate.confirm_text).toBe('Approve');
-      expect(gate.decline_text).toBe('Reject');
-    });
-
-    it('confirmButton() sets confirm text only', () => {
-      const payload = client.reminder('Test')
-        .to('user@example.com')
-        .confirmButton('Yes')
-        .toJSON();
-
-      expect((payload.gate as Record<string, unknown>).confirm_text).toBe('Yes');
-    });
-
-    it('declineButton() sets decline text only', () => {
-      const payload = client.reminder('Test')
-        .to('user@example.com')
-        .declineButton('No')
-        .toJSON();
-
-      expect((payload.gate as Record<string, unknown>).decline_text).toBe('No');
-    });
-
     it('allowSnooze() sets max_snoozes', () => {
       const payload = client.reminder('Test')
         .to('user@example.com')
@@ -131,13 +102,40 @@ describe('ReminderBuilder', () => {
       expect((payload.gate as Record<string, unknown>).max_snoozes).toBe(0);
     });
 
-    it('expiresInDays() sets token_expiry_days', () => {
+    it('timeout() sets gate timeout duration', () => {
       const payload = client.reminder('Test')
         .to('user@example.com')
-        .expiresInDays(14)
+        .timeout('7d')
         .toJSON();
 
-      expect((payload.gate as Record<string, unknown>).token_expiry_days).toBe(14);
+      expect((payload.gate as Record<string, unknown>).timeout).toBe('7d');
+    });
+
+    it('onTimeout() sets gate on_timeout action', () => {
+      const payload = client.reminder('Test')
+        .to('user@example.com')
+        .onTimeout('approve')
+        .toJSON();
+
+      expect((payload.gate as Record<string, unknown>).on_timeout).toBe('approve');
+    });
+
+    it('channels() sets notification channels', () => {
+      const payload = client.reminder('Test')
+        .to('user@example.com')
+        .channels(['email', 'sms', 'push'])
+        .toJSON();
+
+      expect((payload.gate as Record<string, unknown>).channels).toEqual(['email', 'sms', 'push']);
+    });
+
+    it('integrationIds() sets integration IDs', () => {
+      const payload = client.reminder('Test')
+        .to('user@example.com')
+        .integrationIds(['uuid-1', 'uuid-2'])
+        .toJSON();
+
+      expect((payload.gate as Record<string, unknown>).integration_ids).toEqual(['uuid-1', 'uuid-2']);
     });
 
     it('requireAll() sets confirmation_mode', () => {
@@ -193,16 +191,36 @@ describe('ReminderBuilder', () => {
         .at('tomorrow')
         .toJSON();
 
-      expect(payload.intent).toEqual({ preset: 'tomorrow', timezone: 'UTC' });
+      expect(payload.intent).toEqual({ preset: 'tomorrow' });
     });
 
-    it('at() with datetime string', () => {
+    it('at() with full datetime string uses execute_at', () => {
       const payload = client.reminder('Test')
         .to('user@example.com')
         .at('2025-06-15 09:00:00')
         .toJSON();
 
-      expect(payload.intent).toEqual({ at: '2025-06-15 09:00:00', timezone: 'UTC' });
+      expect(payload.execute_at).toBe('2025-06-15 09:00:00');
+      expect(payload.intent).toBeUndefined();
+    });
+
+    it('at() with Date object uses execute_at', () => {
+      const date = new Date(2025, 5, 15, 9, 0, 0);
+      const payload = client.reminder('Test')
+        .to('user@example.com')
+        .at(date)
+        .toJSON();
+
+      expect(payload.execute_at).toBe(date.toISOString());
+    });
+
+    it('at() with time-only string uses intent.at', () => {
+      const payload = client.reminder('Test')
+        .to('user@example.com')
+        .at('09:00')
+        .toJSON();
+
+      expect(payload.intent).toEqual({ at: '09:00' });
     });
 
     it('delay() creates relative intent', () => {
@@ -211,7 +229,7 @@ describe('ReminderBuilder', () => {
         .delay(30, 'minutes')
         .toJSON();
 
-      expect(payload.intent).toEqual({ delay: '30m', timezone: 'UTC' });
+      expect(payload.intent).toEqual({ delay: '30m' });
     });
 
     it('inMinutes() shortcut', () => {
@@ -220,7 +238,7 @@ describe('ReminderBuilder', () => {
         .inMinutes(15)
         .toJSON();
 
-      expect(payload.intent).toEqual({ delay: '15m', timezone: 'UTC' });
+      expect(payload.intent).toEqual({ delay: '15m' });
     });
 
     it('inHours() shortcut', () => {
@@ -229,7 +247,7 @@ describe('ReminderBuilder', () => {
         .inHours(2)
         .toJSON();
 
-      expect(payload.intent).toEqual({ delay: '2h', timezone: 'UTC' });
+      expect(payload.intent).toEqual({ delay: '2h' });
     });
 
     it('inDays() shortcut', () => {
@@ -238,21 +256,32 @@ describe('ReminderBuilder', () => {
         .inDays(3)
         .toJSON();
 
-      expect(payload.intent).toEqual({ delay: '3d', timezone: 'UTC' });
+      expect(payload.intent).toEqual({ delay: '3d' });
     });
 
-    it('timezone() overrides default', () => {
+    it('timezone is at top level', () => {
       const payload = client.reminder('Test')
         .to('user@example.com')
         .timezone('America/Chicago')
         .inHours(1)
         .toJSON();
 
-      expect((payload.intent as Record<string, unknown>).timezone).toBe('America/Chicago');
+      expect(payload.timezone).toBe('America/Chicago');
+      // Timezone should NOT be inside intent
+      expect((payload.intent as Record<string, unknown>).timezone).toBeUndefined();
     });
   });
 
   describe('other options', () => {
+    it('sets description', () => {
+      const payload = client.reminder('Test')
+        .to('user@example.com')
+        .description('A reminder')
+        .toJSON();
+
+      expect(payload.description).toBe('A reminder');
+    });
+
     it('sets idempotency key', () => {
       const payload = client.reminder('Test')
         .to('user@example.com')
@@ -280,22 +309,31 @@ describe('ReminderBuilder', () => {
       expect(payload.callback_url).toBe('https://myapp.com/webhook');
     });
 
-    it('metadata()', () => {
+    it('notifyCreatorOnResponse() sets flag', () => {
       const payload = client.reminder('Test')
         .to('user@example.com')
-        .metadata({ source: 'test' })
+        .notifyCreatorOnResponse()
         .toJSON();
 
-      expect(payload.metadata).toEqual({ source: 'test' });
+      expect(payload.notify_creator_on_response).toBe(true);
     });
 
-    it('meta()', () => {
+    it('sets coordination keys', () => {
       const payload = client.reminder('Test')
         .to('user@example.com')
-        .meta('key', 'value')
+        .coordinationKeys(['user:123'])
         .toJSON();
 
-      expect(payload.metadata).toEqual({ key: 'value' });
+      expect(payload.coordination_keys).toEqual(['user:123']);
+    });
+
+    it('sets coordination config', () => {
+      const payload = client.reminder('Test')
+        .to('user@example.com')
+        .coordination({ on_create: 'skip_if_exists' })
+        .toJSON();
+
+      expect(payload.coordination).toEqual({ on_create: 'skip_if_exists' });
     });
   });
 
@@ -304,29 +342,30 @@ describe('ReminderBuilder', () => {
       const payload = client.reminder('Approve deployment')
         .to('manager@example.com')
         .message('Please approve the production deployment')
-        .buttons('Approve', 'Reject')
         .allowSnooze(3)
+        .timeout('4h')
+        .onTimeout('cancel')
+        .channels(['email', 'push'])
         .inHours(1)
         .callback('https://myapp.com/webhook')
-        .metadata({ deploy_id: 'dep-42' })
         .toJSON();
 
       expect(payload).toEqual({
         mode: 'gated',
         name: 'Approve deployment',
+        timezone: 'UTC',
         gate: {
           recipients: ['email:manager@example.com'],
           message: 'Please approve the production deployment',
-          confirm_text: 'Approve',
-          decline_text: 'Reject',
           max_snoozes: 3,
+          timeout: '4h',
+          on_timeout: 'cancel',
+          channels: ['email', 'push'],
         },
         intent: {
           delay: '1h',
-          timezone: 'UTC',
         },
         callback_url: 'https://myapp.com/webhook',
-        metadata: { deploy_id: 'dep-42' },
       });
     });
   });

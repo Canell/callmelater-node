@@ -1,6 +1,6 @@
 {
   "name": "callmelater",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Official Node.js SDK for CallMeLater — schedule durable HTTP calls and interactive reminders",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -53,6 +53,7 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
